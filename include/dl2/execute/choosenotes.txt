@@ -1,0 +1,60 @@
+1. Choose:
+	* Set
+		2. Choose symbol to set
+		3. Choose value to set to...
+			* Get
+				4. Choose symbol to get
+			* Call
+				4. Choose symbol to call
+				5. Choose arguments...
+					5a. Choose Pos arguments
+						5aa. Choose:
+							* Symbol
+							* Star
+								* Symbol
+							* Finish
+					5b. Choose keyword arguments
+						5ba. Choose:
+							* Symbol
+								* Symbol
+							* Star
+								* Symbol
+							* Finish
+			* Member Get
+				4. Choose "this" symbol
+				5. Choose symbol to get
+			* Member Call
+				4. Choose "this" symbol
+				5. Choose symbol to call
+				6. Choose arguments...
+	* Call set
+		2. Choose "this" symbol
+	* Member Set
+		2. Choose "this" symbol
+		3. Choose symbol to set
+	* Member Call Set
+		2. Choose "this" symbol
+		3. Choose symbol to call
+	* Conditional Jump
+		2. Choose symbol of variable to check
+		3. Choose index to jump to
+	* Unconditional Jump
+		2. Choose index to jump to
+	* Push
+	* Pop
+	* Get named field
+		2. "this" symbol
+		3. name symbol
+	* Get Interface
+		2. Symbol of interface to get
+	* Or: consolidate prev 2 into "Get Interface field"?
+	* Get typeidx
+	* Also, consolidate all get/set functions into calls of mangled syms
+
+* Make executor which takes primitive instructions above and executes
+  accordingly.
+* Make translator which takes in nodes from processor and creates instructions
+  from them
+* Finish processor
+* Finish parser
+* Make sure lexer up-to-date

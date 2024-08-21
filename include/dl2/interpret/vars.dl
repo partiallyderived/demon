@@ -1,0 +1,98 @@
+# FixedVars
+# FixedSeq
+
+___MISSING___ = intassym(0)
+___MARK___ = intassym(1)
+
+:
+	def default_type_call(self, *args, **kwargs):
+		res = newinstance(self)
+		if hassymbol(res, :__init__):
+			res.__init__(*args, **kwargs)
+		elif args or kwargs:
+			raise BadArgsError(*args, **kwargs)
+		return res
+
+	def hashsym(x: Symbol) -> UInt32:
+		# TODO
+
+
+	def vars_call(self, x: Symbol) -> Any:
+		idx = self._idx(x)
+		if idx == UINT32_MAX:
+			raise KeyError(x)
+		return ptradd(self._values, idx)
+
+	def vars_del(self, x: Symbol) -> None:
+		idx = self._idx(x)
+		if idx == UINT32_MAX:
+			raise KeyError(x)
+		nextidx = (idx + 1) % self._cap
+		self._len -= 1
+		if ptradd(self._symbols, nextidx) != ___MISSING___:
+			ptradd(self._symbols, idx) = ___MARK___
+		else:
+			for true:
+				if idx == 0:
+					idx = self._cap - 1
+				else:
+					idx -= 1
+				if ptradd(self._symbols, idx) == ___MARK___:
+					ptradd(self._symbols, idx) = ___MISSING___
+				else:
+					return
+
+	def vars_destroy(self) -> None:
+		ptrdels(self._symbols)
+		ptrdels(self._values)
+		ptrdels(self._idxs)
+
+	def vars_idx(self, x: Symbol) -> UInt32:
+		idx = vars..hashsym(x) % self._cap
+		sym = ptradd(self._symbols, idx)
+		for sym != x:
+			if sym == ___MISSING___:
+				return UINT32_MAX
+			idx = (idx + 1) % self._cap
+			sym = ptradd(self._symbols, idx)
+		return idx
+
+	def vars_in(self, x: Symbol) -> bool:
+		return self._get(x) != UINT32_MAX
+
+	def vars_init(self) -> None:
+		self._cap = Vars.DEFAULT_INITIAL_CAP
+		self._symbols = ptrnews(Symbol, self._cap)
+		self._values = ptrnews(Any, self._cap)
+		self._idxs = ptrnews(UInt32, self._cap)
+		self._len = 0
+
+		symptr = &self._symbols
+		for i to self._cap:
+			symptr = ___MISSING___
+			symptr = ptradd(symptr, 1)
+
+	def vars_move(self, src: typeof(self)) -> None:
+		ptrcopy(src._symbols, self._symbols)
+		ptrcopy(src._values, self._values)
+		ptrcopy(src._idxs, self._idxs)
+		self._len = src._len
+		self._cap = src._cap
+
+
+vars_type_struct = Struct(
+	__struct__=Struct,
+	__interface__=typeof(vars_interface)
+	DEFAULT_INITIAL_CAP=UInt32,
+	LOAD_FACTOR=Float64
+)
+
+
+
+vars_struct = Struct(
+	_symbols=Ptr[Symbol],
+	_values=Ptr[Any],
+	_idxs=Ptr[UInt32],
+	_len=UInt32,
+	_cap=UInt32
+)

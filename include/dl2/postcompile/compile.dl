@@ -1,0 +1,232 @@
+# Push
+# Pos arg
+# Keyword Arg
+# Get Addr of Global
+# Get Addr of Local
+# Deref
+# Init
+# goto
+# if
+# Call
+# raise
+# reraise
+
+def hash_combine(x, y):
+    # TODO
+    return hash(x) + hash(y)
+
+
+enum Instruction:
+    PUSH_ARG = -1
+    PUSH_KEYWORD_ARG = -2
+    PUSH_UNWIND_MARKER = -3
+    LOCAL = -4
+    GLOBAL = -5
+    DEREF = -6
+    GOTO = -7
+    IF = -8
+    CALL = -9
+    RAISE = -10
+    RERAISE = -11
+
+
+type Value:
+    x: Any
+    is_var: Bool
+
+    def __init__(x: Any, is_var: Bool) -> None:
+        .x = x
+        .is_var = is_var
+
+
+type Var:
+    idx: UInt32
+    is_global: Bool
+
+    def __init__(idx: UInt32, is_global: Bool) -> None:
+        .idx = idx
+        .is_global = is_global
+
+
+type Block
+
+
+type DefCall:
+    callee: UInt32
+    args: Vector[Var]
+
+
+type FnPtrCall:
+    callee: FnPtr
+    args: Vector[Any]
+
+
+type Goto:
+    block: Block&
+
+
+type If:
+    var: Var
+    true_block: Block&
+    false_block: Block&
+
+
+type Raise:
+    var: Var
+
+
+type Block:
+    stmts: Vector[DefCall | FnPtrCall | Goto | If | Raise]
+
+
+type Args:
+    args: List[Value]
+    kwargs: OrderedMap[Symbol, Value]
+
+    def __init__() -> None:
+        .args = List[Value]()
+        .kwargs = OrderedMap[Symbol, Value]()
+
+    def clear() -> None:
+        .args.clear()
+        .kwargs.clear()
+
+
+type StackData:
+    prev_frame: UInt32
+    num_pos: UInt32
+    var_pos_idx: Int32
+    num_kw: UInt32
+
+    def __init__() -> None:
+        .prev_frame = 0
+        .num_pos = 0
+        .var_pos_idx = -1
+        .num_kw = 0
+
+
+type State:
+    frame: UInt32
+    stack: Addr
+    end: Addr
+    starts: Vector[Addr]
+    global_vars: Map[Symbol, Value]
+    cache: Map[(UInt32, Args), Block]
+
+    def arg(idx: UInt32) -> Value&:
+        return ___reinterpret___(
+            .stack + sizeoftype(StackData) + idx * sizeoftype(Value),
+            Value&
+        )
+
+    def next_inst() -> UInt32:
+        .frame += 1
+        return ___instruction___(.frame - 1)
+
+    def pop() -> Value:
+        stack -= sizeoftype(Value)
+        return |___reinterpret___(stack, Value&)
+
+    def push(any: Value) -> None:
+        if .stack + sizeoftype(Value) > end:
+            raise SimulatedStackOverflowError()
+        ___reinterpret___(.stack, Value&) => any
+
+    def stack_data() -> StackData&:
+        return ___reinterpret___(starts(-1), StackData&)
+
+
+def compile(f: Def, args: Args):
+
+
+def compile_recurse(f: Def, args: Args, state: State)
+    state.frame = f.__frame__
+    inst = state.next_inst()
+    frame += 1
+    if inst > Int32(Instruction.RERAISE):
+        raise AssertionError("Instruction out of range")
+    switch Instruction(inst):
+    case Instruction.ADDR:
+        switch(sizeoftype(Addr))
+        case 4:
+            state.push(___reinterpret___(state.next_inst(), Addr))
+            break
+        case 8:
+            bytes =
+                (Int64(state.next_inst()) << 32) | Int64(state.next_inst())
+            state.push(___reinterpret___(bytes, Addr))
+            break
+        else:
+            raise AssertionError("Ptr size is neither 4 nor 8")
+    case Instruction.BOOL:
+        state.push(Bool(state.next_inst()))
+        break
+    case Instruction.FLOAT32:
+        state.push(___reinterpret___(state.next_inst(), Float32))
+        break
+    case Instruction.FLOAT64:
+        bytes = (Int64(state.next_inst()) << 32) | Int64(state.next_inst())
+        state.push(___reinterpret___(bytes, Float64))
+        break
+    case Instruction.INT8:
+        state.push(Int8(state.next_inst()))
+        break
+    case Instruction.INT16:
+        state.push(Int16(state.next_inst()))
+        break
+    case Instruction.INT32:
+        state.push(Int32(state.next_inst()))
+        break
+    case Instruction.INT64:
+        state.push(
+            (Int64(state.next_inst()) << 32) | Int64(state.next_inst())
+        )
+        break
+    case Instruction.SYMBOL:
+        state.push(___uint32_to_symbol___(state.next_inst()))
+        break
+    case Instruction.UINT8:
+        state.push(UInt8(state.next_inst()))
+        break
+    case Instruction.UINT16:
+        state.push(UInt16(state.next_inst()))
+        break
+    case Instruction.UINT32:
+        state.push(UInt32(state.next_inst()))
+        break
+    case Instruction.UINT64:
+        state.push(
+            (UInt64(state.next_inst()) << 32) | UInt64(state.next_inst())
+        )
+        break
+    case Instruction.ARG:
+        # Argument should already be on the stack, just keep track of number of
+        # Positional arguments.
+        state.stack_data.num_pos += 1
+        break
+    case Instruction.CALL:
+        state.stack_data.prev_frame = state.frame
+        # TODO (hard)
+        break
+    case Instruction.LOCAL:
+        idx = state.next_inst
+        state.push(|state.arg(idx))
+        break
+    case Instruction.GLOBAL:
+        # Symbol should be on the stack.
+        sym = state.pop()
+        if sym not in state.global_vars:
+            if sym not in globals:
+                raise NoSuchGlobalSymbolError(sym)
+            state.global_vars(sym) = Value(copy(globals(sym), false)
+        state.push(state.global_vars(sym))
+        break
+    case Instruction.KWARG:
+        # Like positional arguments, should already be on the stack.
+        state.stack_data.num_kw += 1
+        break
+    case Instruction.START_ARGS:
+        state.starts.append(state.stack)
+        break
+
+

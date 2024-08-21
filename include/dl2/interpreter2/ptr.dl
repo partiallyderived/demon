@@ -1,0 +1,17 @@
+def ptradd(ptr, summand):
+    if not ___is_ptr___(>ptr):
+        raise ArgTypeError(0, ptr)
+    summand_as_s64 = Int64(summand)
+    return ___ptradd___(>ptr, summand_as_s64)
+
+
+def ptrsub(p1, p2) -> Int64:
+    if not ___is_ptr___(>p1):
+        raise ArgTypeError(0, p1)
+    if not ___is_ptr___(>p2):
+        raise ArgTypeError(1, p2)
+    P1 = typeof(>p1)
+    P2 = typeof(>p2)
+    if ___uint32_neq___(___deref_tid___(P1), ___deref_tid___(P2)):
+        raise IncompatiblePtrSubError(p1, p2)
+    return ___ptrsub___(>p1, >p2)

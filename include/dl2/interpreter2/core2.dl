@@ -1,0 +1,1493 @@
+# Accessible TIDs (types themselves haven't been created):
+# int32
+# uint32
+# void*
+# FnPtr
+
+# Accessible values:
+# ___SIZEOF_PTR___
+# ___TYPES___
+#    Contains raw primitive types, including Symbol, None, and Address
+#    Contains default "rich" primitive types, as literals map onto them
+#    Contains pointer types for all primitive types
+# ___PTR_TIDS___
+#    Maps TIDs to corresponding pointer TIDs. Maps all primitive TIDs to their
+#    pointer TIDs at init.
+
+___SIZEOF_ANY___ = ___uint32_add___(4u, ___SIZEOF_PTR___)
+___SIZEOF_VARS___ = ___uint32_add___(8u, ___uint32_mul___(3u, ___SIZEOF_PTR___))
+___SIZEOF_STRUCT___ = ___uint32_add___(
+    12u, ___uint32_mul___(3u, ___SIZEOF_PTR___)
+)
+___SIZEOF_TIDS___ = ___uint32_add___(4u, ___SIZEOF_PTR___)
+___SIZEOF_TYPE___ = ___uint32_add___(
+    8u,
+    ___uint32_add___(
+        ___SIZEOF_STRUCT___, ___uint32_add___(
+            ___SIZEOF_TIDS___, ___uint32_mul___(4u, ___SIZEOF_VARS___)
+        )
+    )
+)
+
+
+___any_type_data___ = ___malloc___(___SIZEOF_TYPE___)
+
+___type_data___ = ___malloc___(___SIZEOF_TYPE___)
+___type_struct_data___ = ___deref_as_address___(___type_data___)
+___set_ptr___(&___type_struct_data___, ___malloc___(32u))
+___set_symbol___(___type_struct_data___, :__struct__)
+
+def bool_call(_: BoolType, x) -> Bool:
+    return x.__bool__()
+
+
+def bool_bool(x: Bool) -> Bool:
+    return x
+
+
+def bool_uint8(x: Bool&) -> UInt8:
+    return ___bool_to_uint8___(x)
+
+
+def bool_uint16(x: Bool&) -> UInt16:
+    return ___bool_to_uint16___(x)
+
+
+def bool_uint32(x: Bool&) -> UInt32:
+    return ___bool_to_uint32___(x)
+
+
+def bool_uint64(x: Bool&) -> UInt64:
+    return ___bool_to_uint64___(x)
+
+
+def bool_int8(x: Bool&) -> Int8:
+    return ___bool_to_int8___(x)
+
+
+def bool_int16(x: Bool&) -> Int16:
+    return ___bool_to_int16___(x)
+
+
+def bool_int32(x: Bool&) -> Int32:
+    return ___bool_to_int32___(x)
+
+
+def bool_int64(x: Bool&) -> Int64:
+    return ___bool_to_int64___(x)
+
+
+def bool_float32(x: Bool&) -> Float32:
+    return ___bool_to_float32___(x)
+
+
+def bool_float64(x: Bool&) -> Float64:
+    return ___bool_to_float64___(x)
+
+
+def uint8_call(x) -> UInt8:
+    return x.__uint8__()
+
+
+def uint8_bool(x: UInt8&) -> Bool:
+    return ___uint8_to_bool___(x)
+
+
+def uint8_uint8(x: UInt8&) -> UInt8:
+    return x
+
+
+def uint8_uint16(x: UInt8&) -> UInt16:
+    return ___uint8_to_uint16___(x)
+
+
+def uint8_uint32(x: UInt8&) -> UInt32:
+    return ___uint8_to_uint32___(x)
+
+
+def uint8_uint64(x: UInt8&) -> UInt64:
+    return ___uint8_to_uint64___(x)
+
+
+def uint8_int8(x: UInt8&) -> Int8:
+    return ___uint8_to_int8___(x)
+
+
+def uint8_int16(x: UInt8&) -> Int16:
+    return ___uint8_to_int16___(x)
+
+
+def uint8_int32(x: UInt8&) -> Int32:
+    return ___uint8_to_int32___(x)
+
+
+def uint8_int64(x: UInt8&) -> Int64:
+    return ___uint8_to_int64___(x)
+
+
+def uint8_float32(x: UInt8&) -> Float32:
+    return ___uint8_to_float32___(x)
+
+
+def uint8_float64(x: UInt8&) -> Float64:
+    return ___uint8_to_float64___(x)
+
+
+def uint8_add(x: UInt8, y: UInt8) -> UInt8:
+    return ___uint8_add___(x, y)
+
+def uint8_add(x: UInt8, y):
+    T = typeof(y)
+    if T.tid > UInt8.tid:
+        return T(x) + y
+    elif T.tid < UInt8.tid:
+        return ___uint8_add___(x, UInt8(y))
+    return ___uint8_add___(x, y)
+
+
+def uint8_iadd(x: UInt8&, y: UInt8) -> None:
+    ___uint8_iadd___(&x, y)
+
+
+def uint8_sub(x: UInt8, y: UInt8) -> UInt8:
+    return ___uint8_sub___(x, y)
+
+
+def uint8_isub(x: UInt8&, y: UInt8) -> None:
+    ___uint8_isub___(&x, y)
+
+
+def uint8_mul(x: UInt8, y: UInt8) -> UInt8:
+    return ___uint8_mul___(x, y)
+
+
+def uint8_imul(x: UInt8&, y: UInt8) -> None:
+    ___uint8_imul___(&x, y)
+
+
+def uint8_div(x: UInt8, y: UInt8) -> UInt8:
+    if y == 0u8:
+        raise DivideByZeroError()
+    return ___uint8_div___(x, y)
+
+
+def uint8_idiv(x: UInt8&, y: UInt8) -> None:
+    if y == 0u8:
+        raise DivideByZeroError()
+    ___uint8_idiv___(&x, y)
+
+
+def uint8_mod(x: UInt8, y: UInt8) -> UInt8:
+    if y == 0u8:
+        raise DivideByZeroError()
+    return ___uint8_mod___(x, y)
+
+
+def uint8_imod(x: UInt8&, y: UInt8) -> None:
+    if y == 0u8:
+        raise DivideByZeroError()
+    ___uint8_imod___(&x, y)
+
+
+def uint8_eq(x: UInt8, y: UInt8) -> Bool:
+    return ___uint8_eq___(x, y)
+
+
+def uint8_neq(x: UInt8, y: UInt8) -> Bool:
+    return ___uint8_neq___(x, y)
+
+
+def uint8_lt(x: UInt8, y: UInt8) -> Bool:
+    return ___uint8_lt___(x, y)
+
+
+def uint8_lte(x: UInt8, y: UInt8) -> Bool:
+    return ___uint8_lte___(x, y)
+
+
+def uint8_gt(x: UInt8, y: UInt8) -> Bool:
+    return ___uint8_gt___(x, y)
+
+
+def uint8_gte(x: UInt8, y: UInt8) -> Bool:
+    return ___uint8_gte___(x, y)
+
+
+def uint8_band(x: UInt8, y: UInt8) -> UInt8:
+    return ___uint8_band___(x, y)
+
+
+def uint8_iband(x: UInt8&, y: UInt8) -> None:
+    ___uint8_iband___(&x, y)
+
+
+def uint8_bor(x: UInt8, y: UInt8) -> UInt8:
+    return ___uint8_bor___(x, y)
+
+
+def uint8_ibor(x: UInt8&, y: UInt8) -> None:
+    ___uint8_ibor___(&x, y)
+
+
+def uint8_bxor(x: UInt8, y: UInt8) -> UInt8:
+    return ___uint8_bxor___(x, y)
+
+
+def uint8_ibxor(x: UInt8&, y: UInt8) -> None:
+    ___uint8_ibxor___(&x, y)
+
+
+def uint8_bnot(x: UInt8) -> UInt8:
+    return ___uint8_bnot___(x)
+
+
+def uint16_call(x) -> UInt16:
+    return x.__uint16__()
+
+
+def uint16_bool(x: UInt16&) -> Bool:
+    return ___uint16_to_bool___(x)
+
+
+def uint16_uint8(x: UInt16&) -> UInt8:
+    return ___uint16_to_uint8___(x)
+
+
+def uint16_uint16(x: UInt16&) -> UInt16:
+    return x
+
+
+def uint16_uint32(x: UInt16&) -> UInt32:
+    return ___uint16_to_uint32___(x)
+
+
+def uint16_uint64(x: UInt16&) -> UInt64:
+    return ___uint16_to_uint64___(x)
+
+
+def uint16_int8(x: UInt16&) -> Int8:
+    return ___uint16_to_int8___(x)
+
+
+def uint16_int16(x: UInt16&) -> Int16:
+    return ___uint16_to_int16___(x)
+
+
+def uint16_int32(x: UInt16&) -> Int32:
+    return ___uint16_to_int32___(x)
+
+
+def uint16_int64(x: UInt16&) -> Int64:
+    return ___uint16_to_int64___(x)
+
+
+def uint16_float32(x: UInt16&) -> Float32:
+    return ___uint16_to_float32___(x)
+
+
+def uint16_float64(x: UInt16&) -> Float64:
+    return ___uint16_to_float64___(x)
+
+
+def uint16_add(x: UInt16, y: UInt16) -> UInt16:
+    return ___uint16_add___(x, y)
+
+
+def uint16_iadd(x: UInt16&, y: UInt16) -> None:
+    ___uint16_iadd___(&x, y)
+
+
+def uint16_sub(x: UInt16, y: UInt16) -> UInt16:
+    return ___uint16_sub___(x, y)
+
+
+def uint16_isub(x: UInt16&, y: UInt16) -> None:
+    ___uint16_isub___(&x, y)
+
+
+def uint16_mul(x: UInt16, y: UInt16) -> UInt16:
+    return ___uint16_mul___(x, y)
+
+
+def uint16_imul(x: UInt16&, y: UInt16) -> None:
+    ___uint16_imul___(&x, y)
+
+
+def uint16_div(x: UInt16, y: UInt16) -> UInt16:
+    if y == 0u16:
+        raise DivideByZeroError()
+    return ___uint16_div___(x, y)
+
+
+def uint16_idiv(x: UInt16&, y: UInt16) -> None:
+    if y == 0u16:
+        raise DivideByZeroError()
+    ___uint16_idiv___(&x, y)
+
+
+def uint16_mod(x: UInt16, y: UInt16) -> UInt16:
+    if y == 0u16:
+        raise DivideByZeroError()
+    return ___uint16_mod___(x, y)
+
+
+def uint16_imod(x: UInt16&, y: UInt16) -> None:
+    if y == 0u16:
+        raise DivideByZeroError()
+    ___uint16_imod___(&x, y)
+
+
+def uint16_eq(x: UInt16, y: UInt16) -> Bool:
+    return ___uint16_eq___(x, y)
+
+
+def uint16_neq(x: UInt16, y: UInt16) -> Bool:
+    return ___uint16_neq___(x, y)
+
+
+def uint16_lt(x: UInt16, y: UInt16) -> Bool:
+    return ___uint16_lt___(x, y)
+
+
+def uint16_lte(x: UInt16, y: UInt16) -> Bool:
+    return ___uint16_lte___(x, y)
+
+
+def uint16_gt(x: UInt16, y: UInt16) -> Bool:
+    return ___uint16_gt___(x, y)
+
+
+def uint16_gte(x: UInt16, y: UInt16) -> Bool:
+    return ___uint16_gte___(x, y)
+
+
+def uint16_band(x: UInt16, y: UInt16) -> UInt16:
+    return ___uint16_band___(x, y)
+
+
+def uint16_iband(x: UInt16&, y: UInt16) -> None:
+    ___uint16_iband___(&x, y)
+
+
+def uint16_bor(x: UInt16, y: UInt16) -> UInt16:
+    return ___uint16_bor___(x, y)
+
+
+def uint16_ibor(x: UInt16&, y: UInt16) -> None:
+    ___uint16_ibor___(&x, y)
+
+
+def uint16_bxor(x: UInt16, y: UInt16) -> UInt16:
+    return ___uint16_bxor___(x, y)
+
+
+def uint16_ibxor(x: UInt16&, y: UInt16) -> None:
+    ___uint16_ibxor___(&x, y)
+
+
+def uint16_bnot(x: UInt16) -> UInt16:
+    return ___uint16_bnot___(x)
+
+
+def uint32_call(x) -> UInt32:
+    return x.__uint32__()
+
+
+def uint32_bool(x: UInt32&) -> Bool:
+    return ___uint32_to_bool___(x)
+
+
+def uint32_uint8(x: UInt32&) -> UInt8:
+    return ___uint32_to_uint8___(x)
+
+
+def uint32_uint16(x: UInt32&) -> UInt16:
+    return ___uint32_to_uint16___(x)
+
+
+def uint32_uint32(x: UInt32&) -> UInt32:
+    return x
+
+
+def uint32_uint64(x: UInt32&) -> UInt64:
+    return ___uint32_to_uint64___(x)
+
+
+def uint32_int8(x: UInt32&) -> Int8:
+    return ___uint32_to_int8___(x)
+
+
+def uint32_int16(x: UInt32&) -> Int16:
+    return ___uint32_to_int16___(x)
+
+
+def uint32_int32(x: UInt32&) -> Int32:
+    return ___uint32_to_int32___(x)
+
+
+def uint32_int64(x: UInt32&) -> Int64:
+    return ___uint32_to_int64___(x)
+
+
+def uint32_float32(x: UInt32&) -> Float32:
+    return ___uint32_to_float32___(x)
+
+
+def uint32_float64(x: UInt32&) -> Float64:
+    return ___uint32_to_float64___(x)
+
+
+def uint32_add(x: UInt32, y: UInt32) -> UInt32:
+    return ___uint32_add___(x, y)
+
+
+def uint32_iadd(x: UInt32&, y: UInt32) -> None:
+    ___uint32_iadd___(&x, y)
+
+
+def uint32_sub(x: UInt32, y: UInt32) -> UInt32:
+    return ___uint32_sub___(x, y)
+
+
+def uint32_isub(x: UInt32&, y: UInt32) -> None:
+    ___uint32_isub___(&x, y)
+
+
+def uint32_mul(x: UInt32, y: UInt32) -> UInt32:
+    return ___uint32_mul___(x, y)
+
+
+def uint32_imul(x: UInt32&, y: UInt32) -> None:
+    ___uint32_imul___(&x, y)
+
+
+def uint32_div(x: UInt32, y: UInt32) -> UInt32:
+    if y == 0u32:
+        raise DivideByZeroError()
+    return ___uint32_div___(x, y)
+
+
+def uint32_idiv(x: UInt32&, y: UInt32) -> None:
+    if y == 0u32:
+        raise DivideByZeroError()
+    ___uint32_idiv___(&x, y)
+
+
+def uint32_mod(x: UInt32, y: UInt32) -> UInt32:
+    if y == 0u32:
+        raise DivideByZeroError()
+    return ___uint32_mod___(x, y)
+
+
+def uint32_imod(x: UInt32&, y: UInt32) -> None:
+    if y == 0u32:
+        raise DivideByZeroError()
+    ___uint32_imod___(&x, y)
+
+
+def uint32_eq(x: UInt32, y: UInt32) -> Bool:
+    return ___uint32_eq___(x, y)
+
+
+def uint32_neq(x: UInt32, y: UInt32) -> Bool:
+    return ___uint32_neq___(x, y)
+
+
+def uint32_lt(x: UInt32, y: UInt32) -> Bool:
+    return ___uint32_lt___(x, y)
+
+
+def uint32_lte(x: UInt32, y: UInt32) -> Bool:
+    return ___uint32_lte___(x, y)
+
+
+def uint32_gt(x: UInt32, y: UInt32) -> Bool:
+    return ___uint32_gt___(x, y)
+
+
+def uint32_gte(x: UInt32, y: UInt32) -> Bool:
+    return ___uint32_gte___(x, y)
+
+
+def uint32_band(x: UInt32, y: UInt32) -> UInt32:
+    return ___uint32_band___(x, y)
+
+
+def uint32_iband(x: UInt32&, y: UInt32) -> None:
+    ___uint32_iband___(&x, y)
+
+
+def uint32_bor(x: UInt32, y: UInt32) -> UInt32:
+    return ___uint32_bor___(x, y)
+
+
+def uint32_ibor(x: UInt32&, y: UInt32) -> None:
+    ___uint32_ibor___(&x, y)
+
+
+def uint32_bxor(x: UInt32, y: UInt32) -> UInt32:
+    return ___uint32_bxor___(x, y)
+
+
+def uint32_ibxor(x: UInt32&, y: UInt32) -> None:
+    ___uint32_ibxor___(&x, y)
+
+
+def uint32_bnot(x: UInt32) -> UInt32:
+    return ___uint32_bnot___(x)
+
+
+def uint64_call(x) -> UInt64:
+    return x.__uint64__()
+
+
+def uint64_bool(x: UInt64&) -> Bool:
+    return ___uint64_to_bool___(x)
+
+
+def uint64_uint8(x: UInt64&) -> UInt8:
+    return ___uint64_to_uint8___(x)
+
+
+def uint64_uint16(x: UInt64&) -> UInt16:
+    return ___uint64_to_uint16___(x)
+
+
+def uint64_uint32(x: UInt64&) -> UInt32:
+    return ___uint64_to_uint32___(x)
+
+
+def uint64_uint64(x: UInt64&) -> UInt64:
+    return x
+
+
+def uint64_int8(x: UInt64&) -> Int8:
+    return ___uint64_to_int8___(x)
+
+
+def uint64_int16(x: UInt64&) -> Int16:
+    return ___uint64_to_int16___(x)
+
+
+def uint64_int32(x: UInt64&) -> Int32:
+    return ___uint64_to_int32___(x)
+
+
+def uint64_int64(x: UInt64&) -> Int64:
+    return ___uint64_to_int64___(x)
+
+
+def uint64_float32(x: UInt64&) -> Float32:
+    return ___uint64_to_float32___(x)
+
+
+def uint64_float64(x: UInt64&) -> Float64:
+    return ___uint64_to_float64___(x)
+
+
+def uint64_add(x: UInt64, y: UInt64) -> UInt64:
+    return ___uint64_add___(x, y)
+
+
+def uint64_iadd(x: UInt64&, y: UInt64) -> None:
+    ___uint64_iadd___(&x, y)
+
+
+def uint64_sub(x: UInt64, y: UInt64) -> UInt64:
+    return ___uint64_sub___(x, y)
+
+
+def uint64_isub(x: UInt64&, y: UInt64) -> None:
+    ___uint64_isub___(&x, y)
+
+
+def uint64_mul(x: UInt64, y: UInt64) -> UInt64:
+    return ___uint64_mul___(x, y)
+
+
+def uint64_imul(x: UInt64&, y: UInt64) -> None:
+    ___uint64_imul___(&x, y)
+
+
+def uint64_div(x: UInt64, y: UInt64) -> UInt64:
+    if y == 0u64:
+        raise DivideByZeroError()
+    return ___uint64_div___(x, y)
+
+
+def uint64_idiv(x: UInt64&, y: UInt64) -> None:
+    if y == 0u64:
+        raise DivideByZeroError()
+    ___uint64_idiv___(&x, y)
+
+
+def uint64_mod(x: UInt64, y: UInt64) -> UInt64:
+    if y == 0u64:
+        raise DivideByZeroError()
+    return ___uint64_mod___(x, y)
+
+
+def uint64_imod(x: UInt64&, y: UInt64) -> None:
+    if y == 0u64:
+        raise DivideByZeroError()
+    ___uint64_imod___(&x, y)
+
+
+def uint64_eq(x: UInt64, y: UInt64) -> Bool:
+    return ___uint64_eq___(x, y)
+
+
+def uint64_neq(x: UInt64, y: UInt64) -> Bool:
+    return ___uint64_neq___(x, y)
+
+
+def uint64_lt(x: UInt64, y: UInt64) -> Bool:
+    return ___uint64_lt___(x, y)
+
+
+def uint64_lte(x: UInt64, y: UInt64) -> Bool:
+    return ___uint64_lte___(x, y)
+
+
+def uint64_gt(x: UInt64, y: UInt64) -> Bool:
+    return ___uint64_gt___(x, y)
+
+
+def uint64_gte(x: UInt64, y: UInt64) -> Bool:
+    return ___uint64_gte___(x, y)
+
+
+def uint64_band(x: UInt64, y: UInt64) -> UInt64:
+    return ___uint64_band___(x, y)
+
+
+def uint64_iband(x: UInt64&, y: UInt64) -> None:
+    ___uint64_iband___(&x, y)
+
+
+def uint64_bor(x: UInt64, y: UInt64) -> UInt64:
+    return ___uint64_bor___(x, y)
+
+
+def uint64_ibor(x: UInt64&, y: UInt64) -> None:
+    ___uint64_ibor___(&x, y)
+
+
+def uint64_bxor(x: UInt64, y: UInt64) -> UInt64:
+    return ___uint64_bxor___(x, y)
+
+
+def uint64_ibxor(x: UInt64&, y: UInt64) -> None:
+    ___uint64_ibxor___(&x, y)
+
+
+def uint64_bnot(x: UInt64) -> UInt64:
+    return ___uint64_bnot___(x)
+
+
+def int8_call(x) -> Int8:
+    return x.__int8__()
+
+
+def int8_bool(x: Int8&) -> Bool:
+    return ___int8_to_bool___(x)
+
+
+def int8_uint8(x: Int8&) -> UInt8:
+    return ___int8_to_uint8___(x)
+
+
+def int8_uint16(x: Int8&) -> UInt16:
+    return ___int8_to_uint16___(x)
+
+
+def int8_uint32(x: Int8&) -> UInt32:
+    return ___int8_to_uint32___(x)
+
+
+def int8_uint64(x: Int8&) -> UInt64:
+    return ___int8_to_uint64___(x)
+
+
+def int8_int8(x: Int8&) -> Int8:
+    return x
+
+
+def int8_int16(x: Int8&) -> Int16:
+    return ___int8_to_int16___(x)
+
+
+def int8_int32(x: Int8&) -> Int32:
+    return ___int8_to_int32___(x)
+
+
+def int8_int64(x: Int8&) -> Int64:
+    return ___int8_to_int64___(x)
+
+
+def int8_float32(x: Int8&) -> Float32:
+    return ___int8_to_float32___(x)
+
+
+def int8_float64(x: Int8&) -> Float64:
+    return ___int8_to_float64___(x)
+
+
+def int8_add(x: Int8, y: Int8) -> Int8:
+    return ___int8_add___(x, y)
+
+
+def int8_iadd(x: Int8&, y: Int8) -> None:
+    ___int8_iadd___(&x, y)
+
+
+def int8_sub(x: Int8, y: Int8) -> Int8:
+    return ___int8_sub___(x, y)
+
+
+def int8_isub(x: Int8&, y: Int8) -> None:
+    ___int8_isub___(&x, y)
+
+
+def int8_mul(x: Int8, y: Int8) -> Int8:
+    return ___int8_mul___(x, y)
+
+
+def int8_imul(x: Int8&, y: Int8) -> None:
+    ___int8_imul___(&x, y)
+
+
+def int8_div(x: Int8, y: Int8) -> Int8:
+    if y == 0s8:
+        raise DivideByZeroError()
+    return ___int8_div___(x, y)
+
+
+def int8_idiv(x: Int8&, y: Int8) -> None:
+    if y == 0s8:
+        raise DivideByZeroError()
+    ___int8_idiv___(&x, y)
+
+
+def int8_mod(x: Int8, y: Int8) -> Int8:
+    if y == 0s8:
+        raise DivideByZeroError()
+    return ___int8_mod___(x, y)
+
+
+def int8_imod(x: Int8&, y: Int8) -> None:
+    if y == 0s8:
+        raise DivideByZeroError()
+    ___int8_imod___(&x, y)
+
+
+def int8_eq(x: Int8, y: Int8) -> Bool:
+    return ___int8_eq___(x, y)
+
+
+def int8_neq(x: Int8, y: Int8) -> Bool:
+    return ___int8_neq___(x, y)
+
+
+def int8_lt(x: Int8, y: Int8) -> Bool:
+    return ___int8_lt___(x, y)
+
+
+def int8_lte(x: Int8, y: Int8) -> Bool:
+    return ___int8_lte___(x, y)
+
+
+def int8_gt(x: Int8, y: Int8) -> Bool:
+    return ___int8_gt___(x, y)
+
+
+def int8_gte(x: Int8, y: Int8) -> Bool:
+    return ___int8_gte___(x, y)
+
+
+def int8_band(x: Int8, y: Int8) -> Int8:
+    return ___int8_band___(x, y)
+
+
+def int8_iband(x: Int8&, y: Int8) -> None:
+    ___int8_iband___(&x, y)
+
+
+def int8_bor(x: Int8, y: Int8) -> Int8:
+    return ___int8_bor___(x, y)
+
+
+def int8_ibor(x: Int8&, y: Int8) -> None:
+    ___int8_ibor___(&x, y)
+
+
+def int8_bxor(x: Int8, y: Int8) -> Int8:
+    return ___int8_bxor___(x, y)
+
+
+def int8_ibxor(x: Int8&, y: Int8) -> None:
+    ___int8_ibxor___(&x, y)
+
+
+def int8_bnot(x: Int8) -> Int8:
+    return ___int8_bnot___(x)
+
+
+def int16_call(x) -> Int16:
+    return x.__int16__()
+
+
+def int16_bool(x: Int16&) -> Bool:
+    return ___int16_to_bool___(x)
+
+
+def int16_uint8(x: Int16&) -> UInt8:
+    return ___int16_to_uint8___(x)
+
+
+def int16_uint16(x: Int16&) -> UInt16:
+    return ___int16_to_uint16___(x)
+
+
+def int16_uint32(x: Int16&) -> UInt32:
+    return ___int16_to_uint32___(x)
+
+
+def int16_uint64(x: Int16&) -> UInt64:
+    return ___int16_to_uint64___(x)
+
+
+def int16_int8(x: Int16&) -> Int8:
+    return ___int16_to_int8___(x)
+
+
+def int16_int16(x: Int16&) -> Int16:
+    return x
+
+
+def int16_int32(x: Int16&) -> Int32:
+    return ___int16_to_int32___(x)
+
+
+def int16_int64(x: Int16&) -> Int64:
+    return ___int16_to_int64___(x)
+
+
+def int16_float32(x: Int16&) -> Float32:
+    return ___int16_to_float32___(x)
+
+
+def int16_float64(x: Int16&) -> Float64:
+    return ___int16_to_float64___(x)
+
+
+def int16_add(x: Int16, y: Int16) -> Int16:
+    return ___int16_add___(x, y)
+
+
+def int16_iadd(x: Int16&, y: Int16) -> None:
+    ___int16_iadd___(&x, y)
+
+
+def int16_sub(x: Int16, y: Int16) -> Int16:
+    return ___int16_sub___(x, y)
+
+
+def int16_isub(x: Int16&, y: Int16) -> None:
+    ___int16_isub___(&x, y)
+
+
+def int16_mul(x: Int16, y: Int16) -> Int16:
+    return ___int16_mul___(x, y)
+
+
+def int16_imul(x: Int16&, y: Int16) -> None:
+    ___int16_imul___(&x, y)
+
+
+def int16_div(x: Int16, y: Int16) -> Int16:
+    if y == 0s16:
+        raise DivideByZeroError()
+    return ___int16_div___(x, y)
+
+
+def int16_idiv(x: Int16&, y: Int16) -> None:
+    if y == 0s16:
+        raise DivideByZeroError()
+    ___int16_idiv___(&x, y)
+
+
+def int16_mod(x: Int16, y: Int16) -> Int16:
+    if y == 0s16:
+        raise DivideByZeroError()
+    return ___int16_mod___(x, y)
+
+
+def int16_imod(x: Int16&, y: Int16) -> None:
+    if y == 0s16:
+        raise DivideByZeroError()
+    ___int16_imod___(&x, y)
+
+
+def int16_eq(x: Int16, y: Int16) -> Bool:
+    return ___int16_eq___(x, y)
+
+
+def int16_neq(x: Int16, y: Int16) -> Bool:
+    return ___int16_neq___(x, y)
+
+
+def int16_lt(x: Int16, y: Int16) -> Bool:
+    return ___int16_lt___(x, y)
+
+
+def int16_lte(x: Int16, y: Int16) -> Bool:
+    return ___int16_lte___(x, y)
+
+
+def int16_gt(x: Int16, y: Int16) -> Bool:
+    return ___int16_gt___(x, y)
+
+
+def int16_gte(x: Int16, y: Int16) -> Bool:
+    return ___int16_gte___(x, y)
+
+
+def int16_band(x: Int16, y: Int16) -> Int16:
+    return ___int16_band___(x, y)
+
+
+def int16_iband(x: Int16&, y: Int16) -> None:
+    ___int16_iband___(&x, y)
+
+
+def int16_bor(x: Int16, y: Int16) -> Int16:
+    return ___int16_bor___(x, y)
+
+
+def int16_ibor(x: Int16&, y: Int16) -> None:
+    ___int16_ibor___(&x, y)
+
+
+def int16_bxor(x: Int16, y: Int16) -> Int16:
+    return ___int16_bxor___(x, y)
+
+
+def int16_ibxor(x: Int16&, y: Int16) -> None:
+    ___int16_ibxor___(&x, y)
+
+
+def int16_bnot(x: Int16) -> Int16:
+    return ___int16_bnot___(x)
+
+
+def int32_call(x) -> Int32:
+    return x.__int32__()
+
+
+def int32_bool(x: Int32&) -> Bool:
+    return ___int32_to_bool___(x)
+
+
+def int32_uint8(x: Int32&) -> UInt8:
+    return ___int32_to_uint8___(x)
+
+
+def int32_uint16(x: Int32&) -> UInt16:
+    return ___int32_to_uint16___(x)
+
+
+def int32_uint32(x: Int32&) -> UInt32:
+    return ___int32_to_uint32___(x)
+
+
+def int32_uint64(x: Int32&) -> UInt64:
+    return ___int32_to_uint64___(x)
+
+
+def int32_int8(x: Int32&) -> Int8:
+    return ___int32_to_int8___(x)
+
+
+def int32_int16(x: Int32&) -> Int16:
+    return ___int32_to_int16___(x)
+
+
+def int32_int32(x: Int32&) -> Int32:
+    return x
+
+
+def int32_int64(x: Int32&) -> Int64:
+    return ___int32_to_int64___(x)
+
+
+def int32_float32(x: Int32&) -> Float32:
+    return ___int32_to_float32___(x)
+
+
+def int32_float64(x: Int32&) -> Float64:
+    return ___int32_to_float64___(x)
+
+
+def int32_add(x: Int32, y: Int32) -> Int32:
+    return ___int32_add___(x, y)
+
+
+def int32_iadd(x: Int32&, y: Int32) -> None:
+    ___int32_iadd___(&x, y)
+
+
+def int32_sub(x: Int32, y: Int32) -> Int32:
+    return ___int32_sub___(x, y)
+
+
+def int32_isub(x: Int32&, y: Int32) -> None:
+    ___int32_isub___(&x, y)
+
+
+def int32_mul(x: Int32, y: Int32) -> Int32:
+    return ___int32_mul___(x, y)
+
+
+def int32_imul(x: Int32&, y: Int32) -> None:
+    ___int32_imul___(&x, y)
+
+
+def int32_div(x: Int32, y: Int32) -> Int32:
+    if y == 0s32:
+        raise DivideByZeroError()
+    return ___int32_div___(x, y)
+
+
+def int32_idiv(x: Int32&, y: Int32) -> None:
+    if y == 0s32:
+        raise DivideByZeroError()
+    ___int32_idiv___(&x, y)
+
+
+def int32_mod(x: Int32, y: Int32) -> Int32:
+    if y == 0s32:
+        raise DivideByZeroError()
+    return ___int32_mod___(x, y)
+
+
+def int32_imod(x: Int32&, y: Int32) -> None:
+    if y == 0s32:
+        raise DivideByZeroError()
+    ___int32_imod___(&x, y)
+
+
+def int32_eq(x: Int32, y: Int32) -> Bool:
+    return ___int32_eq___(x, y)
+
+
+def int32_neq(x: Int32, y: Int32) -> Bool:
+    return ___int32_neq___(x, y)
+
+
+def int32_lt(x: Int32, y: Int32) -> Bool:
+    return ___int32_lt___(x, y)
+
+
+def int32_lte(x: Int32, y: Int32) -> Bool:
+    return ___int32_lte___(x, y)
+
+
+def int32_gt(x: Int32, y: Int32) -> Bool:
+    return ___int32_gt___(x, y)
+
+
+def int32_gte(x: Int32, y: Int32) -> Bool:
+    return ___int32_gte___(x, y)
+
+
+def int32_band(x: Int32, y: Int32) -> Int32:
+    return ___int32_band___(x, y)
+
+
+def int32_iband(x: Int32&, y: Int32) -> None:
+    ___int32_iband___(&x, y)
+
+
+def int32_bor(x: Int32, y: Int32) -> Int32:
+    return ___int32_bor___(x, y)
+
+
+def int32_ibor(x: Int32&, y: Int32) -> None:
+    ___int32_ibor___(&x, y)
+
+
+def int32_bxor(x: Int32, y: Int32) -> Int32:
+    return ___int32_bxor___(x, y)
+
+
+def int32_ibxor(x: Int32&, y: Int32) -> None:
+    ___int32_ibxor___(&x, y)
+
+
+def int32_bnot(x: Int32) -> Int32:
+    return ___int32_bnot___(x)
+
+
+def int64_call(x) -> Int64:
+    return x.__int64__()
+
+
+def int64_bool(x: Int64&) -> Bool:
+    return ___int64_to_bool___(x)
+
+
+def int64_uint8(x: Int64&) -> UInt8:
+    return ___int64_to_uint8___(x)
+
+
+def int64_uint16(x: Int64&) -> UInt16:
+    return ___int64_to_uint16___(x)
+
+
+def int64_uint32(x: Int64&) -> UInt32:
+    return ___int64_to_uint32___(x)
+
+
+def int64_uint64(x: Int64&) -> UInt64:
+    return ___int64_to_uint64___(x)
+
+
+def int64_int8(x: Int64&) -> Int8:
+    return ___int64_to_int8___(x)
+
+
+def int64_int16(x: Int64&) -> Int16:
+    return ___int64_to_int16___(x)
+
+
+def int64_int32(x: Int64&) -> Int32:
+    return ___int64_to_int32___(x)
+
+
+def int64_int64(x: Int64&) -> Int64:
+    return x
+
+
+def int64_float32(x: Int64&) -> Float32:
+    return ___int64_to_float32___(x)
+
+
+def int64_float64(x: Int64&) -> Float64:
+    return ___int64_to_float64___(x)
+
+
+def int64_add(x: Int64, y: Int64) -> Int64:
+    return ___int64_add___(x, y)
+
+
+def int64_iadd(x: Int64&, y: Int64) -> None:
+    ___int64_iadd___(&x, y)
+
+
+def int64_sub(x: Int64, y: Int64) -> Int64:
+    return ___int64_sub___(x, y)
+
+
+def int64_isub(x: Int64&, y: Int64) -> None:
+    ___int64_isub___(&x, y)
+
+
+def int64_mul(x: Int64, y: Int64) -> Int64:
+    return ___int64_mul___(x, y)
+
+
+def int64_imul(x: Int64&, y: Int64) -> None:
+    ___int64_imul___(&x, y)
+
+
+def int64_div(x: Int64, y: Int64) -> Int64:
+    if y == 0s64:
+        raise DivideByZeroError()
+    return ___int64_div___(x, y)
+
+
+def int64_idiv(x: Int64&, y: Int64) -> None:
+    if y == 0s64:
+        raise DivideByZeroError()
+    ___int64_idiv___(&x, y)
+
+
+def int64_mod(x: Int64, y: Int64) -> Int64:
+    if y == 0s64:
+        raise DivideByZeroError()
+    return ___int64_mod___(x, y)
+
+
+def int64_imod(x: Int64&, y: Int64) -> None:
+    if y == 0s64:
+        raise DivideByZeroError()
+    ___int64_imod___(&x, y)
+
+
+def int64_eq(x: Int64, y: Int64) -> Bool:
+    return ___int64_eq___(x, y)
+
+
+def int64_neq(x: Int64, y: Int64) -> Bool:
+    return ___int64_neq___(x, y)
+
+
+def int64_lt(x: Int64, y: Int64) -> Bool:
+    return ___int64_lt___(x, y)
+
+
+def int64_lte(x: Int64, y: Int64) -> Bool:
+    return ___int64_lte___(x, y)
+
+
+def int64_gt(x: Int64, y: Int64) -> Bool:
+    return ___int64_gt___(x, y)
+
+
+def int64_gte(x: Int64, y: Int64) -> Bool:
+    return ___int64_gte___(x, y)
+
+
+def int64_band(x: Int64, y: Int64) -> Int64:
+    return ___int64_band___(x, y)
+
+
+def int64_iband(x: Int64&, y: Int64) -> None:
+    ___int64_iband___(&x, y)
+
+
+def int64_bor(x: Int64, y: Int64) -> Int64:
+    return ___int64_bor___(x, y)
+
+
+def int64_ibor(x: Int64&, y: Int64) -> None:
+    ___int64_ibor___(&x, y)
+
+
+def int64_bxor(x: Int64, y: Int64) -> Int64:
+    return ___int64_bxor___(x, y)
+
+
+def int64_ibxor(x: Int64&, y: Int64) -> None:
+    ___int64_ibxor___(&x, y)
+
+
+def int64_bnot(x: Int64) -> Int64:
+    return ___int64_bnot___(x)
+
+
+def float32_call(x) -> Float32:
+    return x.__float32__()
+
+
+def float32_bool(x: Float32&) -> Bool:
+    return ___float32_to_bool___(x)
+
+
+def float32_uint8(x: Float32&) -> UInt8:
+    return ___float32_to_uint8___(x)
+
+
+def float32_uint16(x: Float32&) -> UInt16:
+    return ___float32_to_uint16___(x)
+
+
+def float32_uint32(x: Float32&) -> UInt32:
+    return ___float32_to_uint32___(x)
+
+
+def float32_uint64(x: Float32&) -> UInt64:
+    return ___float32_to_uint64___(x)
+
+
+def float32_int8(x: Float32&) -> Int8:
+    return ___float32_to_int8___(x)
+
+
+def float32_int16(x: Float32&) -> Int16:
+    return ___float32_to_int16___(x)
+
+
+def float32_int32(x: Float32&) -> Int32:
+    return ___float32_to_int32___(x)
+
+
+def float32_int64(x: Float32&) -> Int64:
+    return ___float32_to_int64___(x)
+
+
+def float32_float32(x: Float32&) -> Float32:
+    return x
+
+
+def float32_float64(x: Float32&) -> Float64:
+    return ___float32_to_float64___(x)
+
+
+def float32_add(x: Float32, y: Float32) -> Float32:
+    return ___float32_add___(x, y)
+
+
+def float32_iadd(x: Float32&, y: Float32) -> None:
+    ___float32_iadd___(&x, y)
+
+
+def float32_sub(x: Float32, y: Float32) -> Float32:
+    return ___float32_sub___(x, y)
+
+
+def float32_isub(x: Float32&, y: Float32) -> None:
+    ___float32_isub___(&x, y)
+
+
+def float32_mul(x: Float32, y: Float32) -> Float32:
+    return ___float32_mul___(x, y)
+
+
+def float32_imul(x: Float32&, y: Float32) -> None:
+    ___float32_imul___(&x, y)
+
+
+def float32_div(x: Float32, y: Float32) -> Float32:
+    if y == 0.0f:
+        raise DivideByZeroError()
+    return ___float32_div___(x, y)
+
+
+def float32_idiv(x: Float32&, y: Float32) -> None:
+    if y == 0.0f:
+        raise DivideByZeroError()
+    ___float32_idiv___(&x, y)
+
+
+def float32_eq(x: Float32, y: Float32) -> Bool:
+    return ___float32_eq___(x, y)
+
+
+def float32_neq(x: Float32, y: Float32) -> Bool:
+    return ___float32_neq___(x, y)
+
+
+def float32_lt(x: Float32, y: Float32) -> Bool:
+    return ___float32_lt___(x, y)
+
+
+def float32_lte(x: Float32, y: Float32) -> Bool:
+    return ___float32_lte___(x, y)
+
+
+def float32_gt(x: Float32, y: Float32) -> Bool:
+    return ___float32_gt___(x, y)
+
+
+def float32_gte(x: Float32, y: Float32) -> Bool:
+    return ___float32_gte___(x, y)
+
+
+def float64_call(x) -> Float64:
+    return x.__float64__()
+
+
+def float64_bool(x: Float64&) -> Bool:
+    return ___float64_to_bool___(x)
+
+
+def float64_uint8(x: Float64&) -> UInt8:
+    return ___float64_to_uint8___(x)
+
+
+def float64_uint16(x: Float64&) -> UInt16:
+    return ___float64_to_uint16___(x)
+
+
+def float64_uint32(x: Float64&) -> UInt32:
+    return ___float64_to_uint32___(x)
+
+
+def float64_uint64(x: Float64&) -> UInt64:
+    return ___float64_to_uint64___(x)
+
+
+def float64_int8(x: Float64&) -> Int8:
+    return ___float64_to_int8___(x)
+
+
+def float64_int16(x: Float64&) -> Int16:
+    return ___float64_to_int16___(x)
+
+
+def float64_int32(x: Float64&) -> Int32:
+    return ___float64_to_int32___(x)
+
+
+def float64_int64(x: Float64&) -> Int64:
+    return ___float64_to_int64___(x)
+
+
+def float64_float32(x: Float64&) -> Float32:
+    return ___float64_to_float32___(x)
+
+
+def float64_float64(x: Float64&) -> Float64:
+    return x
+
+
+def float64_add(x: Float64, y: Float64) -> Float64:
+    return ___float64_add___(x, y)
+
+
+def float64_iadd(x: Float64&, y: Float64) -> None:
+    ___float64_iadd___(&x, y)
+
+
+def float64_sub(x: Float64, y: Float64) -> Float64:
+    return ___float64_sub___(x, y)
+
+
+def float64_isub(x: Float64&, y: Float64) -> None:
+    ___float64_isub___(&x, y)
+
+
+def float64_mul(x: Float64, y: Float64) -> Float64:
+    return ___float64_mul___(x, y)
+
+
+def float64_imul(x: Float64&, y: Float64) -> None:
+    ___float64_imul___(&x, y)
+
+
+def float64_div(x: Float64, y: Float64) -> Float64:
+    if y == 0.0:
+        raise DivideByZeroError()
+    return ___float64_div___(x, y)
+
+
+def float64_idiv(x: Float64&, y: Float64) -> None:
+    if y == 0.0:
+        raise DivideByZeroError()
+    ___float64_idiv___(&x, y)
+
+
+def float64_eq(x: Float64, y: Float64) -> Bool:
+    return ___float64_eq___(x, y)
+
+
+def float64_neq(x: Float64, y: Float64) -> Bool:
+    return ___float64_neq___(x, y)
+
+
+def float64_lt(x: Float64, y: Float64) -> Bool:
+    return ___float64_lt___(x, y)
+
+
+def float64_lte(x: Float64, y: Float64) -> Bool:
+    return ___float64_lte___(x, y)
+
+
+def float64_gt(x: Float64, y: Float64) -> Bool:
+    return ___float64_gt___(x, y)
+
+
+def float64_gte(x: Float64, y: Float64) -> Bool:
+    return ___float64_gte___(x, y)

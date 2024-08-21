@@ -1,0 +1,421 @@
+def return_true() -> Bool:
+    return true
+
+
+def is_int(x) -> Bool:
+    T = typeof(x)
+    return (
+        ___uint32_gte___(T.tid, Bool.tid) and
+        ___uint32_lte___(T.tid, Int64.tid)
+    )
+
+
+def is_num(x) -> Bool:
+    T = typeof(x)
+    return (
+        ___uint32_gte___(T.tid, Bool.tid) and
+        ___uint32_lte___(T.tid, Float64.tid)
+    )
+
+
+def ptr_add(ptr, summand) -> typeof(ptr):
+    if not ___is_ptr___(ptr):
+        raise ArgTypeError(0, ptr)
+    if not is_int(summand):
+        raise ArgTypeError(1, summand)
+    return ___ptradd___(ptr, Int64(summand))
+
+
+def ptr_iadd(ptr, summand) -> None:
+    if not ___is_ptr___(ptr):
+        raise ArgTypeError(0, ptr)
+    if not is_int(summand):
+        raise ArgTypeError(1, summand)
+    ___ptriadd___(ptr, Int64(summand))
+
+
+def ptr_sub(p1, p2) -> Int64:
+    if not ___is_ptr___(p1):
+        raise ArgTypeError(0, p1)
+    if not ___is_ptr___(p2):
+        raise ArgTypeError(1, p2)
+    P1 = typeof(p1)
+    P2 = typeof(p2)
+    if ___uint32_neq___(___deref_tid___(P1), ___deref_tid___(P2)):
+        raise IncompatiblePtrSubError(p1, p2)
+    return ___ptrsub___(p1, p2)
+
+
+def darray_at(ptr, i):
+    if not ___is_ptr___(ptr):
+        raise ArgTypeError(0, ptr)
+    if not is_int(i):
+        raise ArgTypeError(1, i)
+    return >___ptr_add___(ptr, Int64(i))
+
+
+def darray_del(darray) -> None:
+    if not ___is_ptr___(darray):
+        raise ArgTypeError(0, darray)
+    return ___del_darray___(darray)
+
+
+def darray_new(t: Type, n) -> t&:
+    if not is_num(n)
+        raise ArgTypeError(1, n)
+    return ___new_darray___(t, UInt64(n))
+
+
+def darray_update(ptr, i, x) -> None:
+    if not ___is_ptr___(>ptr):
+        raise ArgTypeError(0, ptr)
+    if not is_int(i):
+        raise ArgTypeError(1, i)
+    ptr = ptr_add(ptr, Int64(i))
+    ptr => x
+
+
+def num_add(x, y):
+    if not is_num(x):
+        raise ArgTypeError(0, x)
+    if not is_num(y):
+        raise ArgTypeError(1, y)
+    T = typeof(x)
+    U = typeof(y)
+    if ___uint32_gt___(T.tid, U.tid):
+        return T.___add___(x, T(y))
+    if ___uint32_lt___(T.tid, U.tid):
+        return U.___add___(U(x), y)
+    return T.___add___(x, y)
+
+
+def num_iadd(x, y) -> None:
+    T = typeof(x)
+    T.___iadd___(x, T(y))
+
+
+def num_sub(x, y):
+    if not is_num(x):
+        raise ArgTypeError(0, x)
+    if not is_num(y):
+        raise ArgTypeError(1, y)
+    T = typeof(x)
+    U = typeof(y)
+    if ___uint32_gt___(T.tid, U.tid):
+        return T.___sub___(x, T(y))
+    if ___uint32_lt___(T.tid, U.tid):
+        return U.___sub___(U(x), y)
+    return T.___sub___(x, y)
+
+
+def num_isub(x, y) -> None:
+    T = typeof(x)
+    T.___isub___(x, T(y))
+
+
+def num_mul(x, y):
+    if not is_num(x):
+        raise ArgTypeError(0, x)
+    if not is_num(y):
+        raise ArgTypeError(1, y)
+    T = typeof(x)
+    U = typeof(y)
+    if ___uint32_gt___(T.tid, U.tid):
+        return T.___mul___(x, T(y))
+    if ___uint32_lt___(T.tid, U.tid):
+        return U.___mul___(U(x), y)
+    return T.___mul___(x, y)
+
+
+def num_imul(x, y) -> None:
+    T = typeof(x)
+    T.___imul___(x, T(y))
+
+
+def num_div(x, y):
+    if not is_num(x):
+        raise ArgTypeError(0, x)
+    if not is_num(y):
+        raise ArgTypeError(1, y)
+    if y == 0:
+        raise DivideByZeroError()
+    T = typeof(x)
+    U = typeof(y)
+    if ___uint32_gt___(T.tid, U.tid):
+        return T.___div___(x, T(y))
+    if ___uint32_lt___(T.tid, U.tid):
+        return U.___div___(U(x), y)
+    return T.___div___(x, y)
+
+
+def num_idiv(x, y) -> None:
+    if y == 0:
+        raise DivideByZeroError()
+    T = typeof(x)
+    T.___idiv___(x, T(y))
+
+
+def num_eq(x, y):
+    if not is_num(x) or not is_num(y):
+        return false
+    T = typeof(x)
+    U = typeof(y)
+    if ___uint32_gt___(T.tid, U.tid):
+        return T.___eq___(x, T(y))
+    if ___uint32_lt___(T.tid, U.tid):
+        return U.___eq___(U(x), y)
+    return T.___eq___(x, y)
+
+
+def num_neq(x, y):
+    return not num_eq(x, y)
+
+
+def num_lt(x, y):
+    if not is_num(x) or not is_num(y):
+        return false
+    T = typeof(x)
+    U = typeof(y)
+    if ___uint32_gt___(T.tid, U.tid):
+        return T.___lt___(x, T(y))
+    if ___uint32_lt___(T.tid, U.tid):
+        return U.___lt___(U(x), y)
+    return T.___lt___(x, y)
+
+
+def num_lte(x, y):
+    if not is_num(x) or not is_num(y):
+        return false
+    T = typeof(x)
+    U = typeof(y)
+    if ___uint32_gt___(T.tid, U.tid):
+        return T.___lte___(x, T(y))
+    if ___uint32_lt___(T.tid, U.tid):
+        return U.___lte___(U(x), y)
+    return T.___lte___(x, y)
+
+
+def num_gt(x, y):
+    if not is_num(x) or not is_num(y):
+        return false
+    T = typeof(x)
+    U = typeof(y)
+    if ___uint32_gt___(T.tid, U.tid):
+        return T.___gt___(x, T(y))
+    if ___uint32_lt___(T.tid, U.tid):
+        return U.___gt___(U(x), y)
+    return T.___gt___(x, y)
+
+
+def num_gte(x, y):
+    if not is_num(x) or not is_num(y):
+        return false
+    T = typeof(x)
+    U = typeof(y)
+    if ___uint32_gt___(T.tid, U.tid):
+        return T.___gte___(x, T(y))
+    if ___uint32_lt___(T.tid, U.tid):
+        return U.___gte___(U(x), y)
+    return T.___gte___(x, y)
+
+
+def num_neg(x) -> typeof(x):
+    if not is_num(x):
+        raise ArgTypeError(0, x)
+    return typeof(x).___neg___(x)
+
+
+def int_mod(x, y):
+    if not is_int(x):
+        raise ArgTypeError(0, x)
+    if not is_int(y):
+        raise ArgTypeError(1, y)
+    if y == 0:
+        raise DivideByZeroError()
+    T = typeof(x)
+    U = typeof(y)
+    if ___uint32_gt___(T.tid, U.tid):
+        return T.___mod___(x, T(y))
+    if ___uint32_lt___(T.tid, U.tid):
+        return U.___mod___(U(x), y)
+    return T.___mod___(x, y)
+
+
+def int_imod(x, y) -> None:
+    if y == 0:
+        raise DivideByZeroError()
+    T = typeof(x)
+    T.___imod___(&x, T(y))
+
+
+def int_band(x, y):
+    if not is_int(x):
+        raise ArgTypeError(0, x)
+    if not is_int(y):
+        raise ArgTypeError(1, y)
+    T = typeof(x)
+    U = typeof(y)
+    if ___uint32_gt___(T.tid, U.tid):
+        return T.___band___(x, T(y))
+    if ___uint32_lt___(T.tid, U.tid):
+        return U.___band___(U(x), y)
+    return T.___band___(x, y)
+
+
+def int_iband(x, y) -> None:
+    T = typeof(x)
+    T.___iband___(&x, T(y))
+
+
+def int_bor(x, y):
+    if not is_int(x):
+        raise ArgTypeError(0, x)
+    if not is_int(y):
+        raise ArgTypeError(1, y)
+    T = typeof(x)
+    U = typeof(y)
+    if ___uint32_gt___(T.tid, U.tid):
+        return T.___bor___(x, T(y))
+    if ___uint32_lt___(T.tid, U.tid):
+        return U.___bor___(U(x), y)
+    return T.___bor___(x, y)
+
+
+def int_ibor(x, y) -> None:
+    T = typeof(x)
+    T.___ibor___(&x, T(y))
+
+
+def int_bxor(x, y):
+    if not is_int(x):
+        raise ArgTypeError(0, x)
+    if not is_int(y):
+        raise ArgTypeError(1, y)
+    T = typeof(x)
+    U = typeof(y)
+    if ___uint32_gt___(T.tid, U.tid):
+        return T.___bxor___(x, T(y))
+    if ___uint32_lt___(T.tid, U.tid):
+        return U.___bxor___(U(x), y)
+    return T.___bxor___(x, y)
+
+
+def int_ibxor(x, y) -> None:
+    T = typeof(x)
+    T.___ibxor___(&x, T(y))
+
+
+def int_bnot(x) -> typeof(x):
+    if not is_int(x):
+        raise ArgTypeError(0, x)
+    return typeof(x).___bnot___(x)
+
+
+def fixed_list_init(list: FixedList, *args) -> None:
+    list._xs = darray_new(Any, len(args))
+    list._len = 0
+    for x in args:
+        ptr_update(list._xs, list._len, x)
+        list._len += 1
+
+
+def list_expand(list: List, new_cap: UInt64) -> None:
+    tmp = list._xs
+    list._cap = new_cap
+    list._xs = darray_new(Any, new_cap)
+    ___memcpy___(tmp, list._xs, list._len)
+    darray_del(tmp)
+
+
+def list_add(list, x) -> typeof(list):
+    return typeof(>list)(*list, x)
+
+
+def list_call(list, i):
+    return ptr_at(list._xs, list_idx(len(list), i))
+
+
+def list_del(list) -> None:
+    for i from 0s64 to list._len:
+        del(darray_at(list._xs, i))
+    del_darray(list._xs)
+
+
+def list_iadd(list: List, x) -> None:
+    if list._cap == list._len:
+        list_expand(list, 2 * list._len + 1)
+    darray_update(list._xs, list_idx, x)
+    list._len += 1
+
+
+def list_idx(length: UInt64, i) -> UInt64:
+    if not is_int(i)
+        raise ArgTypeError(1, i)
+    idx = Int64(i)
+    if idx < -Int64(length) or idx >= length:
+        raise IndexError(idx)
+    if idx < 0:
+        return length + idx
+    return idx
+
+
+def list_ijoin(list: List, xs) -> None:
+    required = list._len + len(xs)
+    if required > list._cap:
+        list_expand(list, 2 * required + 1)
+    for x in xs:
+        darray_update(list._xs, list._len, x)
+        list._len += 1
+
+
+def list_in(list, x) -> Bool:
+    for y in list:
+        if x == y:
+            return true
+    return false
+
+
+def list_init(list: List, *args) -> None:
+    list._cap = 2 * len(args) + 1
+    list._xs = darray_new(Any, list._cap)
+    list._len = 0
+    for x in args:
+        darray_update(list._xs, list._len, x)
+        list._len += 1
+
+
+def list_join(list, xs) -> typeof(list):
+    return typeof(>list)(*list, *xs)
+
+
+def list_iter(list) -> ListIter:
+    return ListIter(list)
+
+
+def list_move(list):
+    list._xs = null
+
+
+def list_len(list) -> UInt64:
+    return list._len
+
+
+def list_update(list: List, i, x) -> None:
+    ptr_update(list._xs, list_idx(len(list), i), x)
+
+
+def list_iter_advance(it: ListIter) -> None:
+    it.i += 1
+
+
+def list_iter_end(it: ListIter) -> Bool:
+    return it.i >= len(it.list)
+
+
+def list_iter_init(it: ListIter, list) -> None:
+    it.list = list
+    it.i = 0
+
+
+def list_iter_item(it: ListIter):
+    return it.list(it.i)
