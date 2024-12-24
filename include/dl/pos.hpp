@@ -22,7 +22,7 @@ struct Pos {
 };
 
 std::ostream& operator<<(std::ostream& os, const Pos& pos) {
-    return os << "Pos(" << pos.line << ", " << pos.col << ")";
+    return os << pos.line << ":" << pos.col;
 }
 
 }

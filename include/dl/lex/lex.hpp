@@ -1,120 +1,156 @@
 #pragma once
 
-#include <cctype>
 #include <cstdint>
 
+#include <locale>
+#include <ostream>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 #include <utility>
 
+#include "dl/convert.hpp"
 #include "dl/err.hpp"
-#include "dl/pos.hpp"
 #include "dl/lex/cursor.hpp"
-#include "dl/syntax/export.hpp"
+#include "dl/lex/literalsuffix.hpp"
+#include "dl/lex/token.hpp"
+#include "dl/lex/tokenid.hpp"
+#include "dl/pos.hpp"
+#include "dl/res.hpp"
 
-namespace dl::lex {
+namespace dl {
 
 // Mapping from keywords to pointers to their corresponding token objects.
-std::unordered_map<std::string_view, syntax::Token*> KEYWORDS {
-    {"and", &syntax::And::TOKEN},
-    {"break", &syntax::Break::TOKEN},
-    {"by", &syntax::By::TOKEN},
-    {"continue", &syntax::Continue::TOKEN},
-    {"elif", &syntax::Elif::TOKEN},
-    {"else", &syntax::Else::TOKEN},
-    {"if", &syntax::If::TOKEN},
-    {"false", &syntax::False::TOKEN},
-    {"for", &syntax::For::TOKEN},
-    {"from", &syntax::From::TOKEN},
-    {"not", &syntax::Not::TOKEN},
-    {"or", &syntax::Or::TOKEN},
-    {"return", &syntax::Return::TOKEN},
-    {"to", &syntax::To::TOKEN},
-    {"this", &syntax::This::TOKEN},
-    {"true", &syntax::True::TOKEN},
-    {"vars", &syntax::Vars::TOKEN}
+std::unordered_map<std::string_view, TokenID> KEYWORDS {
+    {"and", TokenID::AND},
+    {"break", TokenID::BREAK},
+    {"by", TokenID::BY},
+    {"case", TokenID::CASE},
+    {"continue", TokenID::CONTINUE},
+    {"def", TokenID::DEF},
+    {"elif", TokenID::ELIF},
+    {"else", TokenID::ELSE},
+    {"except", TokenID::EXCEPT},
+    {"false", TokenID::FALSE},
+    {"finally", TokenID::FINALLY},
+    {"for", TokenID::FOR},
+    {"from", TokenID::FROM},
+    {"if", TokenID::IF},
+    {"in", TokenID::IN},
+    {"match", TokenID::MATCH},
+    {"not", TokenID::NOT},
+    {"none", TokenID::NONE},
+    {"null", TokenID::NULL_},
+    {"or", TokenID::OR},
+    {"raise", TokenID::RAISE},
+    {"return", TokenID::RETURN},
+    {"this", TokenID::THIS},
+    {"to", TokenID::TO},
+    {"true", TokenID::TRUE},
+    {"try", TokenID::TRY},
+    {"type", TokenID::TYPE},
+    {"vars", TokenID::VARS},
+    {"while", TokenID::WHILE}
 };
 
-// Base class for errors discovered during the lexing process.
-struct LexErr: LocatedErr {
-    using LocatedErr::LocatedErr;
+// Locale to use (C default).
+const std::locale LOCALE("C");
 
-    virtual std::ostream& out_name(std::ostream& os) const override {
-        return os << "LexErr";
-    }
-};
+// Errors which occur at a particular position in a file.
+struct PosErr: Err {
+    Pos pos;
 
-// Errors which have `Str` data attached to them.
-struct StrErr: LexErr {
-    std::string str;
-
-    StrErr(std::string&& s, Pos loc) noexcept: LexErr(loc), str(std::move(s)) {}
+    PosErr(const Pos& pos) noexcept: pos(pos) {}
 
     virtual bool equals(const Err& that) const noexcept override {
-        return
-            LocatedErr::equals(that) &&
-            str == dynamic_cast<const StrErr*>(&that)->str;
+        return pos == dynamic_cast<const PosErr&>(that).pos;
     }
 
     virtual std::ostream& out_data(std::ostream& os) const override {
-        return LocatedErr::out_data(os) << ", " << str;
-    }
-
-    virtual std::ostream& out_name(std::ostream& os) const override {
-        return os << "StrErr";
+        return os << pos;
     }
 };
 
-// Indicates that an invalid `\x` was parsed.
-struct BadByteErr final: StrErr {
-    using StrErr::StrErr;
+struct InvalidCharErr final: PosErr {
+    InvalidCharErr(const Pos& pos) noexcept: PosErr(pos) {}
 
     virtual std::ostream& out_name(std::ostream& os) const override {
-        return os << "BadByteErr";
+        return os << "InvalidCharErr";
     }
 };
 
 // Indicates that an invalid escape sequence was found.
-struct BadEscapeErr final: StrErr {
-    using StrErr::StrErr;
+struct InvalidEscapeErr final: PosErr {
+    InvalidEscapeErr(const Pos& pos) noexcept: PosErr(pos) {}
 
     virtual std::ostream& out_name(std::ostream& os) const override {
-        return os << "BadEscapeErr";
+        return os << "InvalidEscapeErr";
     }
 };
 
-// Indicates that an invalid `\U` was found.
-struct BadLongUnicodeErr final: StrErr {
-    using StrErr::StrErr;
+struct InvalidHexDigitErr final: PosErr {
+    InvalidHexDigitErr(const Pos& pos) noexcept: PosErr(pos) {}
 
     virtual std::ostream& out_name(std::ostream& os) const override {
-        return os << "BadLongUnicodeErr";
+        return os << "InvalidHexDigitErr";
     }
 };
 
-// Indicates that an invalid `\u` was found.
-struct BadUnicodeErr final: StrErr {
-    using StrErr::StrErr;
+struct InvalidNumericLiteralErr final: PosErr {
+    InvalidNumericLiteralErr(const Pos& pos) noexcept: PosErr(pos) {}
 
     virtual std::ostream& out_name(std::ostream& os) const override {
-        return os << "BadUnicodeErr";
+        return os << "InvalidNumericLiteralErr";
+    }
+};
+
+struct InvalidUnicodeCodePointErr final: PosErr {
+    InvalidUnicodeCodePointErr(const Pos& pos) noexcept: PosErr(pos) {}
+
+    virtual std::ostream& out_name(std::ostream& os) const override {
+        return os << "InvalidUnicodeCodePointErr";
+    }
+};
+
+struct LeadingZeroesErr final: PosErr {
+    LeadingZeroesErr(const Pos& pos) noexcept: PosErr(pos) {}
+
+    virtual std::ostream& out_name(std::ostream& os) const override {
+        return os << "LeadingZeroesErr";
+    }
+};
+
+struct OutOfRangeErr final: PosErr {
+    OutOfRangeErr(const Pos& pos) noexcept: PosErr(pos) {}
+
+    virtual std::ostream& out_name(std::ostream& os) const override {
+        return os << "OutOfRangeErr";
     }
 };
 
 // Indicates that a line ended with space which was unassociated with a string.
-struct TrailingSpaceErr final: LexErr {
-    using LexErr::LexErr;
+struct TrailingSpaceErr final: PosErr {
+    TrailingSpaceErr(const Pos& pos) noexcept: PosErr(pos) {}
 
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "TrailingSpaceErr";
     }
 };
 
+// Indicates that a char was started but was unclosed: the statement ended
+// before the closing ' was found.
+struct UnclosedCharErr final: PosErr {
+    UnclosedCharErr(const Pos& pos) noexcept: PosErr(pos) {}
+
+    virtual std::ostream& out_name(std::ostream& os) const override {
+        return os << "UnclosedCharErr";
+    }
+};
+
 // Indicates that a string was started but was unclosed: the statement ended
 // before the closing " was found.
-struct UnclosedStrErr final: StrErr {
-    using StrErr::StrErr;
+struct UnclosedStrErr final: PosErr {
+    UnclosedStrErr(const Pos& pos) noexcept: PosErr(pos) {}
 
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "UnclosedStrErr";
@@ -122,20 +158,20 @@ struct UnclosedStrErr final: StrErr {
 };
 
 // Indicates that an unexpected character was read.
-struct UnexpectedCharErr final: LexErr {
-    // The unexpected character.
-    char c;
+struct UnexpectedCharErr final: PosErr {
+    std::int32_t c;
 
-    constexpr UnexpectedCharErr(char c, Pos loc) noexcept: LexErr(loc), c(c) {}
+    UnexpectedCharErr(
+        const Pos& pos, std::int32_t c
+    ) noexcept: PosErr(pos), c(c) {}
 
-    bool equals(const Err& that) const noexcept override {
-        return
-            LocatedErr::equals(that) &&
-            c == dynamic_cast<const UnexpectedCharErr*>(&that)->c;
+    virtual bool equals(const Err& that) const noexcept override {
+        return PosErr::equals(that) &&
+        c == dynamic_cast<const UnexpectedCharErr&>(that).c;
     }
 
     virtual std::ostream& out_data(std::ostream& os) const override {
-        return LocatedErr::out_data(os) << ", " << c;
+        return PosErr::out_data(os) << ", " << c;
     }
 
     virtual std::ostream& out_name(std::ostream& os) const override {
@@ -143,45 +179,50 @@ struct UnexpectedCharErr final: LexErr {
     }
 };
 
+bool is_alnum(std::int32_t c) noexcept {
+    char chr = char(c);
+    if (chr != c)
+        return false;
+    return std::isalnum(chr, LOCALE);
+}
+
+bool is_digit(std::int32_t c) noexcept {
+    char chr = char(c);
+    if (chr != c)
+        return false;
+    return std::isdigit(chr, LOCALE);
+}
+
+bool is_hex_digit(std::int32_t c) noexcept {
+    char chr = char(c);
+    if (chr != c)
+        return false;
+    return std::isxdigit(chr, LOCALE);
+}
+
 // Computes the numeric value of a hexadecimal digit.
-constexpr char hexvalue(char c) noexcept {
-    return std::tolower(c) - '0' - ('a' - '9' - 1) * (c >= 'a');
+constexpr char hexvalue(std::int32_t c) noexcept {
+    c = std::tolower(char(c), LOCALE);
+    return c - '0' - ('a' - '9' - 1) * (c >= 'a');
 }
 
 // Check if the next char matches `match`. If so, return true. Otherwise, put
 // the char back and return false.
-bool check_next(Cursor& cursor, char match) noexcept {
-    int c = cursor.getc();
+bool check_next(Cursor& cursor, std::int32_t match) noexcept {
+    std::int32_t c = cursor.getc();
     if (c == match)
         return true;
     // Otherwise put it back, read for next token.
-    cursor.ungetc(c);
+    cursor.ungetc();
     return false;
 }
 
-// Check if the next character matches `match`. If it does, return `iftoken`,
-// otherwise return `elsetoken`.
-// This is used instead of a ternary because `iftoken` and `elsetoken` are
-// generally distinct pointer types and therefore would need to be casted in a
-// ternary expression.
-syntax::Located if_next_else(
-    Cursor& cursor,
-    char match,
-    syntax::Token* iftoken,
-    syntax::Token* elsetoken,
-    Pos start
-) noexcept {
-    if (check_next(cursor, match))
-        return syntax::Located(iftoken, start);
-    return syntax::Located(elsetoken, start);
-}
-
 // Encodes the given valid unicode code point into the given string.
-void encode_unicode(int code_point, std::string& s) noexcept {
-    // https://en.wikipedia.org/wiki/UTF-8#Encoding
+void encode_unicode(std::int32_t code_point, std::string& s) noexcept {
+    // https://en.wikipedia.org/wiki/UTF-8#Description
     if (code_point < 0x0080) {
         // 1 Byte, which is the code point itself.
-        s += static_cast<char>(code_point);
+        s += char(code_point);
         return;
     }
     if (code_point < 0x0800) {
@@ -193,7 +234,7 @@ void encode_unicode(int code_point, std::string& s) noexcept {
         // bit-or with:
         //    C    0
         // 1100 0000
-        s += static_cast<char>(code_point >> 6 & 0x1F | 0xC0);
+        s += char(code_point >> 6 & 0x1F | 0xC0);
 
         // Note: & has higher precedence than |
     } else {
@@ -206,7 +247,7 @@ void encode_unicode(int code_point, std::string& s) noexcept {
             // bit-or with:
             //    E   0
             // 1110 000
-            s += static_cast<char>(code_point >> 12 & 0x0F | 0xE0);
+            s += char(code_point >> 12 & 0x0F | 0xE0);
         } else {
             // 4 Bytes
             // Mask for 3 least significant bits:
@@ -216,7 +257,7 @@ void encode_unicode(int code_point, std::string& s) noexcept {
             // bit-or with:
             //    F    0
             // 1111 0000
-            s += static_cast<char>(code_point >> 18 & 0x07 | 0xF0);
+            s += char(code_point >> 18 & 0x07 | 0xF0);
 
             // Mask for 6 least significant bits:
             //    3    F
@@ -225,7 +266,7 @@ void encode_unicode(int code_point, std::string& s) noexcept {
             // bit-or with:
             //    8    0
             // 1000 0000
-            s += static_cast<char>(code_point >> 12 & 0x3F | 0x80);
+            s += char(code_point >> 12 & 0x3F | 0x80);
         }
 
         // This step is common to code points larger than 0x0800.
@@ -236,7 +277,7 @@ void encode_unicode(int code_point, std::string& s) noexcept {
         // bit-or with:
         //    8    0
         // 1000 0000
-        s += static_cast<char>(code_point >> 6 & 0x3F | 0x80);
+        s += char(code_point >> 6 & 0x3F | 0x80);
     }
     // This step is common to code points larger than 0x0080.
     // Mask for 6 least significant bits:
@@ -246,445 +287,508 @@ void encode_unicode(int code_point, std::string& s) noexcept {
     // bit-or with:
     //    8    0
     // 1000 0000
-    s += static_cast<char>(code_point & 0x3F | 0x80);
+    s += char(code_point & 0x3F | 0x80);
 }
 
-// Handles an escaped character in a string.
-ErrPtr handle_escape(std::string& s, Cursor& cursor, Pos start) {
-    int c = cursor.getc();
+// Read 1 up to 8 hexadecimal digits into an std::uint32_t.
+Res<std::int32_t> read_hex_digits(Cursor& cursor, int n) {
+    std::int32_t res = 0;
+    for (int j = 0; j < n; j++) {
+        std::int32_t x = cursor.getc();
+        if (!is_hex_digit(x))
+            return ErrPtr(
+                new InvalidHexDigitErr(Pos(cursor.pos.line, cursor.pos.col - 1))
+            );
+        res <<= 4;
+        res |= hexvalue(x);
+    }
+    return res;
+}
+
+Res<std::int32_t> escaped_char(Cursor& cursor) {
+    std::int32_t c = cursor.getc();
     switch(c) {
     case 'a':
-        s += '\a';
-        break;
+        return std::int32_t('\a');
     case 'b':
-        s += '\b';
-        break;
+        return std::int32_t('\b');
     case 'e':
-        s += '\e';
-        break;
+        return std::int32_t('\e');
     case 'f':
-        s += '\f';
-        break;
+        return std::int32_t('\f');
     case 'n':
-        s += '\n';
-        break;
+        return std::int32_t('\n');
     case 'r':
-        s += '\r';
-        break;
+        return std::int32_t('\r');
     case 't':
-        s += '\t';
-        break;
+        return std::int32_t('\t');
     case 'v':
-        s += '\v';
-        break;
-    case 'x': {
+        return std::int32_t('\v');
+    case 'x':
         // Read a byte determined by two hexadecimal digits.
-        int x1 = cursor.getc();
-        int x2 = cursor.getc();
-        if (!(std::isxdigit(x1) && std::isxdigit(x2))) {
-            // We found at least one invalid hexadecimal digit
-            return ErrPtr(new BadByteErr(std::move(s), start));
-        }
-        s += hexvalue(x1) << 4 | hexvalue(x2);
-    }
-        break;
+        return read_hex_digits(cursor, 2);
     case 'u': {
         // Read a unicode code point determined by four hexadecimal digits.
-        int u1 = cursor.getc();
-        int u2 = cursor.getc();
-        int u3 = cursor.getc();
-        int u4 = cursor.getc();
-        if (!(
-            std::isxdigit(u1) &&
-            std::isxdigit(u2) &&
-            std::isxdigit(u3) &&
-            std::isxdigit(u4)
-        )) {
-            // We found at least one invalid hexadecimal digit.
-            return ErrPtr(new BadUnicodeErr(std::move(s), start));
-        }
+        Res<std::int32_t> res = read_hex_digits(cursor, 4);
+        if (res.is_err)
+            return res;
 
-        int code_point = (
-            hexvalue(u1) << 12 |
-            hexvalue(u2) << 8  |
-            hexvalue(u3) << 4  |
-            hexvalue(u4)
-        );
-
-        encode_unicode(code_point, s);
+        if (res.res >= 0xD800 && res.res <= 0xDFFF)
+            // Surrogate
+            return ErrPtr(new InvalidUnicodeCodePointErr(
+                Pos(cursor.pos.line, cursor.pos.col - 4)
+            ));
+        return res;
     }
-        break;
     case 'U': {
         // Read a unicode code point determined by eight hexadecimal digits.
-        int u1 = cursor.getc();
-        int u2 = cursor.getc();
-        int u3 = cursor.getc();
-        int u4 = cursor.getc();
-        int u5 = cursor.getc();
-        int u6 = cursor.getc();
-        int u7 = cursor.getc();
-        int u8 = cursor.getc();
+        Res<std::int32_t, ErrPtr> res = read_hex_digits(cursor, 8);
+        if (res.is_err)
+            return res;
 
-        if (!(
-            std::isxdigit(u1) &&
-            std::isxdigit(u2) &&
-            std::isxdigit(u3) &&
-            std::isxdigit(u4) &&
-            std::isxdigit(u5) &&
-            std::isxdigit(u6) &&
-            std::isxdigit(u7) &&
-            std::isxdigit(u8)
-        )) {
-            // We found at least one invalid hexadecimal digit.
-            return ErrPtr(
-                new BadLongUnicodeErr(std::move(s), start)
-            );
-        }
-
-        int code_point = (
-            hexvalue(u1) << 28 |
-            hexvalue(u2) << 24 |
-            hexvalue(u3) << 20 |
-            hexvalue(u4) << 16 |
-            hexvalue(u5) << 12 |
-            hexvalue(u6) << 8  |
-            hexvalue(u7) << 4  |
-            hexvalue(u8)
-        );
-
-        if (code_point > 0x10FFFF)
-            // Too large to be a valid unicode code point.
-            return ErrPtr(new BadLongUnicodeErr(std::move(s), start));
-        encode_unicode(code_point, s);
+        if (res.res > 0x10FFFF || (res.res >= 0xD800 && res.res <= 0xDFFF))
+            // Surrogate or code point too large.
+            return ErrPtr(new InvalidUnicodeCodePointErr(
+                Pos(cursor.pos.line, cursor.pos.col - 8)
+            ));
+        return res;
     }
-        break;
     case '\'':
     case '"':
     case '\\':
         // Interpret a single quote, a double quote, and a backslash literally
         // after an escape.
-        s += c;
-        break;
+        return c;
     default:
         // An invalid character was escaped.
-        return ErrPtr(new BadEscapeErr(std::move(s), start));
+        return ErrPtr(
+            new InvalidEscapeErr(Pos(cursor.pos.line, cursor.pos.col - 2))
+        );
     }
-    return nullptr;
 }
 
-// Logic for handling a space character.
-// It is more complicated than other tokens because we have to consider
-// indentation, leading spaces, and trailing spaces.
-syntax::TokenRes handle_space(Cursor& cursor, Pos start) {
-    // First, check to see if this is space at the start of a line.
-    // If so, look for leading spaces and dedents.
-    int c;
-    bool at_start = cursor.pos.col == 2;
-    std::uint32_t n = 1;
-    while ((c = cursor.getc()) == ' ')
-        n += 1;
-    // Put back the extra character we read.
-    cursor.ungetc(c);
-    if (c == '\n' || c == EOF)
-        // Space at the end of a line is not allowed.
-        return ErrPtr(new TrailingSpaceErr(start));
-    if (at_start)
-        return syntax::Located(new syntax::LeadingSpace::Token(n), start);
-    // Don't bother allocating new memory, only need to keep track for space at
-    // start of a line to determine indentation.
-    return syntax::Located(&syntax::Space::TOKEN, start);
+void read_alnum(std::int32_t c, Cursor& cursor, std::string& res) {
+    while (is_alnum(c) || c == '_') {
+        res += char(c);
+        c = cursor.getc();
+    }
+    cursor.ungetc();
+}
+
+template<typename T>
+Res<Token> read_number(
+    Pos start, const char* begin, const char* expected_end, int base
+) noexcept {
+    char* end;
+    errno = 0;
+    T res = strto<T>(begin, &end, base);
+    if (errno == ERANGE)
+        return ErrPtr(new OutOfRangeErr(start));
+    if (end == begin || end < expected_end)
+        return ErrPtr(new InvalidNumericLiteralErr(start));
+    return Token(TokenID::NUMBER, res);
+}
+
+Res<Token> read_float(Pos start, const std::string& res) noexcept {
+    const char* begin = &res[0];
+    LiteralSuffix suffix = lit_suffix(res);
+    const char* end = begin + res.size() - lit_suffix_len(suffix);
+
+    switch(suffix) {
+    case LiteralSuffix::F:
+    case LiteralSuffix::F64:
+    case LiteralSuffix::NONE:
+        return read_number<double>(start, begin, end, 10);
+    case LiteralSuffix::F32:
+        return read_number<float>(start, begin, end, 10);
+    default:
+        return ErrPtr(new InvalidNumericLiteralErr(start));
+    }
+}
+
+Res<Token> read_exponent_then_float(
+    Cursor& cursor, Pos start, std::string& res
+) noexcept {
+    std::int32_t c = cursor.getc();
+    if (c == '-' || is_alnum(c) || c == '_')
+        res += char(c);
+    else {
+        // Invalid: floating point literal can't end with e.
+        cursor.ungetc();
+        return ErrPtr(new InvalidNumericLiteralErr(start));
+    }
+    // Eat the remaining alphanumeric characters.
+    c = cursor.getc();
+    read_alnum(c, cursor, res);
+
+    return read_float(start, res);
+}
+
+bool seek_quote(Cursor& cursor, std::int32_t quote) {
+    while (true) {
+        std::int32_t c = cursor.getc();
+        if (c == quote)
+            return true;
+        if (c == '\n' || c == EOF)
+            return false;
+    }
+}
+
+Res<Token> next_char(Cursor& cursor) {
+    // Start at first single-quote.
+    Pos start = Pos(cursor.pos.line, cursor.pos.col - 1);
+    std::int32_t c = cursor.getc();
+
+    switch(c) {
+    case '\'':
+        return ErrPtr(new InvalidCharErr(start));
+    case '\\': {
+        Res<std::int32_t> res = escaped_char(cursor);
+        if (res.is_err) {
+            // Prioritize UnclosedCharErr if it applies
+            if (seek_quote(cursor, '\''))
+                return std::move(res.err);
+            return ErrPtr(new UnclosedCharErr(start));
+        }
+        c = res.res;
+        break;
+    }
+    case '\n':
+    case EOF:
+        return ErrPtr(new UnclosedCharErr(start)); 
+    }
+    
+    switch(cursor.getc()) {
+    case '\'':
+        return Token(TokenID::CHAR, c);
+    case '\n':
+    case EOF:
+        return ErrPtr(new UnclosedCharErr(start));
+    default:
+        if (seek_quote(cursor, '\''))
+            return ErrPtr(new InvalidCharErr(start));
+        return ErrPtr(new UnclosedCharErr(start));
+    }
 }
 
 // Read an identifier starting with `c`.
-syntax::TokenRes next_id(int c, Cursor& cursor, Pos start) {
-    auto s = std::string();
+Token next_id(int c, Cursor& cursor) {
+    std::string res;
 
-    // Use a do-while since we know the first character is a digit.
-    do {
-        s += static_cast<char>(c);
-        c = cursor.getc();
-    } while (std::isalnum(c) || c == '_');
+    read_alnum(c, cursor, res);
 
-    // We read an extra character, put it back.
-    cursor.ungetc(c);
-
-    // Check if ID matches a keyword. If so, return the corresponding token.
-    auto it = KEYWORDS.find(s);
+    // Check a keyword is matched. If so, return the corresponding token.
+    auto it = KEYWORDS.find(res);
     if (it != KEYWORDS.end())
-        return syntax::Located(it->second, start);
+        return Token(it->second);
     
-    // Otherwise, it's an ID.
-    return syntax::Located(new syntax::ID::Token(std::move(s)), start);
+    // Otherwise, it's an identifier.
+    return Token(TokenID::ID, std::move(res));
 }
 
-// Reads an integer token starting with `c`.
-syntax::TokenRes next_int(int c, Cursor& cursor, Pos start) {
-    auto s = std::string();
+// Read the next numeric literal.
+// This function is very careful not to eat a `.` or a `-` unless the preceding
+// characters are thus far indiciate a valid floating point literal.
+// Additionally, any concatenated alphanumeric or underscore characters are
+// read, not just digits, even if the result is invalid.
+Res<Token> next_number(std::int32_t c, Cursor& cursor) {
+    Pos start = Pos(cursor.pos.line, cursor.pos.col - 1);
+    std::string res;
 
-    // Use a do while since we know the first character is a digit.
-    do {
-        s += static_cast<char>(c);
+    int base = 10;
+
+    if (c == '0') {
         c = cursor.getc();
-    } while (std::isdigit(c));
-
-    if (std::isalnum(c) || c == '_') {
-        // characters outside 0-9 exist in the token. For now, just parse all
-        // such number as "Mixed" and do fancy things later.
-        do {
-            s += c;
-            c = cursor.getc();
-        } while (std::isalnum(c) || c == '_');
-        // We read an extra character, put it back.
-        cursor.ungetc(c);
-        return syntax::Located(new syntax::Mixed::Token(std::move(s)), start);
-    }
-
-    // We read an extra character, put it back.
-    cursor.ungetc(c);
-    return syntax::Located(new syntax::Int::Token(std::move(s)), start);
-}
-
-// Reads a string.
-syntax::TokenRes next_str(Cursor& cursor, Pos start) {
-    auto s = std::string();
-    while (true) {
-        int c = cursor.getc();
         switch(c) {
-        case EOF:
-        case '\n':
-            // We read EOF or a new line without encountering double quotes.
-            // Therefore we have an unclosed string.
-            return ErrPtr(new UnclosedStrErr(std::move(s), start));
-        case '"':
-            // Found the closing double quote, return the result.
-            return syntax::Located(
-                new syntax::String::Token(std::move(s)), start
-            );
-        case '\\': {
-            // Found a backslash, handle an escaped character.
-            ErrPtr e = handle_escape(s, cursor, start);
-            if (e)
-                return e;
-        }
+        case 'o':
+        case 'O':
+            base = 8;
+            c = cursor.getc();
+            break;
+        case 'x':
+        case 'X':
+            base = 16;
+            c = cursor.getc();
             break;
         default:
-            s += c;
+            res += '0';
         }
+    }
+
+    if (base == 10) {
+        while (is_digit(c)) {
+            res += char(c);
+            c = cursor.getc();
+        }
+        if (c == 'e' || c == 'E') {
+            // Floating point literal with exponent but no fractional part.
+            res += char(c);
+            return read_exponent_then_float(cursor, start, res);
+        }
+        if (c == '.') {
+            c = cursor.getc();
+            if (is_digit(c)) {
+                // Floating point literal.
+                res += '.';
+                do {
+                    res += char(c);
+                    c = cursor.getc();
+                } while (is_digit(c));
+
+                // Check for exponent.
+                if (c == 'e' || c == 'E') {
+                    res += char(c);
+                    return read_exponent_then_float(cursor, start, res);
+                }
+
+                // Otherwise, eat remaining alphanum characters and then read
+                // the float.
+                read_alnum(c, cursor, res);
+                return read_float(start, res);
+            }
+            // Not a necessarily a floating point literal, gotta put back two
+            // chars.
+            cursor.ungetc();
+            cursor.ungetc();
+
+    // By this point, we know the literal contains no decimal point and is not a
+    // valid floating-point literal with an exponent.
+    // Because of this, no minus sign or decimal point can be part of the
+    // literal, and we are safe to read the remaining alphanumeric characters
+    // without risk of reading a `.` or a `-` into an invalid float.
+        } else
+            read_alnum(c, cursor, res);
+    } else
+        read_alnum(c, cursor, res);
+
+    if (res.size() > 1 && res[0] == '0' && is_digit(res[1]))
+        return ErrPtr(new LeadingZeroesErr(start));
+
+    LiteralSuffix suffix = lit_suffix(res);
+    const char* begin = &res[0];
+    const char* expected_end = begin + res.size() - lit_suffix_len(suffix);
+
+    switch(suffix) {
+    case LiteralSuffix::NONE:
+    case LiteralSuffix::S:
+    case LiteralSuffix::S32:
+        return read_number<std::int32_t>(start, begin, expected_end, base);
+    case LiteralSuffix::S8:
+        return read_number<std::int8_t>(start, begin, expected_end, base);
+    case LiteralSuffix::S16:
+        return read_number<std::int16_t>(start, begin, expected_end, base);
+    case LiteralSuffix::S64:
+        return read_number<std::int64_t>(start, begin, expected_end, base);
+    case LiteralSuffix::U:
+    case LiteralSuffix::U32:
+        return read_number<std::uint32_t>(start, begin, expected_end, base);
+    case LiteralSuffix::U8:
+        return read_number<std::uint8_t>(start, begin, expected_end, base);
+    case LiteralSuffix::U16:
+        return read_number<std::uint16_t>(start, begin, expected_end, base);
+    case LiteralSuffix::U64:
+        return read_number<std::uint64_t>(start, begin, expected_end, base);
+    case LiteralSuffix::F:
+    case LiteralSuffix::F64:
+        if (base == 16) {
+            // Suffix is valid hex, let it be read as such.
+            expected_end += lit_suffix_len(suffix);
+            return read_number<std::int32_t>(start, begin, expected_end, base);
+        }
+        else if (base == 8)
+            // Octal floating point not allowed.
+            return ErrPtr(new InvalidNumericLiteralErr(start));
+        return read_number<double>(start, begin, expected_end, base);
+    case LiteralSuffix::F32:
+        if (base == 16) {
+            expected_end += 3;
+            return read_number<std::int32_t>(start, begin, expected_end, base);
+        }
+        else if (base == 8)
+            return ErrPtr(new InvalidNumericLiteralErr(start));
+        return read_number<float>(start, begin, expected_end, base);
     }
 }
 
-// Reads the next token in the file tracked by `cursor`.
-syntax::TokenRes next(Cursor& cursor) {
+// Read a string.
+Res<Token> next_str(Cursor& cursor) {
+    Pos start = Pos(cursor.pos.line, cursor.pos.col - 1);
+    std::string s;
+
+    while (true) {
+        std::int32_t c = cursor.getc();
+        switch(c) {
+        case '\\': {
+            Res<std::int32_t> code_point = escaped_char(cursor);
+            if (code_point.is_err) {
+                // Prioritize UnclosedStrErr
+                if (seek_quote(cursor, '"'))
+                    return std::move(code_point.err);
+                return ErrPtr(new UnclosedStrErr(start));
+            }
+            encode_unicode(code_point.res, s);
+            break;
+        }
+        case '"':
+            return Token(TokenID::STRING, s);
+        case '\n':
+        case EOF:
+            return ErrPtr(new UnclosedStrErr(start));
+        default:
+            encode_unicode(c, s);
+        }
+
+    }
+    return Token(TokenID::STRING, std::move(s));
+}
+
+// Reads the next token in the cursor, putting any data associated with the
+// token in its `data` field.
+Res<Token> next_token(Cursor& cursor) {
     Pos start = cursor.pos;
-    int c = cursor.getc();
+    std::int32_t c = cursor.getc();
     switch (c) {
     case EOF:
-        return syntax::Located(&syntax::EndOfFile::TOKEN, start);
-    case ' ':
-        return handle_space(cursor, start);
-    case '\n':
-        switch(cursor.peek()) {
-        case ' ':
-        case '\n':
-            // Next line is not in global scope unless we are already in global
-            // scope.
-            return syntax::Located(&syntax::Newline::TOKEN, start);
-        default:
-            // In this case, if we are indented, then the next line fully
-            // dedents since the character is not a valid space character and
-            // therefore the next line is in the global scope.
-            return syntax::Located(&syntax::NewlineThenGlobal::TOKEN, start);
+        return Token(TokenID::END_OF_FILE);
+    case ' ': {
+        std::uint32_t space_count = 1;
+        while ((c = cursor.getc()) == ' ')
+            space_count++;
+        // Unget the last character we read, which was not a space.
+        cursor.ungetc();
+        if (c == '\n' || c == EOF) {
+            // If the last character read was a newline or EOF, we found space
+            // at the end of a line.
+            return ErrPtr(new TrailingSpaceErr(start));
         }
-        return syntax::Located(&syntax::Newline::TOKEN, start);
+        return Token(TokenID::SPACE, space_count);
+    }
+    case '\n':
+        return Token(TokenID::NEWLINE);
     case '#':
         // Comment, skip rest of line.
         while (c != '\n' && c != EOF)
             c = cursor.getc();
-        cursor.ungetc(c);
-        return syntax::Located(&syntax::Hash::TOKEN, start);
+        cursor.ungetc();
+        return Token(TokenID::HASH);
     case ':':
-        return syntax::Located(&syntax::Colon::TOKEN, start);
+        return Token(
+            check_next(cursor, '=') ? TokenID::COLON_EQUALS: TokenID::COLON
+        );
     case ',':
-        return syntax::Located(&syntax::Comma::TOKEN, start);
+        return Token(TokenID::COMMA);
     case '.':
-        return syntax::Located(&syntax::Dot::TOKEN, start);
+        return Token(TokenID::DOT);
     case '=':
-        return if_next_else(
-            cursor,
-            '=',
-            &syntax::DoubleEquals::TOKEN,
-            &syntax::Equals::TOKEN,
-            start
+        return Token(
+            check_next(cursor, '=') ? TokenID::DOUBLE_EQUALS: TokenID::EQUALS
         );
     case '!':
-        if (check_next(cursor, '='))
-            return syntax::Located(&syntax::BangEquals::TOKEN, start);
-        return ErrPtr(new UnexpectedCharErr('!', start));
+        if (!check_next(cursor, '='))
+            return ErrPtr(new UnexpectedCharErr(start, c));
+        return Token(TokenID::BANG_EQUALS);
     case '<':
         c = cursor.getc();
         switch(c) {
         case '=':
-            return syntax::Located(&syntax::LeftAngleEquals::TOKEN, start);
+            return Token(TokenID::LEFT_ANGLE_EQUALS);
         case '<':
-            return if_next_else(
-                cursor,
-                '=',
-                &syntax::DoubleLeftAngleEquals::TOKEN,
-                &syntax::DoubleLeftAngle::TOKEN,
-                start
+            return Token(
+                check_next(cursor, '=') ?
+                TokenID::DOUBLE_LEFT_ANGLE_EQUALS: TokenID::DOUBLE_LEFT_ANGLE
             );
         default:
-            cursor.ungetc(c);
-            return syntax::Located(&syntax::LeftAngle::TOKEN, start);
+            cursor.ungetc();
+            return Token(TokenID::LEFT_ANGLE);
         }
     case '>':
         c = cursor.getc();
         switch(c) {
         case '=':
-            return syntax::Located(&syntax::RightAngleEquals::TOKEN, start);
+            return Token(TokenID::RIGHT_ANGLE_EQUALS);
         case '>':
-            return if_next_else(
-                cursor,
-                '=',
-                &syntax::DoubleRightAngleEquals::TOKEN,
-                &syntax::DoubleRightAngle::TOKEN,
-                start
+            return Token(
+                check_next(cursor, '=') ?
+                TokenID::DOUBLE_RIGHT_ANGLE_EQUALS: TokenID::DOUBLE_RIGHT_ANGLE
             );
         default:
-            cursor.ungetc(c);
-            return syntax::Located(&syntax::RightAngle::TOKEN, start);
+            cursor.ungetc();
+            return Token(TokenID::RIGHT_ANGLE);
         }
     case '+':
-        return if_next_else(
-            cursor, '=', &syntax::PlusEquals::TOKEN, &syntax::Plus::TOKEN, start
+        return Token(
+            check_next(cursor, '=') ? TokenID::PLUS_EQUALS: TokenID::PLUS
         );
     case '-':
-        return if_next_else(
-            cursor,
-            '=',
-            &syntax::MinusEquals::TOKEN,
-            &syntax::Minus::TOKEN,
-            start
-        );
+        c = cursor.getc();
+        switch(c) {
+        case '=':
+            return Token(TokenID::MINUS_EQUALS);
+        case '>':
+            return Token(TokenID::MINUS_RIGHT_ANGLE);
+        default:
+            cursor.ungetc();
+            return Token(TokenID::MINUS);
+        }
     case '*':
-        return if_next_else(
-            cursor, '=', &syntax::StarEquals::TOKEN, &syntax::Star::TOKEN, start
+        c = cursor.getc();
+        switch(c) {
+        case '=':
+            return Token(TokenID::STAR_EQUALS);
+        case '*':
+            return Token(
+                check_next(cursor, '=') ?
+                TokenID::DOUBLE_STAR_EQUALS: TokenID::DOUBLE_STAR
+            );
+        default:
+            cursor.ungetc();
+            return Token(TokenID::STAR);
+        }
+        return Token(
+            check_next(cursor, '=') ? TokenID::STAR_EQUALS: TokenID::STAR
         );
     case '/':
-        return if_next_else(
-            cursor,
-            '=',
-            &syntax::SlashEquals::TOKEN,
-            &syntax::Slash::TOKEN,
-            start
+        return Token(
+            check_next(cursor, '=') ? TokenID::SLASH_EQUALS: TokenID::SLASH
         );
     case '%':
-        return if_next_else(
-            cursor,
-            '=',
-            &syntax::PercentEquals::TOKEN,
-            &syntax::Percent::TOKEN,
-            start
+        return Token(
+            check_next(cursor, '=') ?
+            TokenID::PERCENT_EQUALS: TokenID::PERCENT
         );
     case '~':
-        return syntax::Located(&syntax::Tilde::TOKEN, start);
+        return Token(TokenID::TILDE);
     case '&':
-        return if_next_else(
-            cursor,
-            '=',
-            &syntax::AmpersandEquals::TOKEN,
-            &syntax::Ampersand::TOKEN,
-            start
+        return Token(
+            check_next(cursor, '=') ?
+            TokenID::AMPERSAND_EQUALS: TokenID::AMPERSAND
         );
     case '|':
-        return if_next_else(
-            cursor, '=', &syntax::PipeEquals::TOKEN, &syntax::Pipe::TOKEN, start
+        return Token(
+            check_next(cursor, '=') ? TokenID::PIPE_EQUALS: TokenID::PIPE
         );
     case '^':
-        return if_next_else(
-            cursor,
-            '=',
-            &syntax::CarotEquals::TOKEN,
-            &syntax::Carot::TOKEN,
-            start
+        return Token(
+            check_next(cursor, '=') ? TokenID::CAROT_EQUALS: TokenID::CAROT
         );
     case '(':
-        return syntax::Located(&syntax::Curved::LEFT_TOKEN, start);
+        return Token(TokenID::LEFT_CURVED);
     case ')':
-        return syntax::Located(&syntax::Curved::RIGHT_TOKEN, start);
+        return Token(TokenID::RIGHT_CURVED);
     case '[':
-        return syntax::Located(&syntax::Square::LEFT_TOKEN, start);
+        return Token(TokenID::LEFT_SQUARE);
     case ']':
-        return syntax::Located(&syntax::Square::RIGHT_TOKEN, start);
+        return Token(TokenID::RIGHT_SQUARE);
     case '"':
-        return next_str(cursor, start);
-    case '0':
-    case '1':
-    case '2':
-    case '3':
-    case '4':
-    case '5':
-    case '6':
-    case '7':
-    case '8':
-    case '9':
-        return next_int(static_cast<char>(c), cursor, start);
-    case 'A':
-    case 'B':
-    case 'C':
-    case 'D':
-    case 'E':
-    case 'F':
-    case 'G':
-    case 'H':
-    case 'I':
-    case 'J':
-    case 'K':
-    case 'L':
-    case 'M':
-    case 'N':
-    case 'O':
-    case 'P':
-    case 'Q':
-    case 'R':
-    case 'S':
-    case 'T':
-    case 'U':
-    case 'V':
-    case 'W':
-    case 'X':
-    case 'Y':
-    case 'Z':
-    case 'a':
-    case 'b':
-    case 'c':
-    case 'd':
-    case 'e':
-    case 'f':
-    case 'g':
-    case 'h':
-    case 'i':
-    case 'j':
-    case 'k':
-    case 'l':
-    case 'm':
-    case 'n':
-    case 'o':
-    case 'p':
-    case 'q':
-    case 'r':
-    case 's':
-    case 't':
-    case 'u':
-    case 'v':
-    case 'w':
-    case 'x':
-    case 'y':
-    case 'z':
-    case '_':
-        return next_id(static_cast<char>(c), cursor, start);
+        return next_str(cursor);
+    case '\'':
+        return next_char(cursor);
     default:
-        return ErrPtr(new UnexpectedCharErr(c, start));
+        if (is_digit(c))
+            return next_number(c, cursor);
+        if (is_alnum(c))
+            return next_id(c, cursor);
+        return ErrPtr(new UnexpectedCharErr(start, c));
     }
 }
 
