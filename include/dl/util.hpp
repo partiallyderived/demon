@@ -6,13 +6,24 @@
 
 namespace dl {
 
-template<class Container>
-std::ostream& out_container(std::ostream& os, const Container& c) {
+template<typename Container>
+struct OutContainerManip {
+    const Container& container;
+    OutContainerManip(
+        const Container& container
+    ) noexcept: container(container) {}
+};
+
+template<typename Container>
+std::ostream& operator<<(
+    std::ostream& os,
+    const OutContainerManip<Container> manip
+) {
     os << '[';
-    if (!c.empty()) {
-        os << c[0];
-        for (std::uint32_t i = 1; i < c.size(); i++)
-            os << ", " << c[i];
+    if (!manip.container.empty()) {
+        os << manip.container[0];
+        for (std::uint32_t i = 1; i < manip.container.size(); i++)
+            os << ", " << manip.container[i];
     }
     return os << ']';
 }

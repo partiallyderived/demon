@@ -1,29 +1,45 @@
 #pragma once
 
 #include <ostream>
+#include <utility>
 
-#include "dl/interpret/id.hpp"
+#include "dl/interpret/data.hpp"
 #include "dl/interpret/node.hpp"
-#include "dl/interpret/nodeid.hpp"
+#include "dl/pos.hpp"
 
 namespace dl {
 
-struct ArgDef final: Node_<NodeID::ARG_DEF> {
+struct ArgDef {
     ID id;
-    NodePtr type;
+    NodePtr label;
     NodePtr dflt;
+    bool match;
 
-    virtual bool equals(const Node& that) const noexcept override {
-        auto casted = dynamic_cast<const ArgDef&>(that);
+    ArgDef() noexcept:
+    id("", Pos(0, 0)), label(nullptr), dflt(nullptr), match(false) {}
+
+    ArgDef(ID&& id, NodePtr&& label, NodePtr&& dflt, bool match) noexcept:
+    id(std::move(id)),
+    label(std::move(label)),
+    dflt(std::move(dflt)),
+    match(match) {}
+
+    bool operator==(const ArgDef& that) const noexcept {
         return
-            id == casted.id &&
-            npeq(type, casted.type) &&
-            npeq(dflt, casted.dflt);
-    }
-
-    virtual std::ostream& out_data(std::ostream& os) const override {
-        return os << id << ", " << type << ", " << dflt;
+            id == that.id &&
+            npeq(label, that.label) &&
+            npeq(dflt, that.dflt) &&
+            match == that.match;
     }
 };
+
+std::ostream& operator<<(std::ostream& os, const ArgDef& x) {
+    return os << "ArgDef(" <<
+        x.id << ", " <<
+        x.label << ", " <<
+        x.dflt << ", " <<
+        std::boolalpha << x.match <<
+    ")";
+}
 
 }

@@ -8,7 +8,8 @@ namespace dl {
 // different types of tokens evolve the parser's state, most notable the
 // orientation itself.
 
-// START: At the start of a statement
+// START: At the start of any instruction.
+// STMT: At the start of a statement. Excludes constructs like "if".
 // BEFORE: Before a value, where we may expect one.
 // AFTER: After a value, where a binary operator is allowed.
 // OPTIONAL: Where a value is optional.
@@ -21,6 +22,7 @@ namespace dl {
 // END: End of a statement, where a newline is expected.
 enum class Orientation {
     START,
+    STMT,
     BEFORE,
     AFTER,
     OPTIONAL,
@@ -34,6 +36,8 @@ std::ostream& operator<<(std::ostream& os, Orientation orientation) {
     switch(orientation) {
     case START:
         return os << "START";
+    case STMT:
+        return os << "STMT";
     case BEFORE:
         return os << "BEFORE";
     case AFTER:

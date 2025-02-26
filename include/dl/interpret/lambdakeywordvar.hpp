@@ -10,24 +10,21 @@
 
 namespace dl {
 
-struct KeywordArg final: Node {
+struct LambdaKeywordVar final: Node {
     ID id;
-    NodePtr arg;
 
-    KeywordArg(ID&& id, NodePtr&& arg, Pos src) noexcept:
-    Node(src), id(std::move(id)), arg(std::move(arg)) {}
+    LambdaKeywordVar(ID&& id, Pos src) noexcept: Node(src), id(std::move(id)) {}
 
     virtual NodeCategory category() const noexcept override {
-        return NodeCategory::KEYWORD_ARG;
+        return NodeCategory::LAMBDA_KEYWORD;
     }
 
     virtual bool equals(const Node& that) const noexcept override {
-        const auto& casted = dynamic_cast<const KeywordArg&>(that);
-        return id == casted.id && npeq(arg, casted.arg);
+        return id == dynamic_cast<const LambdaKeywordVar&>(that).id;
     }
 
     virtual std::ostream& out(std::ostream& os) const override {
-        return os << category() << "(" << id << ", " << arg << ")";
+        return os << category() << "(" << id << ")";
     }
 };
 

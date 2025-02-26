@@ -1,7 +1,6 @@
 #pragma once
 
 #include <ostream>
-#include <utility>
 
 #include "dl/interpret/node.hpp"
 #include "dl/interpret/nodecategory.hpp"
@@ -9,21 +8,21 @@
 
 namespace dl {
 
-struct Symbol final: Node {
-    ID of;
+struct LambdaPosVar final: Node {
+    Int32 pos;
 
-    Symbol(ID&& of, Pos src) noexcept: Node(src), of(std::move(of)) {}
+    LambdaPosVar(Int32 pos, Pos src) noexcept: Node(src), pos(pos) {}
 
     virtual NodeCategory category() const noexcept override {
-        return NodeCategory::SYMBOL;
+        return NodeCategory::LAMBDA_POS;
     }
 
     virtual bool equals(const Node& that) const noexcept override {
-        return of == dynamic_cast<const Symbol&>(that).of;
+        return pos == dynamic_cast<const LambdaPosVar&>(that).pos;
     }
 
     virtual std::ostream& out(std::ostream& os) const override {
-        return os << category() << "(" << of << ")";
+        return os << category() << "(" << pos << ")";
     }
 };
 

@@ -1,31 +1,36 @@
 #pragma once
 
 #include <ostream>
+#include <utility>
 #include <vector>
 
 #include "dl/interpret/argspec.hpp"
-#include "dl/interpret/block.hpp"
 #include "dl/interpret/node.hpp"
-#include "dl/interpret/nodeid.hpp"
+#include "dl/pos.hpp"
 
 namespace dl {
 
-struct DefCase final: Node_<NodeID::DEF_CASE> {
+struct DefCase {
     ArgSpec spec;
     NodePtr returns;
-    Block body;
+    Nodes body;
 
-    virtual bool equals(const Node& that) const noexcept override {
-        auto casted = dynamic_cast<const DefCase&>(that);
+    DefCase(ArgSpec&& spec, NodePtr&& returns, Nodes&& body) noexcept:
+    spec(std::move(spec)),
+    returns(std::move(returns)),
+    body(std::move(body)) {}
+
+    bool operator==(const DefCase& that) const noexcept {
         return
-            spec == casted.spec &&
-            npeq(returns, casted.returns) &&
-            body == casted.body;
-    }
-
-    virtual std::ostream& out_data(std::ostream& os) const override {
-        return os << spec << ", " << returns << ", " << body;
+            spec == that.spec &&
+            npeq(returns, that.returns) &&
+            nodes_eq(body, that.body);
     }
 };
+
+std::ostream& operator<<(std::ostream& os, const DefCase& x) {
+    return os <<
+        "DefCase(" << x.spec << ", " << x.returns << ", " << x.body << ")";
+}
 
 }

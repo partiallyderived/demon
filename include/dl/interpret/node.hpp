@@ -5,34 +5,29 @@
 #include <memory>
 #include <ostream>
 
-#include "dl/interpret/nodeid.hpp"
+#include "dl/interpret/nodecategory.hpp"
+#include "dl/pos.hpp"
+#include "dl/res.hpp"
 #include "dl/util.hpp"
 
 namespace dl {
 
 struct Node {
-	virtual ~Node() noexcept {}
+    Pos src;
 
-	virtual bool equals(const Node& that) const noexcept=0;
+    Node(Pos src) noexcept: src(src) {}
 
-	// "kind" used instead of "id" because "id" is commonly used as a field name
-	// for identifiers.
-	virtual NodeID kind() const noexcept=0;
+    virtual ~Node() noexcept {}
 
-	bool operator==(const Node& that) const noexcept {
-		return kind() == that.kind() && equals(that);
-	}
+    virtual NodeCategory category() const noexcept=0;
 
-	virtual std::ostream& out_data(std::ostream& os) const=0;
-};
+    virtual bool equals(const Node& that) const noexcept=0;
 
-// This class allows for kind to be implemented with a template parameter for
-// brevity.
-template<NodeID KIND>
-struct Node_: Node {
-	NodeID kind() const noexcept final override {
-		return KIND;
-	}
+    virtual std::ostream& out(std::ostream& os) const=0;
+
+    bool operator==(const Node& that) const noexcept {
+        return category() == that.category() && src == that.src && equals(that);
+    }
 };
 
 using NodePtr = std::unique_ptr<Node>;
@@ -41,34 +36,34 @@ using NodeRes = Res<NodePtr>;
 
 // npeq means "Node Pointer Equals"
 bool npeq(const NodePtr& lhs, const NodePtr& rhs) noexcept {
-	if (lhs)
-		return rhs && *lhs == *rhs;
-	return !rhs;
+    if (lhs)
+        return rhs && *lhs == *rhs;
+    return !rhs;
 }
 
 // Compare vectors of NodePtr
 bool nodes_eq(const Nodes& lhs, const Nodes& rhs) noexcept {
-	if (lhs.size() != rhs.size())
-		return false;
-	for (std::uint32_t i = 0; i < lhs.size; i++) {
-		if (!npeq(lhs[i], rhs[i]))
-			return false;
-	}
-	return true;
+    if (lhs.size() != rhs.size())
+        return false;
+    for (std::uint32_t i = 0; i < lhs.size(); i++) {
+        if (!npeq(lhs[i], rhs[i]))
+            return false;
+    }
+    return true;
 }
 
 std::ostream& operator<<(std::ostream& os, const Node& node) {
-	os << node.kind() << '(' << node.out_data() << ')';
+    return node.out(os) << "@" << node.src;
 }
 
 std::ostream& operator<<(std::ostream& os, const NodePtr& node_ptr) {
-	if (node_ptr)
-		return os << *node_ptr;
-	return os << "null";
+    if (node_ptr)
+        return os << *node_ptr;
+    return os << "null";
 }
 
 std::ostream& operator<<(std::ostream& os, const Nodes& nodes) {
-	return out_container(os, nodes);
+    return os << OutContainerManip(nodes);
 }
 
 }

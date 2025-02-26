@@ -84,7 +84,7 @@ TokenInfo nullary_info_(OpID op) noexcept {
 }
 
 TokenInfo optional_info_(OpID op) noexcept {
-    return general_unary_info_(TokenKind::RETURN, op);
+    return general_unary_info_(TokenKind::OPTIONAL_STMT, op);
 }
 
 TokenInfo right_info_(Context match) noexcept {
@@ -112,8 +112,6 @@ const TokenInfo TOKEN_INFO_[static_cast<int>(TokenID::WHILE) + 1] = {
     binary_info_(OpID::NEQ),
     // BREAK
     nullary_info_(OpID::BREAK),
-    // BY
-    binary_info_(OpID::BY),
     // CAROT
     binary_info_(OpID::BXOR),
     // CAROT_EQUALS
@@ -123,15 +121,15 @@ const TokenInfo TOKEN_INFO_[static_cast<int>(TokenID::WHILE) + 1] = {
     // CHAR
     value_info_(OpID::CHAR, OpID::CONCAT),
     // COLON
-    multiary_info_(OpID::EXPR, OpID::LABEL),
-    // COLON_EQUALS
-    binary_info_(OpID::DEF_AS),
+    multiary_info_(OpID::SYMBOL, OpID::TYPE_LABEL),
     // COMMA
     binary_info_(OpID::SEP),
     // CONTINUE
     nullary_info_(OpID::CONTINUE),
     // DEF
     construct_first_info_(OpID::DEF),
+    // DOUBLE_COLON
+    binary_info_(OpID::MATCHING),
     // DOUBLE_EQUALS
     binary_info_(OpID::EQ),
     // DOUBLE_LEFT_ANGLE
@@ -143,9 +141,9 @@ const TokenInfo TOKEN_INFO_[static_cast<int>(TokenID::WHILE) + 1] = {
     // DOUBLE_RIGHT_ANGLE_EQUALS
     binary_info_(OpID::IRSH),
     // DOUBLE_STAR
-    multiary_info_(OpID::UNPACK_KWARGS, OpID::EXP),
+    multiary_info_(OpID::UNPACK_KWARGS, OpID::POW),
     // DOUBLE_STAR_EQUALS
-    binary_info_(OpID::IEXP),
+    binary_info_(OpID::IPOW),
     // DOT
     multiary_info_(OpID::UP, OpID::GET),
     // ELIF
@@ -164,8 +162,6 @@ const TokenInfo TOKEN_INFO_[static_cast<int>(TokenID::WHILE) + 1] = {
     construct_last_info_(OpID::FINALLY),
     // FOR
     construct_first_info_(OpID::FOR),
-    // FROM
-    binary_info_(OpID::FROM),
     // HASH
     no_info_(),
     // ID
@@ -178,6 +174,8 @@ const TokenInfo TOKEN_INFO_[static_cast<int>(TokenID::WHILE) + 1] = {
     binary_info_(OpID::LT),
     // LEFT_ANGLE_EQUALS
     binary_info_(OpID::LTE),
+    // LEFT_CURLY
+    left_info_(OpID::ENCLOSURE, OpID::CALL, Context::CURLY),
     // LEFT_CURVED
     left_info_(OpID::GROUP, OpID::CALL, Context::CURVED),
     // LEFT_SQUARE
@@ -189,7 +187,7 @@ const TokenInfo TOKEN_INFO_[static_cast<int>(TokenID::WHILE) + 1] = {
     // MINUS_EQUALS
     binary_info_(OpID::ISUB),
     // MINUS_RIGHT_ANGLE
-    binary_info_(OpID::ARROW),
+    binary_info_(OpID::RETURNS),
     // NEWLINE
     no_info_(),
     // NONE
@@ -203,25 +201,29 @@ const TokenInfo TOKEN_INFO_[static_cast<int>(TokenID::WHILE) + 1] = {
     // OR
     binary_info_(OpID::OR),
     // PERCENT
-    binary_info_(OpID::MOD),
+    multiary_info_(OpID::LAMBDA, OpID::MOD),
     // PERCENT_EQUALS
     binary_info_(OpID::IMOD),
     // PIPE
     binary_info_(OpID::BOR),
     // PIPE_EQUALS
     binary_info_(OpID::IBOR),
+    // PLAIN_INT
+    value_info_(OpID::PLAIN_INT, OpID::SUFFIX),
     // PLUS
     binary_info_(OpID::ADD),
     // PLUS_EQUALS
     binary_info_(OpID::IADD),
     // RAISE
-    unary_info_(OpID::RAISE),
+    optional_info_(OpID::RAISE),
     // RETURN
     optional_info_(OpID::RETURN),
     // RIGHT_ANGLE
     binary_info_(OpID::GT),
     // RIGHT_ANGLE_EQUALS
     binary_info_(OpID::GTE),
+    // RIGHT_CURLY
+    right_info_(Context::CURLY),
     // RIGHT_CURVED
     right_info_(Context::CURVED),
     // RIGHT_SQUARE
@@ -242,14 +244,12 @@ const TokenInfo TOKEN_INFO_[static_cast<int>(TokenID::WHILE) + 1] = {
     value_info_(OpID::THIS, OpID::SUFFIX),
     // TILDE
     unary_info_(OpID::BNOT),
-    // TO
-    binary_info_(OpID::TO),
     // TRUE
     value_info_(OpID::TRUE, OpID::SUFFIX),
     // TRY
     construct_first_info_(OpID::TRY),
     // TYPE
-    unary_info_(OpID::TYPE),
+    construct_first_info_(OpID::TYPE),
     // VARS
     value_info_(OpID::VARS, OpID::SUFFIX),
     // WHILE

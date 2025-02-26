@@ -1,29 +1,38 @@
 #pragma once
 
 #include <ostream>
+#include <utility>
 
 #include "dl/interpret/args.hpp"
+#include "dl/interpret/callkind.hpp"
 #include "dl/interpret/node.hpp"
-#include "dl/interpret/nodeid.hpp"
-#include "dl/source.hpp"
+#include "dl/interpret/nodecategory.hpp"
+#include "dl/pos.hpp"
 
 namespace dl {
 
-struct Call final: Node_<NodeID::CALL> {
-	NodePtr callee;
-	Args args;
-    Source src;
+struct Call final: Node {
+    CallKind kind;
+    NodePtr callee;
+    Args args;
 
-    virtual bool equals(const Node& that) const noexcept override {
-        auto casted = dynamic_cast<const Call&>(that);
-        return 
-            npeq(callee, casted.callee) &&
-            args == casted.args &&
-            src == casted.src;
+    Call(CallKind kind, NodePtr&& callee, Args&& args, Pos src) noexcept: 
+    Node(src), kind(kind), callee(std::move(callee)), args(std::move(args)) {}
+
+    virtual NodeCategory category() const noexcept override {
+        return NodeCategory::CALL;
     }
 
-    virtual std::ostream& out_data(std::ostream& os) const override {
-        return os << callee << ", " << args << ", " << src;
+    virtual bool equals(const Node& that) const noexcept override {
+        const auto& casted = dynamic_cast<const Call&>(that);
+        return
+            kind == casted.kind &&
+            npeq(callee, casted.callee) &&
+            args == casted.args;
+    }
+
+    virtual std::ostream& out(std::ostream& os) const override {
+        return os << kind << "(" << callee << ", " << args << ")";
     }
 };
 

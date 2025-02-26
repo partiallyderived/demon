@@ -11,7 +11,7 @@
 #include "dl/compose/opkind.hpp"
 #include "dl/data.hpp"
 #include "dl/parse/opid.hpp"
-#include "dl/source.hpp"
+#include "dl/pos.hpp"
 #include "dl/util.hpp"
 
 namespace dl {
@@ -27,7 +27,7 @@ struct Comp {
         Data data;
         std::vector<Comp> comps;
     };
-    Source src;
+    Pos src;
 
     Comp(const Comp& that) = delete;
 
@@ -53,21 +53,21 @@ struct Comp {
     }
 
     // Nullary constructor
-    Comp(OpID op, Source src) noexcept: op(op), src(src) {}
+    Comp(OpID op, Pos src) noexcept: op(op), src(src) {}
 
     // Unary constructor
-    Comp(OpID op, Comp&& comp, Source src):
+    Comp(OpID op, Comp&& comp, Pos src):
     op(op), comp(new Comp(std::move(comp))), src(src) {}
 
     // Binary constructor
-    inline Comp(OpID op, Comp&& lhs, Comp&& rhs, Source src);
+    inline Comp(OpID op, Comp&& lhs, Comp&& rhs, Pos src);
 
     // Data constructor
-    Comp(OpID op, Data&& data, Source src):
+    Comp(OpID op, Data&& data, Pos src):
     op(op), data(std::move(data)), src(src) {}
 
     // Aggregate constructor
-    Comp(OpID op, std::vector<Comp>&& comps, Source src) noexcept:
+    Comp(OpID op, std::vector<Comp>&& comps, Pos src) noexcept:
     op(op), comps(std::move(comps)), src(src) {}
 
     inline bool operator==(const Comp& that) const noexcept;
@@ -83,11 +83,11 @@ struct BinaryData {
     lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 };
 
-Comp::Comp(OpID op, Comp&& lhs, Comp&& rhs, Source src):
+Comp::Comp(OpID op, Comp&& lhs, Comp&& rhs, Pos src):
 op(op), bin(new BinaryData(std::move(lhs), std::move(rhs))), src(src) {}
 
 bool Comp::operator==(const Comp& that) const noexcept {
-    if (op != that.op)
+    if (op != that.op || src != that.src)
         return false;
 
     using enum OpKind;
@@ -130,7 +130,7 @@ std::ostream& operator<<(std::ostream& os, const Comp& comp) {
     os << "Comp(" << comp.op;
     switch(opinfo(comp.op).kind) {
     case UNARY:
-        os << ", " << *comp.comp << ")";
+        os << ", " << *comp.comp;
         break;
     case BINARY:
         os << ", " << comp.bin->lhs << ", " << comp.bin->rhs;
@@ -139,10 +139,10 @@ std::ostream& operator<<(std::ostream& os, const Comp& comp) {
         os << ", " << comp.data;
         break;
     case AGGREGATE:
-        return out_container(os, comp.comps);
+        os << ", " << OutContainerManip(comp.comps);
     default:;
     }
-    return os << ')';
+    return os << ", " << comp.src << ")";
 }
 
 }

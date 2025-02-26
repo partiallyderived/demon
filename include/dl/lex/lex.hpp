@@ -24,7 +24,6 @@ namespace dl {
 std::unordered_map<std::string_view, TokenID> KEYWORDS {
     {"and", TokenID::AND},
     {"break", TokenID::BREAK},
-    {"by", TokenID::BY},
     {"case", TokenID::CASE},
     {"continue", TokenID::CONTINUE},
     {"def", TokenID::DEF},
@@ -34,7 +33,6 @@ std::unordered_map<std::string_view, TokenID> KEYWORDS {
     {"false", TokenID::FALSE},
     {"finally", TokenID::FINALLY},
     {"for", TokenID::FOR},
-    {"from", TokenID::FROM},
     {"if", TokenID::IF},
     {"in", TokenID::IN},
     {"match", TokenID::MATCH},
@@ -45,7 +43,6 @@ std::unordered_map<std::string_view, TokenID> KEYWORDS {
     {"raise", TokenID::RAISE},
     {"return", TokenID::RETURN},
     {"this", TokenID::THIS},
-    {"to", TokenID::TO},
     {"true", TokenID::TRUE},
     {"try", TokenID::TRY},
     {"type", TokenID::TYPE},
@@ -56,23 +53,8 @@ std::unordered_map<std::string_view, TokenID> KEYWORDS {
 // Locale to use (C default).
 const std::locale LOCALE("C");
 
-// Errors which occur at a particular position in a file.
-struct PosErr: Err {
-    Pos pos;
-
-    PosErr(const Pos& pos) noexcept: pos(pos) {}
-
-    virtual bool equals(const Err& that) const noexcept override {
-        return pos == dynamic_cast<const PosErr&>(that).pos;
-    }
-
-    virtual std::ostream& out_data(std::ostream& os) const override {
-        return os << pos;
-    }
-};
-
-struct InvalidCharErr final: PosErr {
-    InvalidCharErr(const Pos& pos) noexcept: PosErr(pos) {}
+struct InvalidCharErr final: SourcedErr {
+    InvalidCharErr(Pos src) noexcept: SourcedErr(src) {}
 
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "InvalidCharErr";
@@ -80,48 +62,48 @@ struct InvalidCharErr final: PosErr {
 };
 
 // Indicates that an invalid escape sequence was found.
-struct InvalidEscapeErr final: PosErr {
-    InvalidEscapeErr(const Pos& pos) noexcept: PosErr(pos) {}
+struct InvalidEscapeErr final: SourcedErr {
+    InvalidEscapeErr(Pos src) noexcept: SourcedErr(src) {}
 
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "InvalidEscapeErr";
     }
 };
 
-struct InvalidHexDigitErr final: PosErr {
-    InvalidHexDigitErr(const Pos& pos) noexcept: PosErr(pos) {}
+struct InvalidHexDigitErr final: SourcedErr {
+    InvalidHexDigitErr(Pos src) noexcept: SourcedErr(src) {}
 
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "InvalidHexDigitErr";
     }
 };
 
-struct InvalidNumericLiteralErr final: PosErr {
-    InvalidNumericLiteralErr(const Pos& pos) noexcept: PosErr(pos) {}
+struct InvalidNumericLiteralErr final: SourcedErr {
+    InvalidNumericLiteralErr(Pos src) noexcept: SourcedErr(src) {}
 
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "InvalidNumericLiteralErr";
     }
 };
 
-struct InvalidUnicodeCodePointErr final: PosErr {
-    InvalidUnicodeCodePointErr(const Pos& pos) noexcept: PosErr(pos) {}
+struct InvalidUnicodeCodePointErr final: SourcedErr {
+    InvalidUnicodeCodePointErr(Pos src) noexcept: SourcedErr(src) {}
 
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "InvalidUnicodeCodePointErr";
     }
 };
 
-struct LeadingZeroesErr final: PosErr {
-    LeadingZeroesErr(const Pos& pos) noexcept: PosErr(pos) {}
+struct LeadingZeroesErr final: SourcedErr {
+    LeadingZeroesErr(Pos src) noexcept: SourcedErr(src) {}
 
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "LeadingZeroesErr";
     }
 };
 
-struct OutOfRangeErr final: PosErr {
-    OutOfRangeErr(const Pos& pos) noexcept: PosErr(pos) {}
+struct OutOfRangeErr final: SourcedErr {
+    OutOfRangeErr(Pos src) noexcept: SourcedErr(src) {}
 
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "OutOfRangeErr";
@@ -129,8 +111,8 @@ struct OutOfRangeErr final: PosErr {
 };
 
 // Indicates that a line ended with space which was unassociated with a string.
-struct TrailingSpaceErr final: PosErr {
-    TrailingSpaceErr(const Pos& pos) noexcept: PosErr(pos) {}
+struct TrailingSpaceErr final: SourcedErr {
+    TrailingSpaceErr(Pos src) noexcept: SourcedErr(src) {}
 
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "TrailingSpaceErr";
@@ -139,8 +121,8 @@ struct TrailingSpaceErr final: PosErr {
 
 // Indicates that a char was started but was unclosed: the statement ended
 // before the closing ' was found.
-struct UnclosedCharErr final: PosErr {
-    UnclosedCharErr(const Pos& pos) noexcept: PosErr(pos) {}
+struct UnclosedCharErr final: SourcedErr {
+    UnclosedCharErr(Pos src) noexcept: SourcedErr(src) {}
 
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "UnclosedCharErr";
@@ -149,8 +131,8 @@ struct UnclosedCharErr final: PosErr {
 
 // Indicates that a string was started but was unclosed: the statement ended
 // before the closing " was found.
-struct UnclosedStrErr final: PosErr {
-    UnclosedStrErr(const Pos& pos) noexcept: PosErr(pos) {}
+struct UnclosedStrErr final: SourcedErr {
+    UnclosedStrErr(Pos src) noexcept: SourcedErr(src) {}
 
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "UnclosedStrErr";
@@ -158,20 +140,19 @@ struct UnclosedStrErr final: PosErr {
 };
 
 // Indicates that an unexpected character was read.
-struct UnexpectedCharErr final: PosErr {
+struct UnexpectedCharErr final: SourcedErr {
     std::int32_t c;
 
-    UnexpectedCharErr(
-        const Pos& pos, std::int32_t c
-    ) noexcept: PosErr(pos), c(c) {}
+    UnexpectedCharErr(Pos src, std::int32_t c)
+    noexcept: SourcedErr(src), c(c) {}
 
     virtual bool equals(const Err& that) const noexcept override {
-        return PosErr::equals(that) &&
+        return SourcedErr::equals(that) &&
         c == dynamic_cast<const UnexpectedCharErr&>(that).c;
     }
 
     virtual std::ostream& out_data(std::ostream& os) const override {
-        return PosErr::out_data(os) << ", " << c;
+        return SourcedErr::out_data(os) << ", " << c;
     }
 
     virtual std::ostream& out_name(std::ostream& os) const override {
@@ -377,7 +358,11 @@ void read_alnum(std::int32_t c, Cursor& cursor, std::string& res) {
 
 template<typename T>
 Res<Token> read_number(
-    Pos start, const char* begin, const char* expected_end, int base
+    Pos start,
+    const char* begin,
+    const char* expected_end,
+    int base,
+    bool plain_int=false
 ) noexcept {
     char* end;
     errno = 0;
@@ -386,6 +371,10 @@ Res<Token> read_number(
         return ErrPtr(new OutOfRangeErr(start));
     if (end == begin || end < expected_end)
         return ErrPtr(new InvalidNumericLiteralErr(start));
+    if (plain_int)
+        // Base 10 integers without suffixes can be used in more contexts than
+        // ordinary literals.
+        return Token(TokenID::PLAIN_INT, res);
     return Token(TokenID::NUMBER, res);
 }
 
@@ -570,6 +559,9 @@ Res<Token> next_number(std::int32_t c, Cursor& cursor) {
 
     switch(suffix) {
     case LiteralSuffix::NONE:
+        return read_number<std::int32_t>(
+            start, begin, expected_end, base, base == 10
+        );
     case LiteralSuffix::S:
     case LiteralSuffix::S32:
         return read_number<std::int32_t>(start, begin, expected_end, base);
@@ -673,7 +665,7 @@ Res<Token> next_token(Cursor& cursor) {
         return Token(TokenID::HASH);
     case ':':
         return Token(
-            check_next(cursor, '=') ? TokenID::COLON_EQUALS: TokenID::COLON
+            check_next(cursor, ':') ? TokenID::DOUBLE_COLON: TokenID::COLON
         );
     case ',':
         return Token(TokenID::COMMA);
@@ -688,8 +680,7 @@ Res<Token> next_token(Cursor& cursor) {
             return ErrPtr(new UnexpectedCharErr(start, c));
         return Token(TokenID::BANG_EQUALS);
     case '<':
-        c = cursor.getc();
-        switch(c) {
+        switch(cursor.getc()) {
         case '=':
             return Token(TokenID::LEFT_ANGLE_EQUALS);
         case '<':
@@ -779,6 +770,10 @@ Res<Token> next_token(Cursor& cursor) {
         return Token(TokenID::LEFT_SQUARE);
     case ']':
         return Token(TokenID::RIGHT_SQUARE);
+    case '{':
+        return Token(TokenID::LEFT_CURLY);
+    case '}':
+        return Token(TokenID::RIGHT_CURLY);
     case '"':
         return next_str(cursor);
     case '\'':

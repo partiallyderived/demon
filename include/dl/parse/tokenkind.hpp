@@ -13,7 +13,7 @@ enum class TokenKind {
     LEFT,
     MULTIARY,
     NULLARY,
-    RETURN,
+    OPTIONAL_STMT,
     RIGHT,
     SPECIAL,
     UNARY,

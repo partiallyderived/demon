@@ -1,28 +1,41 @@
 #pragma once
 
 #include <ostream>
+#include <utility>
 
-#include "dl/interpret/block.hpp"
 #include "dl/interpret/node.hpp"
-#include "dl/interpret/nodeid.hpp"
+#include "dl/interpret/nodecategory.hpp"
+#include "dl/pos.hpp"
 
 namespace dl {
 
-struct Type final: Node_<NodeID::TYPE> {
+struct Type final: Node {
     ID id;
     Nodes parents;
-    Block body;
+    Nodes body;
+
+    Type(ID&& id, Nodes&& parents, Nodes&& body, Pos src) noexcept:
+    Node(src),
+    id(std::move(id)),
+    parents(std::move(parents)),
+    body(std::move(body)) {}
+
+    virtual NodeCategory category() const noexcept override {
+        return NodeCategory::TYPE;
+    }
 
     virtual bool equals(const Node& that) const noexcept override {
-        auto casted = dynamic_cast<const Type&>(that);
+        const auto& casted = dynamic_cast<const Type&>(that);
         return
             id == casted.id &&
             nodes_eq(parents, casted.parents) &&
-            body == casted.body;
+            nodes_eq(body, casted.body);
     }
 
-    virtual std::ostream& out_data(std::ostream& os) const override {
-        return os << id << ", " << parents << ", " << body;
+    virtual std::ostream& out(std::ostream& os) const override {
+        return os << category() << "(" <<
+            id << ", " << parents << ", " << body <<
+        ")";
     }
 };
 

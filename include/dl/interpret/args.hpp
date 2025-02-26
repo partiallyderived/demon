@@ -1,27 +1,27 @@
 #pragma once
 
 #include <ostream>
+#include <utility>
 
-#include <vector>
-
-#include "dl/err.hpp"
 #include "dl/interpret/node.hpp"
-#include "dl/interpret/nodeid.hpp"
+#include "dl/pos.hpp"
 
 namespace dl {
 
-struct Args final: Node_<NodeID::ARGS> {
+struct Args {
     Nodes args;
     Nodes kwargs;
 
-    virtual bool equals(const Node& that) const noexcept override {
-        auto casted = dynamic_cast<const Args&>(that);
-        return nodes_eq(args, casted.args) && nodes_eq(kwargs, casted.kwargs);
-    }
+    Args(Nodes&& args, Nodes&& kwargs) noexcept:
+    args(std::move(args)), kwargs(std::move(kwargs)) {}
 
-    virtual std::ostream& out_data(std::ostream& os) const override {
-        return os << args << ", " << kwargs;
+    bool operator==(const Args& that) const noexcept {
+        return nodes_eq(args, that.args) && nodes_eq(kwargs, that.kwargs);
     }
 };
+
+std::ostream& operator<<(std::ostream& os, const Args& x) {
+    return os << "Args(" << x.args << ", " << x.kwargs << ")";
+}
 
 }

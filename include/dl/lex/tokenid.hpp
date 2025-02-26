@@ -13,16 +13,15 @@ enum class TokenID {
     AT,
     BANG_EQUALS,
     BREAK,
-    BY,
     CAROT,
     CAROT_EQUALS,
     CASE,
     CHAR,
     COLON,
-    COLON_EQUALS,
     COMMA,
     CONTINUE,
     DEF,
+    DOUBLE_COLON,
     DOUBLE_EQUALS,
     DOUBLE_LEFT_ANGLE,
     DOUBLE_LEFT_ANGLE_EQUALS,
@@ -39,13 +38,13 @@ enum class TokenID {
     FALSE,
     FINALLY,
     FOR,
-    FROM,
     HASH,
     ID,
     IF,
     IN,
     LEFT_ANGLE,
     LEFT_ANGLE_EQUALS,
+    LEFT_CURLY,
     LEFT_CURVED,
     LEFT_SQUARE,
     MATCH,
@@ -62,12 +61,14 @@ enum class TokenID {
     PERCENT_EQUALS,
     PIPE,
     PIPE_EQUALS,
+    PLAIN_INT,
     PLUS,
     PLUS_EQUALS,
     RAISE,
     RETURN,
     RIGHT_ANGLE,
     RIGHT_ANGLE_EQUALS,
+    RIGHT_CURLY,
     RIGHT_CURVED,
     RIGHT_SQUARE,
     SLASH,
@@ -78,7 +79,6 @@ enum class TokenID {
     STRING,
     THIS,
     TILDE,
-    TO,
     TRUE,
     TRY,
     TYPE,
@@ -101,8 +101,6 @@ std::ostream& operator<<(std::ostream& os, TokenID id) {
         return os << "BANG_EQUALS";
     case BREAK:
         return os << "BREAK";
-    case BY:
-        return os << "BY";
     case CAROT:
         return os << "CAROT";
     case CAROT_EQUALS:
@@ -113,14 +111,14 @@ std::ostream& operator<<(std::ostream& os, TokenID id) {
         return os << "CHAR";
     case COLON:
         return os << "COLON";
-    case COLON_EQUALS:
-        return os << "COLON_EQUALS";
     case COMMA:
         return os << "COMMA";
     case CONTINUE:
         return os << "CONTINUE";
     case DEF:
         return os << "DEF";
+    case DOUBLE_COLON:
+        return os << "DOUBLE_COLON";
     case DOUBLE_EQUALS:
         return os << "DOUBLE_EQUALS";
     case DOUBLE_LEFT_ANGLE:
@@ -153,8 +151,6 @@ std::ostream& operator<<(std::ostream& os, TokenID id) {
         return os << "FINALLY";
     case FOR:
         return os << "FOR";
-    case FROM:
-        return os << "FROM";
     case HASH:
         return os << "HASH";
     case ID:
@@ -167,6 +163,8 @@ std::ostream& operator<<(std::ostream& os, TokenID id) {
         return os << "LEFT_ANGLE";
     case LEFT_ANGLE_EQUALS:
         return os << "LEFT_ANGLE_EQUALS";
+    case LEFT_CURLY:
+        return os << "LEFT_CURLY";
     case LEFT_CURVED:
         return os << "LEFT_CURVED";
     case LEFT_SQUARE:
@@ -199,6 +197,8 @@ std::ostream& operator<<(std::ostream& os, TokenID id) {
         return os << "PIPE";
     case PIPE_EQUALS:
         return os << "PIPE_EQUALS";
+    case PLAIN_INT:
+        return os << "PLAIN_INT";
     case PLUS:
         return os << "PLUS";
     case PLUS_EQUALS:
@@ -211,6 +211,8 @@ std::ostream& operator<<(std::ostream& os, TokenID id) {
         return os << "RIGHT_ANGLE";
     case RIGHT_ANGLE_EQUALS:
         return os << "RIGHT_ANGLE_EQUALS";
+    case RIGHT_CURLY:
+        return os << "RIGHT_CURLY";
     case RIGHT_CURVED:
         return os << "RIGHT_CURVED";
     case RIGHT_SQUARE:
@@ -231,8 +233,6 @@ std::ostream& operator<<(std::ostream& os, TokenID id) {
         return os << "THIS";
     case TILDE:
         return os << "TILDE";
-    case TO:
-        return os << "TO";
     case TRUE:
         return os << "TRUE";
     case TRY:

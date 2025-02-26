@@ -11,6 +11,7 @@ enum class Context {
     BLOCK,
     CURVED,
     SQUARE,
+    CURLY,
     CONSTRUCT,
     CONSTRUCT_END
 };
@@ -20,6 +21,8 @@ std::ostream& operator<<(std::ostream& os, Context ctx) {
     switch(ctx) {
     case BLOCK:
         return os << "BLOCK";
+    case CURLY:
+        return os <<  "CURLY";
     case CURVED:
         return os << "CURVED";
     case SQUARE:

@@ -4,14 +4,22 @@ build() ({
     cd build && cmake --build .
 })
 
+test_compose() ({
+    build && bin/test-compose
+})
+
+test_interpret() ({
+    build && bin/test-interpret
+})
+
 test_lex() ({
     build && bin/test-lex
 })
 
-test_tokens() ({
-    build && bin/test-tokens
+test_parse() ({
+    build && bin/test-parse
 })
 
 test() ({
-    test_lex && test_tokens
+    test_lex && test_parse && test_compose && test_interpret
 })

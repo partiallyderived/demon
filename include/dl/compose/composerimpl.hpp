@@ -9,11 +9,12 @@
 #include <utility>
 #include <vector>
 
-#include "dl/parse/opid.hpp"
 #include "dl/compose/opinfo.hpp"
 #include "dl/compose/opkind.hpp"
 #include "dl/compose/composer.hpp"
 #include "dl/compose/comp.hpp"
+#include "dl/parse/opid.hpp"
+#include "dl/pos.hpp"
 
 namespace dl {
 
@@ -138,7 +139,7 @@ struct ComposerImpl: Composer {
 
     Comp next() override {
         if (queue.empty())
-            return Comp(OpID::WAITING, -1);
+            return Comp(OpID::WAITING, Pos());
         Comp comp = std::move(queue.front());
         queue.pop();
         return comp;

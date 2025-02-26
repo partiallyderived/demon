@@ -1,27 +1,36 @@
 #pragma once
 
 #include <ostream>
+#include <utility>
 #include <vector>
 
+#include "dl/interpret/data.hpp"
 #include "dl/interpret/defcase.hpp"
-#include "dl/interpret/id.hpp"
 #include "dl/interpret/node.hpp"
-#include "dl/interpret/nodeid.hpp"
+#include "dl/interpret/nodecategory.hpp"
+#include "dl/pos.hpp"
 #include "dl/util.hpp"
 
 namespace dl {
 
-struct Def final: Node_<NodeID::DEF> {
-	std::vector<DefCase> cases;
-	ID id;
+struct Def final: Node {
+    ID id;
+    std::vector<DefCase> cases;
 
-    virtual bool equals(const Node& that) const noexcept override {
-        auto casted = dynamic_cast<const Def&>(that);
-        return cases == casted.cases && id == casted.id;
+    Def(ID&& id, std::vector<DefCase>&& cases, Pos src) noexcept:
+    Node(src), id(std::move(id)), cases(std::move(cases)) {}
+
+    virtual NodeCategory category() const noexcept override {
+        return NodeCategory::DEF;
     }
 
-    virtual std::ostream& out_data(std::ostream& os) const override {
-    	return out_container(os, cases) << ", " << id;
+    virtual bool equals(const Node& that) const noexcept override {
+        const auto& casted = dynamic_cast<const Def&>(that);
+        return id == casted.id && cases == casted.cases;
+    }
+
+    virtual std::ostream& out(std::ostream& os) const override {
+        return os << "Def(" << id << ", " << OutContainerManip(cases) << ")";
     }
 };
 

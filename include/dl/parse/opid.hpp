@@ -10,15 +10,14 @@ enum class OpID {
     ADDR,
     ADDR_TYPE,
     AND,
-    ARROW,
     BAND,
     BIND,
     BLOCK,
     BNOT,
+    BODY,
     BOR,
     BREAK,
     BXOR,
-    BY,
     CALL,
     CASE,
     CHAR,
@@ -26,20 +25,17 @@ enum class OpID {
     CONSTRUCT,
     CONTINUE,
     DEF,
-    DEF_AS,
     DIV,
     DONE,
     ELIF,
     ELSE,
+    ENCLOSURE,
     END,
     EQ,
     EXCEPT,
-    EXP,
-    EXPR,
     FALSE,
     FINALLY,
     FOR,
-    FROM,
     GET,
     GROUP,
     GT,
@@ -50,20 +46,23 @@ enum class OpID {
     IBXOR,
     ID,
     IDIV,
-    IEXP,
     IF,
     ILSH,
     IMOD,
     IMUL,
     IN,
+    IPOW,
     IRSH,
     ISUB,
     LABEL,
+    LAMBDA,
     LIST,
+    LOOP_VAR_SEP,
     LSH,
     LT,
     LTE,
     MATCH,
+    MATCHING,
     MOD,
     MUL,
     NEG,
@@ -75,9 +74,12 @@ enum class OpID {
     NULL_,
     NUMBER,
     OR,
+    PLAIN_INT,
     POS_KW_SEP,
+    POW,
     RAISE,
     RETURN,
+    RETURNS,
     RSH,
     SEP,
     SET,
@@ -85,13 +87,14 @@ enum class OpID {
     STRING,
     SUB,
     SUFFIX,
+    SYMBOL,
     TERNARY_ELSE,
     TERNARY_IF,
     THIS,
-    TO,
     TRUE,
     TRY,
     TYPE,
+    TYPE_LABEL,
     UNPACK_ARGS,
     UNPACK_KWARGS,
     UP,
@@ -111,8 +114,6 @@ std::ostream& operator<<(std::ostream& os, OpID id) {
         return os << "ADDR_TYPE";
     case AND:
         return os << "AND";
-    case ARROW:
-        return os << "ARROW";
     case BAND:
         return os << "BAND";
     case BIND:
@@ -121,14 +122,14 @@ std::ostream& operator<<(std::ostream& os, OpID id) {
         return os << "BLOCK";
     case BNOT:
         return os << "BNOT";
+    case BODY:
+        return os << "BODY";
     case BOR:
         return os << "BOR";
     case BREAK:
         return os << "BREAK";
     case BXOR:
         return os << "BXOR";
-    case BY:
-        return os << "BY";
     case CALL:
         return os << "CALL";
     case CASE:
@@ -143,8 +144,6 @@ std::ostream& operator<<(std::ostream& os, OpID id) {
         return os << "CONTINUE";
     case DEF:
         return os << "DEF";
-    case DEF_AS:
-        return os << "DEF_AS";
     case DIV:
         return os << "DIV";
     case DONE:
@@ -153,24 +152,20 @@ std::ostream& operator<<(std::ostream& os, OpID id) {
         return os << "ELIF";
     case ELSE:
         return os << "ELSE";
+    case ENCLOSURE:
+        return os << "ENCLOSURE";
     case END:
         return os << "END";
     case EQ:
         return os << "EQ";
     case EXCEPT:
         return os << "EXCEPT";
-    case EXP:
-        return os << "EXP";
-    case EXPR:
-        return os << "EXPR";
     case FALSE:
         return os << "FALSE";
     case FINALLY:
         return os << "FINALLY";
     case FOR:
         return os << "FOR";
-    case FROM:
-        return os << "FROM";
     case GET:
         return os << "GET";
     case GROUP:
@@ -191,8 +186,6 @@ std::ostream& operator<<(std::ostream& os, OpID id) {
         return os << "ID";
     case IDIV:
         return os << "IDIV";
-    case IEXP:
-        return os << "IEXP";
     case IF:
         return os << "IF";
     case ILSH:
@@ -203,14 +196,20 @@ std::ostream& operator<<(std::ostream& os, OpID id) {
         return os << "IMUL";
     case IN:
         return os << "IN";
+    case IPOW:
+        return os << "IPOW";
     case IRSH:
         return os << "IRSH";
     case ISUB:
         return os << "ISUB";
     case LABEL:
         return os << "LABEL";
+    case LAMBDA:
+        return os << "LAMBDA";
     case LIST:
         return os << "LIST";
+    case LOOP_VAR_SEP:
+        return os << "LOOP_VAR_SEP";
     case LSH:
         return os << "LSH";
     case LT:
@@ -219,6 +218,8 @@ std::ostream& operator<<(std::ostream& os, OpID id) {
         return os << "LTE";
     case MATCH:
         return os << "MATCH";
+    case MATCHING:
+        return os << "MATCHING";
     case MOD:
         return os << "MOD";
     case MUL:
@@ -241,12 +242,18 @@ std::ostream& operator<<(std::ostream& os, OpID id) {
         return os << "NUMBER";
     case OR:
         return os << "OR";
+    case PLAIN_INT:
+        return os << "PLAIN_INT";
     case POS_KW_SEP:
         return os << "POS_KW_SEP";
+    case POW:
+        return os << "POW";
     case RAISE:
         return os << "RAISE";
     case RETURN:
         return os << "RETURN";
+    case RETURNS:
+        return os << "RETURNS";
     case RSH:
         return os << "RSH";
     case SEP:
@@ -261,20 +268,22 @@ std::ostream& operator<<(std::ostream& os, OpID id) {
         return os << "SUB";
     case SUFFIX:
         return os << "SUFFIX";
+    case SYMBOL:
+        return os << "SYMBOL";
     case TERNARY_ELSE:
         return os << "TERNARY_ELSE";
     case TERNARY_IF:
         return os << "TERNARY_IF";
     case THIS:
         return os << "THIS";
-    case TO:
-        return os << "TO";
     case TRUE:
         return os << "TRUE";
     case TRY:
         return os << "TRY";
     case TYPE:
         return os << "TYPE";
+    case TYPE_LABEL:
+        return os << "TYPE_LABEL";
     case UNPACK_ARGS:
         return os << "UNPACK_ARGS";
     case UNPACK_KWARGS:

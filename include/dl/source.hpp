@@ -12,6 +12,12 @@ struct Source {
     std::uint32_t line;
     std::uint32_t col;
 
+    Source(const char* file, std::uint32_t line, std::uint32_t col) noexcept:
+    file(file), line(line), col(col) {}
+
+    Source() noexcept: Source("", 1, 1) {}
+
+
     bool operator==(const Source& that) const {
         return
             strcmp(file, that.file) == 0 &&

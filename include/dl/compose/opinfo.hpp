@@ -53,24 +53,22 @@ const OpInfo OP_INFO_[] = {
     OpInfo(OpKind::UNARY, Precedence::UNARY),
     // AND
     OpInfo(OpKind::BINARY, Precedence::AND),
-    // ARROW
-    OpInfo(OpKind::BINARY, Precedence::LABEL),
     // BAND
     OpInfo(OpKind::BINARY, Precedence::BAND),
     // BIND
-    OpInfo(OpKind::BINARY, Precedence::LABEL),
+    OpInfo(OpKind::BINARY, Precedence::BIND),
     // BLOCK
     OpInfo(OpKind::AGGREGATE, Precedence::START, Precedence::UNARY),
     // BNOT
     PREFIX_INFO_,
+    // BODY
+    OpInfo(OpKind::UNARY, Precedence::LABEL),
     // BOR
     OpInfo(OpKind::BINARY, Precedence::BOR),
     // BREAK
-    OpInfo(OpKind::NULLARY, Precedence::FLOW),
+    OpInfo(OpKind::NULLARY, Precedence::STATEMENT),
     // BXOR
     OpInfo(OpKind::BINARY, Precedence::BXOR),
-    // BY
-    OpInfo(OpKind::BINARY, Precedence::FOR_PRED),
     // CALL
     OpInfo(OpKind::BINARY, Precedence::CALL),
     // CASE
@@ -82,11 +80,9 @@ const OpInfo OP_INFO_[] = {
     // CONSTRUCT
     OpInfo(OpKind::AGGREGATE, Precedence::START, Precedence::UNARY),
     // CONTINUE
-    OpInfo(OpKind::NULLARY, Precedence::FLOW),
+    OpInfo(OpKind::NULLARY, Precedence::STATEMENT),
     // DEF
     FLOW_INFO_,
-    // DEF_AS
-    OpInfo(OpKind::BINARY, Precedence::LABEL),
     // DIV
     OpInfo(OpKind::BINARY, Precedence::MUL),
     // DONE
@@ -95,24 +91,20 @@ const OpInfo OP_INFO_[] = {
     FLOW_INFO_,
     // ELSE
     FLOW_INFO_,
+    // ENCLOSURE
+    LEFT_INFO_,
     // END
     OpInfo(OpKind::END, Precedence::END),
     // EQ
     CMP_INFO_,
     // EXCEPT
     FLOW_INFO_,
-    // EXP
-    OpInfo(OpKind::BINARY, Precedence::LEXP, Precedence::REXP),
-    // EXPR
-    PREFIX_INFO_,
     // FALSE
     OpInfo(OpKind::SINGLETON),
     // FINALLY
     FLOW_INFO_,
     // FOR
     FLOW_INFO_,
-    // FROM
-    OpInfo(OpKind::BINARY, Precedence::FOR_PRED),
     // GET
     OpInfo(OpKind::BINARY, Precedence::GET),
     // GROUP
@@ -133,8 +125,6 @@ const OpInfo OP_INFO_[] = {
     OpInfo(OpKind::DATA),
     // IDIV
     SET_INFO_,
-    // IEXP
-    SET_INFO_,
     // IF
     FLOW_INFO_,
     // ILSH
@@ -145,14 +135,20 @@ const OpInfo OP_INFO_[] = {
     SET_INFO_,
     // IN
     OpInfo(OpKind::BINARY, Precedence::IN),
+    // IPOW
+    SET_INFO_,
     // IRSH
     SET_INFO_,
     // ISUB
     SET_INFO_,
     // LABEL
     OpInfo(OpKind::BINARY, Precedence::LABEL),
+    // LAMBDA
+    PREFIX_INFO_,
     // LIST
     LEFT_INFO_,
+    // LOOP_VAR_SEP
+    OpInfo(OpKind::BINARY, Precedence::LOOP_VAR_SEP),
     // LSH
     OpInfo(OpKind::BINARY, Precedence::SHIFT),
     // LT
@@ -161,6 +157,8 @@ const OpInfo OP_INFO_[] = {
     CMP_INFO_,
     // MATCH
     FLOW_INFO_,
+    // MATCHING
+    OpInfo(OpKind::BINARY, Precedence::TYPE_LABEL),
     // MOD
     OpInfo(OpKind::BINARY, Precedence::MUL),
     // MUL
@@ -183,12 +181,18 @@ const OpInfo OP_INFO_[] = {
     OpInfo(OpKind::DATA),
     // OR
     OpInfo(OpKind::BINARY, Precedence::OR),
+    // PLAIN_INT
+    OpInfo(OpKind::DATA),
     // POS_KW_SEP
     OpInfo(OpKind::SINGLETON),
+    // POW
+    OpInfo(OpKind::BINARY, Precedence::LPOW, Precedence::RPOW),
     // RAISE
-    FLOW_INFO_,
-    // RETURN,
-    FLOW_INFO_,
+    OpInfo(OpKind::UNARY, Precedence::STATEMENT),
+    // RETURN
+    OpInfo(OpKind::UNARY, Precedence::STATEMENT),
+    // RETURNS
+    OpInfo(OpKind::BINARY, Precedence::LABEL),
     // RSH
     OpInfo(OpKind::BINARY, Precedence::SHIFT),
     // SEP
@@ -203,20 +207,22 @@ const OpInfo OP_INFO_[] = {
     OpInfo(OpKind::BINARY, Precedence::ADD),
     // SUFFIX
     OpInfo(OpKind::BINARY, Precedence::SUFFIX),
+    // SYMBOL
+    PREFIX_INFO_,
     // TERNARY_ELSE
-    OpInfo(OpKind::BINARY, Precedence::FLOW),
+    OpInfo(OpKind::BINARY, Precedence::STATEMENT),
     // TERNARY_IF
-    OpInfo(OpKind::BINARY, Precedence::FLOW),
+    OpInfo(OpKind::BINARY, Precedence::STATEMENT),
     // THIS
     OpInfo(OpKind::SINGLETON),
-    // TO
-    OpInfo(OpKind::BINARY, Precedence::FOR_PRED),
     // TRUE
     OpInfo(OpKind::SINGLETON),
     // TRY
     FLOW_INFO_,
     // TYPE
     FLOW_INFO_,
+    // TYPE_LABEL
+    OpInfo(OpKind::BINARY, Precedence::TYPE_LABEL),
     // UNPACK_ARGS
     PREFIX_INFO_,
     // UNPACK_KWARGS

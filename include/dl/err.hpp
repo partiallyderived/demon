@@ -7,6 +7,8 @@
 #include <ostream>
 #include <typeinfo>
 
+#include "dl/pos.hpp"
+
 namespace dl {
 
 // Type of errors for this project.
@@ -66,14 +68,18 @@ struct AssertionFailedErr: Err {
     }
 };
 
-// Base class for errors with source IDs.
+// Base class for errors with Sources.
 struct SourcedErr: Err {
-    std::uint64_t src_id;
+    Pos src;
 
-    SourcedErr(std::uint64_t src_id) noexcept: src_id(src_id) {}
+    SourcedErr(Pos src) noexcept: src(src) {}
 
     virtual bool equals(const Err& that) const noexcept override {
-        return src_id == dynamic_cast<const SourcedErr&>(that).src_id;
+        return src == dynamic_cast<const SourcedErr&>(that).src;
+    }
+
+    virtual std::ostream& out_data(std::ostream& os) const override {
+        return os << src;
     }
 };
 

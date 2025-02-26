@@ -1,41 +1,55 @@
 #pragma once
 
 #include <ostream>
+#include <utility>
+#include <vector>
 
-#include "dl/interpret/block.hpp"
-#include "dl/interpret/id.hpp"
+#include "dl/interpret/data.hpp"
 #include "dl/interpret/node.hpp"
-#include "dl/interpret/nodeid.hpp"
+#include "dl/interpret/nodecategory.hpp"
+#include "dl/pos.hpp"
 
 namespace dl {
 
-struct For final: Node_<NodeID::FOR> {
-    ID id;
-    NodePtr from;
-    NodePtr to;
-    NodePtr by;
-    Block body;
-    Block orelse;
+struct For final: Node {
+    std::vector<ID> vars;
+    NodePtr iterable;
+    Nodes body;
+    Nodes orelse;
 
-    virtual bool equals(const Node& that) const noexcept override {
-        auto casted = dynamic_cast<const For&>(that);
-        return
-            id == casted.id &&
-            npeq(from, casted.from) &&
-            npeq(to, casted.to) &&
-            npeq(by, casted.by) &&
-            body == casted.body &&
-            orelse == casted.orelse;
+    For(
+        std::vector<ID>&& vars,
+        NodePtr&& iterable,
+        Nodes&& body,
+        Nodes&& orelse,
+        Pos src
+    ) noexcept:
+    Node(src),
+    vars(std::move(vars)),
+    iterable(std::move(iterable)),
+    body(std::move(body)),
+    orelse(std::move(orelse)) {}
+
+    virtual NodeCategory category() const noexcept override {
+        return NodeCategory::FOR;
     }
 
-    virtual std::ostream& out_data(std::ostream& os) const override {
-        return os
-            << id << ", "
-            << from << ", "
-            << to << ", "
-            << by << ", "
-            << body << ", "
-            << orelse;
+    virtual bool equals(const Node& that) const noexcept override {
+        const auto& casted = dynamic_cast<const For&>(that);
+        return
+            vars == casted.vars &&
+            npeq(iterable, casted.iterable) &&
+            nodes_eq(body, casted.body) &&
+            nodes_eq(orelse, casted.orelse);
+    }
+
+    virtual std::ostream& out(std::ostream& os) const override {
+        return os << category() << "(" <<
+            OutContainerManip(vars) << ", " <<
+            iterable << ", " <<
+            body << ", " <<
+            orelse <<
+        ")";
     }
 };
 

@@ -2,27 +2,40 @@
 
 #include <ostream>
 
-#include "dl/interpret/id.hpp"
+#include "dl/interpret/data.hpp"
 #include "dl/interpret/node.hpp"
-#include "dl/interpret/nodeid.hpp"
+#include "dl/interpret/nodecategory.hpp"
+#include "dl/pos.hpp"
 
 namespace dl {
     
-struct SetAttr final: Node_<NodeID::SET_ATTR> {
+struct SetAttr final: Node {
     NodePtr object;
     ID attr;
     NodePtr value;
 
+    SetAttr(NodePtr&& object, ID&& attr, NodePtr&& value, Pos src) noexcept:
+    Node(src),
+    object(std::move(object)),
+    attr(std::move(attr)),
+    value(std::move(value)) {}
+
+    virtual NodeCategory category() const noexcept override {
+        return NodeCategory::SET_ATTR;
+    }
+
     virtual bool equals(const Node& that) const noexcept override {
-        auto casted = dynamic_cast<const SetAttr&>(that);
+        const auto& casted = dynamic_cast<const SetAttr&>(that);
         return
             npeq(object, casted.object) &&
             attr == casted.attr &&
             npeq(value, casted.value);
     }
 
-    virtual std::ostream& out_data(std::ostream& os) const override {
-        return os << object << ", " << attr << ", " << value;
+    virtual std::ostream& out(std::ostream& os) const override {
+        return os << category() << "(" <<
+            object << ", " << attr << ", " << value <<
+        ")";
     }
 };
     

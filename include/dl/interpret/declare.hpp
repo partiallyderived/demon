@@ -10,24 +10,24 @@
 
 namespace dl {
 
-struct KeywordArg final: Node {
+struct Declare final: Node {
     ID id;
-    NodePtr arg;
+    NodePtr type;
 
-    KeywordArg(ID&& id, NodePtr&& arg, Pos src) noexcept:
-    Node(src), id(std::move(id)), arg(std::move(arg)) {}
+    Declare(ID&& id, NodePtr&& type, Pos src) noexcept:
+    Node(src), id(std::move(id)), type(std::move(type)) {}
 
     virtual NodeCategory category() const noexcept override {
-        return NodeCategory::KEYWORD_ARG;
+        return NodeCategory::DECLARE;
     }
 
     virtual bool equals(const Node& that) const noexcept override {
-        const auto& casted = dynamic_cast<const KeywordArg&>(that);
-        return id == casted.id && npeq(arg, casted.arg);
+        const auto& casted = dynamic_cast<const Declare&>(that);
+        return id == casted.id && npeq(type, casted.type);
     }
 
     virtual std::ostream& out(std::ostream& os) const override {
-        return os << category() << "(" << id << ", " << arg << ")";
+        return os << category() << "(" << id << ", " << type << ")";
     }
 };
 

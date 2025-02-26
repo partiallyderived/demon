@@ -67,7 +67,7 @@ struct Res {
             err.~ErrType();
             is_err = false;
         }
-        res = std::move(that.res);
+        res = std::move(that);
         return *this;
     }
 
@@ -76,7 +76,7 @@ struct Res {
             res.~ResType();
             is_err = true;
         }
-        err = that.err;
+        err = that;
         return *this;
     }
 
@@ -85,7 +85,7 @@ struct Res {
             res.~ResType();
             is_err = true;
         }
-        err = std::move(that.err);
+        err = std::move(that);
         return *this;
     }
 
