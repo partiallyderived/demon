@@ -29,10 +29,9 @@ enum class Precedence {
     LPOW,
     RPOW,
     PREFIX,
-    CALL,
-    SUFFIX,
     CONCAT,
-    GET,
+    GET_CALL,
+    SUFFIX,
     UNARY
 };
 

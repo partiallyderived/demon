@@ -13,12 +13,12 @@ namespace dl {
 
 struct UpdateAttr final: Node {
     NodePtr object;
-    ID attr;
+    NodePtr attr;
     Args args;
     NodePtr value;
 
     UpdateAttr(
-        NodePtr&& object, ID&& attr, Args&& args, NodePtr&& value, Pos src
+        NodePtr&& object, NodePtr&& attr, Args&& args, NodePtr&& value, Pos src
     ) noexcept:
     Node(src),
     object(std::move(object)),
@@ -34,7 +34,7 @@ struct UpdateAttr final: Node {
         const auto& casted = dynamic_cast<const UpdateAttr&>(that);
         return
             npeq(object, casted.object) &&
-            attr == casted.attr &&
+            npeq(attr, casted.attr) &&
             args == casted.args &&
             npeq(value, casted.value);
     }

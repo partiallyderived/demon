@@ -23,7 +23,7 @@ TEST_CASE("interpret", "[interpret]") {
             s2
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
-            ID("__add__", s2),
+            NodePtr(new ID("__add__", s2)),
             Args(vec(NodePtr(new ID("b", s3))), {}),
             false,
             s2
@@ -81,7 +81,7 @@ TEST_CASE("interpret", "[interpret]") {
             s2
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
-            ID("__band__", s2),
+            NodePtr(new ID("__band__", s2)),
             Args(vec(NodePtr(new ID("b", s3))), {}),
             false,
             s2
@@ -96,7 +96,7 @@ TEST_CASE("interpret", "[interpret]") {
             s1
         )) == CallAttr(
             NodePtr(new ID("a", s2)),
-            ID("__bnot__", s1),
+            NodePtr(new ID("__bnot__", s1)),
             Args({}, {}),
             false,
             s1
@@ -112,7 +112,7 @@ TEST_CASE("interpret", "[interpret]") {
             s2
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
-            ID("__bor__", s2),
+            NodePtr(new ID("__bor__", s2)),
             Args(vec(NodePtr(new ID("b", s3))), {}),
             false,
             s2
@@ -128,7 +128,7 @@ TEST_CASE("interpret", "[interpret]") {
             s2
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
-            ID("__bxor__", s2),
+            NodePtr(new ID("__bxor__", s2)),
             Args(vec(NodePtr(new ID("b", s3))), {}),
             false,
             s2
@@ -173,7 +173,7 @@ TEST_CASE("interpret", "[interpret]") {
             s4
         )) == CallAttr(
             NodePtr(new ID("obj", s1)),
-            ID("attr", s3),
+            NodePtr(new ID("attr", s3)),
             Args(vec(NodePtr(new ID("T", s5))), {}),
             true,
             s4
@@ -202,8 +202,8 @@ TEST_CASE("interpret", "[interpret]") {
                 OpID::GROUP,
                 Comp(
                     OpID::SEP,
-                    Comp(OpID::PLAIN_INT, std::int32_t(1), s3),
-                    Comp(OpID::PLAIN_INT, std::int32_t(2), s5),
+                    Comp(OpID::PLAIN_INT, "1", s3),
+                    Comp(OpID::PLAIN_INT, "2", s5),
                     s4
                 ),
                 s2
@@ -229,8 +229,8 @@ TEST_CASE("interpret", "[interpret]") {
                     OpID::SEP,
                     Comp(
                         OpID::SEP,
-                        Comp(OpID::PLAIN_INT, std::int32_t(1), s3),
-                        Comp(OpID::PLAIN_INT, std::int32_t(2), s5),
+                        Comp(OpID::PLAIN_INT, "1", s3),
+                        Comp(OpID::PLAIN_INT, "2", s5),
                         s4
                     ),
                     Comp(OpID::UNPACK_ARGS, Comp(OpID::ID, "args", s8), s7),
@@ -262,8 +262,8 @@ TEST_CASE("interpret", "[interpret]") {
             Comp(
                 OpID::GROUP,
                 csv(
-                    Comp(OpID::PLAIN_INT, std::int32_t(1), s3),
-                    Comp(OpID::PLAIN_INT, std::int32_t(2), s5),
+                    Comp(OpID::PLAIN_INT, "1", s3),
+                    Comp(OpID::PLAIN_INT, "2", s5),
                     Comp(OpID::UNPACK_ARGS, Comp(OpID::ID, "args", s8), s7),
                     Comp(
                         OpID::BIND,
@@ -311,8 +311,8 @@ TEST_CASE("interpret", "[interpret]") {
             Comp(
                 OpID::GROUP,
                 csv(
-                    Comp(OpID::PLAIN_INT, std::int32_t(1), s3),
-                    Comp(OpID::PLAIN_INT, std::int32_t(2), s5),
+                    Comp(OpID::PLAIN_INT, "1", s3),
+                    Comp(OpID::PLAIN_INT, "2", s5),
                     Comp(OpID::UNPACK_ARGS, Comp(OpID::ID, "args", s8), s7),
                     Comp(
                         OpID::BIND,
@@ -370,14 +370,14 @@ TEST_CASE("interpret", "[interpret]") {
             Comp(
                 OpID::GROUP,
                 csv(
-                    Comp(OpID::PLAIN_INT, std::int32_t(1), s3),
+                    Comp(OpID::PLAIN_INT, "1", s3),
                     Comp(
                         OpID::BIND,
                         Comp(OpID::ID, "kw1", s5),
                         Comp(OpID::STRING, "yes", s7),
                         s6
                     ),
-                    Comp(OpID::PLAIN_INT, std::int32_t(2), s9)
+                    Comp(OpID::PLAIN_INT, "2", s9)
                 ),
                 s2
             ),
@@ -391,7 +391,7 @@ TEST_CASE("interpret", "[interpret]") {
             Comp(
                 OpID::GROUP,
                 csv(
-                    Comp(OpID::PLAIN_INT, std::int32_t(1), s3),
+                    Comp(OpID::PLAIN_INT, "1", s3),
                     Comp(
                         OpID::BIND,
                         Comp(OpID::ID, "kw1", s5),
@@ -444,7 +444,7 @@ TEST_CASE("interpret", "[interpret]") {
             s4
         )) == CallAttr(
             NodePtr(new ID("thing", s1)),
-            ID("do", s3),
+            NodePtr(new ID("do", s3)),
             Args(
                 vec(NodePtr(new ID("arg1", s5)), NodePtr(new ID("arg2", s7))),
                 vec(
@@ -456,6 +456,46 @@ TEST_CASE("interpret", "[interpret]") {
             false,
             s4
         ));
+
+        // a.3
+        REQUIRE(*interpreter.interpret(Comp(
+            OpID::CALL,
+            Comp(
+                OpID::GET,
+                Comp(OpID::ID, "a", s1),
+                Comp(OpID::PLAIN_INT, "3", s3),
+                s2
+            ),
+            Comp(
+                OpID::GROUP,
+                Comp(OpID::NOTHING, s5),
+                s4
+            ),
+            s4
+        )) == CallAttr(
+            NodePtr(new ID("a", s1)),
+            NodePtr(new NumID(3, s3)),
+            Args({}, {}),
+            false,
+            s4
+        ));
+
+        // a.true()
+        REQUIRE(*interpreter.interpret(Comp(
+            OpID::CALL,
+            Comp(
+                OpID::GET,
+                Comp(OpID::ID, "a", s1),
+                Comp(OpID::TRUE, s3),
+                s2
+            ),
+            Comp(
+                OpID::GROUP,
+                Comp(OpID::NOTHING, s5),
+                s4
+            ),
+            s4
+        )) == ExpectedGeneralIDErr(s3));
     }
 
     SECTION("Continue") {
@@ -474,15 +514,33 @@ TEST_CASE("interpret", "[interpret]") {
             Comp(OpID::ID, "a", s1),
             Comp(OpID::ID, "Int", s3),
             s2
-        )) == Declare(ID("a", s1), NodePtr(new ID("Int", s3)), s2));
+        )) == Binary(
+            BinaryKind::DECLARE,
+            NodePtr(new ID("a", s1)),
+            NodePtr(new ID("Int", s3)),
+            s2
+        ));
 
         // 3: Int
         REQUIRE(*interpreter.interpret(Comp(
             OpID::TYPE_LABEL,
-            Comp(OpID::PLAIN_INT, 3, s1),
+            Comp(OpID::PLAIN_INT, "3", s1),
             Comp(OpID::ID, "Int", s3),
             s2
-        )) == ExpectedIDErr(s1));
+        )) == Binary(
+            BinaryKind::DECLARE,
+            NodePtr(new NumID(3, s1)),
+            NodePtr(new ID("Int", s3)),
+            s2
+        ));
+
+        // true: Int
+        REQUIRE(*interpreter.interpret(Comp(
+            OpID::TYPE_LABEL,
+            Comp(OpID::TRUE, s1),
+            Comp(OpID::ID, "Int", s3),
+            s2
+        )) == ExpectedGeneralIDErr(s1));
     }
 
     SECTION("Def") {
@@ -501,7 +559,7 @@ TEST_CASE("interpret", "[interpret]") {
                     ),
                     Comp(
                         OpID::RETURN,
-                        Comp(OpID::PLAIN_INT, std::int32_t(0), s7),
+                        Comp(OpID::PLAIN_INT, "0", s7),
                         s6
                     ),
                     s5
@@ -510,7 +568,7 @@ TEST_CASE("interpret", "[interpret]") {
             )),
             s1
         )) == Def(
-            ID("f", s2),
+            NodePtr(new ID("f", s2)),
             vec(DefCase(
                 ArgSpec(
                     {},
@@ -544,7 +602,7 @@ TEST_CASE("interpret", "[interpret]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s9),
+                            Comp(OpID::PLAIN_INT, "0", s9),
                             s8
                         )),
                         s7
@@ -555,7 +613,7 @@ TEST_CASE("interpret", "[interpret]") {
             )),
             s1
         )) == Def(
-            ID("f", s2),
+            NodePtr(new ID("f", s2)),
             vec(DefCase(
                 ArgSpec(
                     {},
@@ -594,7 +652,7 @@ TEST_CASE("interpret", "[interpret]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s11),
+                            Comp(OpID::PLAIN_INT, "0", s11),
                             s10
                         )),
                         s9
@@ -605,7 +663,7 @@ TEST_CASE("interpret", "[interpret]") {
             )),
             s1
         )) == Def(
-            ID("f", s2),
+            NodePtr(new ID("f", s2)),
             vec(DefCase(
                 ArgSpec(
                     {},
@@ -646,7 +704,7 @@ TEST_CASE("interpret", "[interpret]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s12),
+                            Comp(OpID::PLAIN_INT, "0", s12),
                             s11
                         )),
                         s10
@@ -657,7 +715,7 @@ TEST_CASE("interpret", "[interpret]") {
             )),
             s1
         )) == Def(
-            ID("f", s2),
+            NodePtr(new ID("f", s2)),
             vec(DefCase(
                 ArgSpec(
                     vec(ArgDef(ID("arg", s4), nullptr, nullptr, false)),
@@ -708,7 +766,7 @@ TEST_CASE("interpret", "[interpret]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s16),
+                            Comp(OpID::PLAIN_INT, "0", s16),
                             s15
                         )),
                         s14
@@ -719,7 +777,7 @@ TEST_CASE("interpret", "[interpret]") {
             )),
             s1
         )) == Def(
-            ID("f", s2),
+            NodePtr(new ID("f", s2)),
             vec(DefCase(
                 ArgSpec(
                     vec(
@@ -783,7 +841,7 @@ TEST_CASE("interpret", "[interpret]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s19),
+                            Comp(OpID::PLAIN_INT, "0", s19),
                             s18
                         )),
                         s17
@@ -794,7 +852,7 @@ TEST_CASE("interpret", "[interpret]") {
             )),
             s1
         )) == Def(
-            ID("f", s2),
+            NodePtr(new ID("f", s2)),
             vec(DefCase(
                 ArgSpec(
                     vec(
@@ -849,7 +907,7 @@ TEST_CASE("interpret", "[interpret]") {
                                     Comp(
                                         OpID::BIND,
                                         Comp(OpID::ID, "kw1", s13),
-                                        Comp(OpID::PLAIN_INT, 1, s15),
+                                        Comp(OpID::PLAIN_INT, "1", s15),
                                         s14
                                     ),
                                     Comp(
@@ -870,7 +928,7 @@ TEST_CASE("interpret", "[interpret]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s27),
+                            Comp(OpID::PLAIN_INT, "0", s27),
                             s26
                         )),
                         s25
@@ -881,7 +939,7 @@ TEST_CASE("interpret", "[interpret]") {
             )),
             s1
         )) == Def(
-            ID("f", s2),
+            NodePtr(new ID("f", s2)),
             vec(DefCase(
                 ArgSpec(
                     vec(
@@ -951,7 +1009,7 @@ TEST_CASE("interpret", "[interpret]") {
                                     Comp(
                                         OpID::BIND,
                                         Comp(OpID::ID, "kw1", s13),
-                                        Comp(OpID::PLAIN_INT, 1, s15),
+                                        Comp(OpID::PLAIN_INT, "1", s15),
                                         s14
                                     ),
                                     Comp(
@@ -977,7 +1035,7 @@ TEST_CASE("interpret", "[interpret]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s30),
+                            Comp(OpID::PLAIN_INT, "0", s30),
                             s29
                         )),
                         s28
@@ -988,7 +1046,7 @@ TEST_CASE("interpret", "[interpret]") {
             )),
             s1
         )) == Def(
-            ID("f", s2),
+            NodePtr(new ID("f", s2)),
             vec(DefCase(
                 ArgSpec(
                     vec(
@@ -1027,8 +1085,8 @@ TEST_CASE("interpret", "[interpret]") {
 
         // def f(a: Int, b: String):
         //     return 0
-        // case (c: Float32, true) -> Float64:
-        //     return 3.14
+        // case (c: Float32, true) -> Int64:
+        //     return 3s64
         // case (1, *, kw:: 2):
         //     return 0
         REQUIRE(*interpreter.interpret(Comp(
@@ -1065,7 +1123,7 @@ TEST_CASE("interpret", "[interpret]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, 0, s16),
+                                Comp(OpID::PLAIN_INT, "0", s16),
                                 s15
                             )),
                             s14
@@ -1093,14 +1151,14 @@ TEST_CASE("interpret", "[interpret]") {
                                 ),
                                 s19
                             ),
-                            Comp(OpID::ID, "Float64", s27),
+                            Comp(OpID::ID, "Int64", s27),
                             s26
                         ),
                         Comp(
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::NUMBER, 3.14, s32),
+                                Comp(OpID::NUMBER, std::int64_t(3), s32),
                                 s31
                             )),
                             s30
@@ -1116,12 +1174,12 @@ TEST_CASE("interpret", "[interpret]") {
                         Comp(
                             OpID::GROUP,
                             csv(
-                                Comp(OpID::PLAIN_INT, std::int32_t(1), s36),
+                                Comp(OpID::PLAIN_INT, "1", s36),
                                 Comp(OpID::POS_KW_SEP, s38),
                                 Comp(
                                     OpID::MATCHING,
                                     Comp(OpID::ID, "kw", s40),
-                                    Comp(OpID::PLAIN_INT, std::int32_t(2), s42),
+                                    Comp(OpID::PLAIN_INT, "2", s42),
                                     s41
                                 )
                             ),
@@ -1132,7 +1190,7 @@ TEST_CASE("interpret", "[interpret]") {
                             vec(
                                 Comp(
                                     OpID::RETURN,
-                                    Comp(OpID::PLAIN_INT, std::int32_t(0), s48),
+                                    Comp(OpID::PLAIN_INT, "0", s48),
                                     s47
                                 )
                             ),
@@ -1145,7 +1203,7 @@ TEST_CASE("interpret", "[interpret]") {
             ),
             s1
         )) == Def(
-            ID("f", s2),
+            NodePtr(new ID("f", s2)),
             vec(
                 DefCase(
                     ArgSpec(
@@ -1192,9 +1250,9 @@ TEST_CASE("interpret", "[interpret]") {
                         ArgDef(),
                         ArgDef()
                     ),
-                    NodePtr(new ID("Float64", s27)),
+                    NodePtr(new ID("Int64", s27)),
                     vec(NodePtr(new Unary(
-                        UnaryKind::RETURN, NodePtr(new Float64(3.14, s32)), s31
+                        UnaryKind::RETURN, NodePtr(new Int64(3, s32)), s31
                     )))
                 ),
                 DefCase(
@@ -1220,6 +1278,46 @@ TEST_CASE("interpret", "[interpret]") {
                     )))
                 )
             ),
+            s1
+        ));
+
+        // def 3():
+        //     return 0
+        REQUIRE(*interpreter.interpret(Comp(
+            OpID::CONSTRUCT,
+            vec(Comp(
+                OpID::DEF,
+                Comp(
+                    OpID::LABEL,
+                    Comp(
+                        OpID::CALL,
+                        Comp(OpID::PLAIN_INT, "3", s2),
+                        Comp(OpID::GROUP, Comp(OpID::NOTHING, s4), s3),
+                        s3
+                    ),
+                    Comp(
+                        OpID::BLOCK,
+                        vec(Comp(
+                            OpID::RETURN,
+                            Comp(OpID::PLAIN_INT, "0", s9),
+                            s8
+                        )),
+                        s7
+                    ),
+                    s5
+                ),
+                s1
+            )),
+            s1
+        )) == Def(
+            NodePtr(new NumID(3, s2)),
+            vec(DefCase(
+                ArgSpec({}, {}, ArgDef(), ArgDef()),
+                nullptr,
+                vec(NodePtr(new Unary(
+                    UnaryKind::RETURN, NodePtr(new Int32(0, s9)), s8
+                )))
+            )),
             s1
         ));
 
@@ -1252,7 +1350,7 @@ TEST_CASE("interpret", "[interpret]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s7),
+                            Comp(OpID::PLAIN_INT, "0", s7),
                             s6
                         )),
                         s5
@@ -1264,7 +1362,7 @@ TEST_CASE("interpret", "[interpret]") {
             s1
         )) == ExpectedCallErr(s2));
 
-        // def 3():
+        // def true():
         //     return 0
         REQUIRE(*interpreter.interpret(Comp(
             OpID::CONSTRUCT,
@@ -1274,7 +1372,7 @@ TEST_CASE("interpret", "[interpret]") {
                     OpID::LABEL,
                     Comp(
                         OpID::CALL,
-                        Comp(OpID::PLAIN_INT, std::int32_t(3), s2),
+                        Comp(OpID::TRUE, s2),
                         Comp(OpID::GROUP, Comp(OpID::NOTHING, s4), s3),
                         s3
                     ),
@@ -1282,7 +1380,7 @@ TEST_CASE("interpret", "[interpret]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s9),
+                            Comp(OpID::PLAIN_INT, "0", s9),
                             s8
                         )),
                         s7
@@ -1292,7 +1390,7 @@ TEST_CASE("interpret", "[interpret]") {
                 s1
             )),
             s1
-        )) == ExpectedIDErr(s2));
+        )) == ExpectedGeneralIDErr(s2));
 
         // def f[]:
         //     return 0
@@ -1312,7 +1410,7 @@ TEST_CASE("interpret", "[interpret]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s9),
+                            Comp(OpID::PLAIN_INT, "0", s9),
                             s8
                         )),
                         s7
@@ -1341,7 +1439,7 @@ TEST_CASE("interpret", "[interpret]") {
                                 Comp(
                                     OpID::BIND,
                                     Comp(OpID::ID, "a", s4),
-                                    Comp(OpID::PLAIN_INT, std::int32_t(1), s6),
+                                    Comp(OpID::PLAIN_INT, "1", s6),
                                     s5
                                 ),
                                 Comp(OpID::ID, "b", s8)
@@ -1354,7 +1452,7 @@ TEST_CASE("interpret", "[interpret]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s14),
+                            Comp(OpID::PLAIN_INT, "0", s14),
                             s13
                         )),
                         s12
@@ -1395,7 +1493,7 @@ TEST_CASE("interpret", "[interpret]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s13),
+                            Comp(OpID::PLAIN_INT, "0", s13),
                             s12
                         )),
                         s11
@@ -1424,7 +1522,7 @@ TEST_CASE("interpret", "[interpret]") {
                                 Comp(
                                     OpID::BIND,
                                     Comp(OpID::ID, "a", s4),
-                                    Comp(OpID::PLAIN_INT, 1, s6),
+                                    Comp(OpID::PLAIN_INT, "1", s6),
                                     s5
                                 ),
                                 Comp(
@@ -1441,7 +1539,7 @@ TEST_CASE("interpret", "[interpret]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s15),
+                            Comp(OpID::PLAIN_INT, "0", s15),
                             s14
                         )),
                         s13
@@ -1471,10 +1569,10 @@ TEST_CASE("interpret", "[interpret]") {
                                 Comp(
                                     OpID::BIND,
                                     Comp(OpID::ID, "a", s4),
-                                    Comp(OpID::PLAIN_INT, 1, s6),
+                                    Comp(OpID::PLAIN_INT, "1", s6),
                                     s5
                                 ),
-                                Comp(OpID::PLAIN_INT, 2, s8),
+                                Comp(OpID::PLAIN_INT, "2", s8),
                                 s7
                             ),
                             s3
@@ -1485,7 +1583,7 @@ TEST_CASE("interpret", "[interpret]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s14),
+                            Comp(OpID::PLAIN_INT, "0", s14),
                             s13
                         )),
                         s12
@@ -1517,7 +1615,7 @@ TEST_CASE("interpret", "[interpret]") {
                                     Comp(OpID::ID, "args", s5),
                                     s4
                                 ),
-                                Comp(OpID::PLAIN_INT, std::int32_t(1), s7),
+                                Comp(OpID::PLAIN_INT, "1", s7),
                                 s6
                             ),
                             s3
@@ -1528,7 +1626,7 @@ TEST_CASE("interpret", "[interpret]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s13),
+                            Comp(OpID::PLAIN_INT, "0", s13),
                             s12
                         )),
                         s11
@@ -1560,7 +1658,7 @@ TEST_CASE("interpret", "[interpret]") {
                                     Comp(OpID::ID, "kwargs", s5),
                                     s4
                                 ),
-                                Comp(OpID::PLAIN_INT, std::int32_t(1), s7),
+                                Comp(OpID::PLAIN_INT, "1", s7),
                                 s6
                             ),
                             s3
@@ -1571,7 +1669,7 @@ TEST_CASE("interpret", "[interpret]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s13),
+                            Comp(OpID::PLAIN_INT, "0", s13),
                             s12
                         )),
                         s11
@@ -1598,7 +1696,7 @@ TEST_CASE("interpret", "[interpret]") {
                             OpID::GROUP,
                             Comp(
                                 OpID::UNPACK_ARGS,
-                                Comp(OpID::PLAIN_INT, std::int32_t(3), s5),
+                                Comp(OpID::PLAIN_INT, "3", s5),
                                 s4
                             ),
                             s3
@@ -1609,7 +1707,7 @@ TEST_CASE("interpret", "[interpret]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s11),
+                            Comp(OpID::PLAIN_INT, "0", s11),
                             s10
                         )),
                         s9
@@ -1636,7 +1734,7 @@ TEST_CASE("interpret", "[interpret]") {
                             OpID::GROUP,
                             Comp(
                                 OpID::UNPACK_KWARGS,
-                                Comp(OpID::PLAIN_INT, std::int32_t(3), s5),
+                                Comp(OpID::PLAIN_INT, "3", s5),
                                 s4
                             ),
                             s3
@@ -1647,7 +1745,7 @@ TEST_CASE("interpret", "[interpret]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s11),
+                            Comp(OpID::PLAIN_INT, "0", s11),
                             s10
                         )),
                         s9
@@ -1674,7 +1772,7 @@ TEST_CASE("interpret", "[interpret]") {
                             OpID::GROUP,
                             Comp(
                                 OpID::TYPE_LABEL,
-                                Comp(OpID::PLAIN_INT, std::int32_t(3), s4),
+                                Comp(OpID::PLAIN_INT, "3", s4),
                                 Comp(OpID::ID, "Int", s6),
                                 s5
                             ),
@@ -1686,7 +1784,7 @@ TEST_CASE("interpret", "[interpret]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s12),
+                            Comp(OpID::PLAIN_INT, "0", s12),
                             s11
                         )),
                         s10
@@ -1733,7 +1831,7 @@ TEST_CASE("interpret", "[interpret]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s16),
+                            Comp(OpID::PLAIN_INT, "0", s16),
                             s15
                         )),
                         s14
@@ -1770,7 +1868,7 @@ TEST_CASE("interpret", "[interpret]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(0), s9),
+                                Comp(OpID::PLAIN_INT, "0", s9),
                                 s8
                             )),
                             s7
@@ -1788,7 +1886,7 @@ TEST_CASE("interpret", "[interpret]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(1), s17),
+                                Comp(OpID::PLAIN_INT, "1", s17),
                                 s16
                             )),
                             s15
@@ -1811,7 +1909,7 @@ TEST_CASE("interpret", "[interpret]") {
             s2
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
-            ID("__div__", s2),
+            NodePtr(new ID("__div__", s2)),
             Args(vec(NodePtr(new ID("b", s3))), {}),
             false,
             s2
@@ -1848,7 +1946,7 @@ TEST_CASE("interpret", "[interpret]") {
             NodePtr(new ID("c", s4)),
             vec(NodePtr(new CallAttr(
                 NodePtr(new ID("a", s6)),
-                ID("__iadd__", s7),
+                NodePtr(new ID("__iadd__", s7)),
                 Args(vec(NodePtr(new ID("x", s8))), {}),
                 false,
                 s7
@@ -1892,7 +1990,7 @@ TEST_CASE("interpret", "[interpret]") {
             NodePtr(new ID("c", s4)),
             vec(NodePtr(new CallAttr(
                 NodePtr(new ID("a", s8)),
-                ID("__iadd__", s9),
+                NodePtr(new ID("__iadd__", s9)),
                 Args(vec(NodePtr(new ID("x", s10))), {}),
                 false,
                 s9
@@ -1945,11 +2043,11 @@ TEST_CASE("interpret", "[interpret]") {
             NodePtr(new ID("c", s6)),
             vec(NodePtr(new CallAttr(
                 NodePtr(new ID("a", s10)),
-                ID("__iadd__", s11),
+                NodePtr(new ID("__iadd__", s11)),
                 Args(
                     vec(NodePtr(new CallAttr(
                         NodePtr(new ID("x", s12)),
-                        ID("__add__", s13),
+                        NodePtr(new ID("__add__", s13)),
                         Args(vec(NodePtr(new ID("y", s14))), {}),
                         false,
                         s13
@@ -1999,7 +2097,7 @@ TEST_CASE("interpret", "[interpret]") {
                             vec(Comp(
                                 OpID::IADD,
                                 Comp(OpID::ID, "a", s14),
-                                Comp(OpID::PLAIN_INT, std::int32_t(1), s16),
+                                Comp(OpID::PLAIN_INT, "1", s16),
                                 s15
                             )),
                             s13
@@ -2016,7 +2114,7 @@ TEST_CASE("interpret", "[interpret]") {
             vec(NodePtr(new Nullary(NullaryKind::BREAK, s8))),
             vec(NodePtr(new CallAttr(
                 NodePtr(new ID("a", s14)),
-                ID("__iadd__", s15),
+                NodePtr(new ID("__iadd__", s15)),
                 Args(vec(NodePtr(new Int32(1, s16))), {}),
                 false,
                 s15
@@ -2076,7 +2174,7 @@ TEST_CASE("interpret", "[interpret]") {
                     OpID::LABEL,
                     Comp(
                         OpID::IN,
-                        Comp(OpID::PLAIN_INT, std::int32_t(3), s2),
+                        Comp(OpID::PLAIN_INT, "3", s2),
                         Comp(OpID::ID, "c", s4),
                         s3
                     ),
@@ -2085,7 +2183,7 @@ TEST_CASE("interpret", "[interpret]") {
                         vec(Comp(
                             OpID::IADD,
                             Comp(OpID::ID, "a", s8),
-                            Comp(OpID::PLAIN_INT, std::int32_t(1), s10),
+                            Comp(OpID::PLAIN_INT, "1", s10),
                             s9
                         )),
                         s7
@@ -2158,17 +2256,33 @@ TEST_CASE("interpret", "[interpret]") {
             Comp(OpID::ID, "a", s1),
             Comp(OpID::ID, "b", s3),
             s2
-        )) == GetAttr(
-            NodePtr(new ID("a", s1)), ID("b", s3), s2
+        )) == Binary(
+            BinaryKind::GET_ATTR,
+            NodePtr(new ID("a", s1)),
+            NodePtr(new ID("b", s3)),
+            s2
         ));
 
         // a.3
         REQUIRE(*interpreter.interpret(Comp(
             OpID::GET,
             Comp(OpID::ID, "a", s1),
-            Comp(OpID::PLAIN_INT, 3, s3),
+            Comp(OpID::PLAIN_INT, "3", s3),
             s2
-        )) == ExpectedIDErr(s3));
+        )) == Binary(
+            BinaryKind::GET_ATTR,
+            NodePtr(new ID("a", s1)),
+            NodePtr(new NumID(3, s3)),
+            s2
+        ));
+
+        // a.true
+        REQUIRE(*interpreter.interpret(Comp(
+            OpID::GET,
+            Comp(OpID::ID, "a", s1),
+            Comp(OpID::TRUE, s3),
+            s2
+        )) == ExpectedGeneralIDErr(s3));
     }
 
     SECTION("IADD") {
@@ -2180,7 +2294,7 @@ TEST_CASE("interpret", "[interpret]") {
             s2
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
-            ID("__iadd__", s2),
+            NodePtr(new ID("__iadd__", s2)),
             Args(vec(NodePtr(new ID("b", s3))), {}),
             false,
             s2
@@ -2196,7 +2310,7 @@ TEST_CASE("interpret", "[interpret]") {
             s2
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
-            ID("__iband__", s2),
+            NodePtr(new ID("__iband__", s2)),
             Args(vec(NodePtr(new ID("b", s3))), {}),
             false,
             s2
@@ -2212,7 +2326,7 @@ TEST_CASE("interpret", "[interpret]") {
             s2
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
-            ID("__ibor__", s2),
+            NodePtr(new ID("__ibor__", s2)),
             Args(vec(NodePtr(new ID("b", s3))), {}),
             false,
             s2
@@ -2228,7 +2342,7 @@ TEST_CASE("interpret", "[interpret]") {
             s2
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
-            ID("__ibxor__", s2),
+            NodePtr(new ID("__ibxor__", s2)),
             Args(vec(NodePtr(new ID("b", s3))), {}),
             false,
             s2
@@ -2253,7 +2367,7 @@ TEST_CASE("interpret", "[interpret]") {
             s2
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
-            ID("__idiv__", s2),
+            NodePtr(new ID("__idiv__", s2)),
             Args(vec(NodePtr(new ID("b", s3))), {}),
             false,
             s2
@@ -2269,7 +2383,7 @@ TEST_CASE("interpret", "[interpret]") {
             s2
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
-            ID("__ilsh__", s2),
+            NodePtr(new ID("__ilsh__", s2)),
             Args(vec(NodePtr(new ID("b", s3))), {}),
             false,
             s2
@@ -2285,7 +2399,7 @@ TEST_CASE("interpret", "[interpret]") {
             s2
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
-            ID("__imod__", s2),
+            NodePtr(new ID("__imod__", s2)),
             Args(vec(NodePtr(new ID("b", s3))), {}),
             false,
             s2
@@ -2301,7 +2415,7 @@ TEST_CASE("interpret", "[interpret]") {
             s2
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
-            ID("__imul__", s2),
+            NodePtr(new ID("__imul__", s2)),
             Args(vec(NodePtr(new ID("b", s3))), {}),
             false,
             s2
@@ -2317,7 +2431,7 @@ TEST_CASE("interpret", "[interpret]") {
             s2
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
-            ID("__ipow__", s2),
+            NodePtr(new ID("__ipow__", s2)),
             Args(vec(NodePtr(new ID("b", s3))), {}),
             false,
             s2
@@ -2333,7 +2447,7 @@ TEST_CASE("interpret", "[interpret]") {
             s2
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
-            ID("__irsh__", s2),
+            NodePtr(new ID("__irsh__", s2)),
             Args(vec(NodePtr(new ID("b", s3))), {}),
             false,
             s2
@@ -2349,7 +2463,7 @@ TEST_CASE("interpret", "[interpret]") {
             s2
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
-            ID("__isub__", s2),
+            NodePtr(new ID("__isub__", s2)),
             Args(vec(NodePtr(new ID("b", s3))), {}),
             false,
             s2
@@ -2367,7 +2481,7 @@ TEST_CASE("interpret", "[interpret]") {
                     Comp(OpID::ID, "x", s2),
                     Comp(
                         OpID::RETURN,
-                        Comp(OpID::PLAIN_INT, std::int32_t(0), s5),
+                        Comp(OpID::PLAIN_INT, "0", s5),
                         s4
                     ),
                     s3
@@ -2399,7 +2513,7 @@ TEST_CASE("interpret", "[interpret]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s7),
+                            Comp(OpID::PLAIN_INT, "0", s7),
                             s6
                         )),
                         s5
@@ -2436,7 +2550,7 @@ TEST_CASE("interpret", "[interpret]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(0), s7),
+                                Comp(OpID::PLAIN_INT, "0", s7),
                                 s6
                             )),
                             s5
@@ -2454,7 +2568,7 @@ TEST_CASE("interpret", "[interpret]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(1), s15),
+                                Comp(OpID::PLAIN_INT, "1", s15),
                                 s14
                             )),
                             s13
@@ -2502,7 +2616,7 @@ TEST_CASE("interpret", "[interpret]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(0), s7),
+                                Comp(OpID::PLAIN_INT, "0", s7),
                                 s6
                             )),
                             s5
@@ -2520,7 +2634,7 @@ TEST_CASE("interpret", "[interpret]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(1), s15),
+                                Comp(OpID::PLAIN_INT, "1", s15),
                                 s14
                             )),
                             s13
@@ -2537,7 +2651,7 @@ TEST_CASE("interpret", "[interpret]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(2), s22),
+                                Comp(OpID::PLAIN_INT, "2", s22),
                                 s21
                             )),
                             s20
@@ -2585,7 +2699,7 @@ TEST_CASE("interpret", "[interpret]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(0), s7),
+                                Comp(OpID::PLAIN_INT, "0", s7),
                                 s6
                             )),
                             s5
@@ -2602,7 +2716,7 @@ TEST_CASE("interpret", "[interpret]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(1), s14),
+                                Comp(OpID::PLAIN_INT, "1", s14),
                                 s13
                             )),
                             s12
@@ -2644,7 +2758,7 @@ TEST_CASE("interpret", "[interpret]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(0), s7),
+                                Comp(OpID::PLAIN_INT, "0", s7),
                                 s6
                             )),
                             s5
@@ -2662,7 +2776,7 @@ TEST_CASE("interpret", "[interpret]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(1), s15),
+                                Comp(OpID::PLAIN_INT, "1", s15),
                                 s14
                             )),
                             s13
@@ -2680,7 +2794,7 @@ TEST_CASE("interpret", "[interpret]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(2), s23),
+                                Comp(OpID::PLAIN_INT, "2", s23),
                                 s22
                             )),
                             s21
@@ -2742,7 +2856,7 @@ TEST_CASE("interpret", "[interpret]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(0), s7),
+                                Comp(OpID::PLAIN_INT, "0", s7),
                                 s6
                             )),
                             s5
@@ -2772,7 +2886,7 @@ TEST_CASE("interpret", "[interpret]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(0), s7),
+                                Comp(OpID::PLAIN_INT, "0", s7),
                                 s6
                             )),
                             s5
@@ -2790,7 +2904,7 @@ TEST_CASE("interpret", "[interpret]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(1), s15),
+                                Comp(OpID::PLAIN_INT, "1", s15),
                                 s14
                             )),
                             s13
@@ -2819,7 +2933,7 @@ TEST_CASE("interpret", "[interpret]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(0), s7),
+                                Comp(OpID::PLAIN_INT, "0", s7),
                                 s6
                             )),
                             s5
@@ -2837,7 +2951,7 @@ TEST_CASE("interpret", "[interpret]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(1), s15),
+                                Comp(OpID::PLAIN_INT, "1", s15),
                                 s14
                             )),
                             s13
@@ -2861,10 +2975,10 @@ TEST_CASE("interpret", "[interpret]") {
                 Comp(OpID::ID, "Int", s3),
                 s2
             ),
-            Comp(OpID::PLAIN_INT, std::int32_t(3), s5),
+            Comp(OpID::PLAIN_INT, "3", s5),
             s4
         )) == Init(
-            ID("a", s1),
+            NodePtr(new ID("a", s1)),
             NodePtr(new ID("Int", s3)),
             NodePtr(new Int32(3, s5)),
             s4
@@ -2875,13 +2989,31 @@ TEST_CASE("interpret", "[interpret]") {
             OpID::SET,
             Comp(
                 OpID::TYPE_LABEL,
-                Comp(OpID::PLAIN_INT, std::int32_t(3), s1),
+                Comp(OpID::PLAIN_INT, "3", s1),
                 Comp(OpID::ID, "Int", s3),
                 s2
             ),
-            Comp(OpID::PLAIN_INT, std::int32_t(3), s5),
+            Comp(OpID::PLAIN_INT, "3", s5),
             s4
-        )) == ExpectedIDErr(s1));
+        )) == Init(
+            NodePtr(new NumID(3, s1)),
+            NodePtr(new ID("Int", s3)),
+            NodePtr(new Int32(3, s5)),
+            s4
+        ));
+
+        // true: Int = 3
+        REQUIRE(*interpreter.interpret(Comp(
+            OpID::SET,
+            Comp(
+                OpID::TYPE_LABEL,
+                Comp(OpID::TRUE, s1),
+                Comp(OpID::ID, "Int", s3),
+                s2
+            ),
+            Comp(OpID::PLAIN_INT, "3", s5),
+            s4
+        )) == ExpectedGeneralIDErr(s1));
     }
 
     SECTION("LSH") {
@@ -2893,7 +3025,7 @@ TEST_CASE("interpret", "[interpret]") {
             s2
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
-            ID("__lsh__", s2),
+            NodePtr(new ID("__lsh__", s2)),
             Args(vec(NodePtr(new ID("b", s3))), {}),
             false,
             s2
@@ -2910,12 +3042,12 @@ TEST_CASE("interpret", "[interpret]") {
                     OpID::ADD,
                     Comp(
                         OpID::LAMBDA,
-                        Comp(OpID::PLAIN_INT, std::int32_t(1), s4),
+                        Comp(OpID::PLAIN_INT, "1", s4),
                         s3
                     ),
                     Comp(
                         OpID::LAMBDA,
-                        Comp(OpID::PLAIN_INT, std::int32_t(2), s7),
+                        Comp(OpID::PLAIN_INT, "2", s7),
                         s6
                     ),
                     s5
@@ -2926,9 +3058,20 @@ TEST_CASE("interpret", "[interpret]") {
         )) == Unary(
             UnaryKind::LAMBDA,
             NodePtr(new CallAttr(
-                NodePtr(new LambdaPosVar(Int32(1, s4), s3)),
-                ID("__add__", s5),
-                Args(vec(NodePtr(new LambdaPosVar(Int32(2, s7), s6))), {}),
+                NodePtr(new Unary(
+                    UnaryKind::LAMBDA_VAR,
+                    NodePtr(new NumID(1, s4)),
+                    s3
+                )),
+                NodePtr(new ID("__add__", s5)),
+                Args(
+                    vec(NodePtr(new Unary(
+                        UnaryKind::LAMBDA_VAR,
+                        NodePtr(new NumID(2, s7)),
+                        s6
+                    ))),
+                    {}
+                ),
                 false,
                 s5
             )),
@@ -2944,12 +3087,12 @@ TEST_CASE("interpret", "[interpret]") {
                     OpID::ADD,
                     Comp(
                         OpID::LAMBDA,
-                        Comp(OpID::PLAIN_INT, std::int32_t(1), s4),
+                        Comp(OpID::PLAIN_INT, "1", s4),
                         s3
                     ),
                     Comp(
                         OpID::LAMBDA,
-                        Comp(OpID::PLAIN_INT, std::int32_t(2), s7),
+                        Comp(OpID::PLAIN_INT, "2", s7),
                         s6
                     ),
                     s5
@@ -2957,30 +3100,23 @@ TEST_CASE("interpret", "[interpret]") {
                 s2
             ),
             s1
-        )) == ExpectedIDOrParentheticalErr(s2));
+        )) == ExpectedGeneralIDErr(s2));
     }
 
-    SECTION("Lambda Keyword Var") {
+    SECTION("Lambda Var") {
+        // %1
+        REQUIRE(*interpreter.interpret(Comp(
+            OpID::LAMBDA, Comp(OpID::PLAIN_INT, "1", s2), s1
+        )) == Unary(
+            UnaryKind::LAMBDA_VAR, NodePtr(new NumID(1, s2)), s1
+        ));
+
         // %a
         REQUIRE(*interpreter.interpret(Comp(
             OpID::LAMBDA, Comp(OpID::ID, "a", s2), s1
-        )) == LambdaKeywordVar(
-            ID("a", s2), s1
+        )) == Unary(
+            UnaryKind::LAMBDA_VAR, NodePtr(new ID("a", s2)), s1
         ));
-    }
-
-    SECTION("Lambda Positional Var") {
-        // %1
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::LAMBDA, Comp(OpID::PLAIN_INT, std::int32_t(1), s2), s1
-        )) == LambdaPosVar(
-            Int32(1, s2), s1
-        ));
-
-        // %0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::LAMBDA, Comp(OpID::PLAIN_INT, std::int32_t(0), s2), s1
-        )) == ZeroCannotBeLambdaVarErr(s2));
     }
 
     SECTION("List") {
@@ -3056,7 +3192,7 @@ TEST_CASE("interpret", "[interpret]") {
 
         // 0
         REQUIRE(*interpreter.interpret(Comp(
-            OpID::PLAIN_INT, std::int32_t(0), s1
+            OpID::PLAIN_INT, "0", s1
         )) == Int32(
             0, s1
         ));
@@ -3117,17 +3253,73 @@ TEST_CASE("interpret", "[interpret]") {
 
         // 0f32
         REQUIRE(*interpreter.interpret(Comp(
-            OpID::NUMBER, 0.0f, s1
+            OpID::FLOAT_TAIL, "0f32", s1
         )) == Float32(
             0, s1
         ));
 
         // 0f64
         REQUIRE(*interpreter.interpret(Comp(
-            OpID::NUMBER, 0.0, s1
+            OpID::FLOAT_TAIL, "0f64", s1
         )) == Float64(
             0, s1
         ));
+
+        // 1e7
+        REQUIRE(*interpreter.interpret(Comp(
+            OpID::FLOAT_TAIL, "1e7", s1
+        )) == Float64(
+            1e7, s1
+        ));
+
+        // 1e-7
+        REQUIRE(*interpreter.interpret(Comp(
+            OpID::FLOAT_TAIL, "1e-7", s1
+        )) == Float64(
+            1e-7, s1
+        ));
+
+        // 12.34
+        REQUIRE(*interpreter.interpret(Comp(
+            OpID::GET,
+            Comp(OpID::PLAIN_INT, "12", s1),
+            Comp(OpID::PLAIN_INT, "34", s3),
+            s2
+        )) == Float64(12.34, s1));
+
+        // 12.34f32
+        REQUIRE(*interpreter.interpret(Comp(
+            OpID::GET,
+            Comp(OpID::PLAIN_INT, "12", s1),
+            Comp(OpID::FLOAT_TAIL, "34f32", s3),
+            s2
+        )) == Float32(12.34f, s1));
+
+        // 12.34e5
+        REQUIRE(*interpreter.interpret(Comp(
+            OpID::GET,
+            Comp(OpID::PLAIN_INT, "12", s1),
+            Comp(OpID::FLOAT_TAIL, "34e5", s3),
+            s2
+        )) == Float64(12.34e5, s1));
+
+        // 12.34e5f32
+        REQUIRE(*interpreter.interpret(Comp(
+            OpID::GET,
+            Comp(OpID::PLAIN_INT, "12", s1),
+            Comp(OpID::FLOAT_TAIL, "34e5f32", s3),
+            s2
+        )) == Float32(12.34e5f, s1));
+
+        // 1e46f32
+        REQUIRE(*interpreter.interpret(Comp(
+            OpID::FLOAT_TAIL, "1e46f32", s1
+        )) == OutOfRangeErr(s1));
+
+        // 1e309
+        REQUIRE(*interpreter.interpret(Comp(
+            OpID::FLOAT_TAIL, "1e309", s1
+        )) == OutOfRangeErr(s1));
 
         // '\0'
         REQUIRE(*interpreter.interpret(Comp(
@@ -3153,7 +3345,7 @@ TEST_CASE("interpret", "[interpret]") {
             s2
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
-            ID("__mod__", s2),
+            NodePtr(new ID("__mod__", s2)),
             Args(vec(NodePtr(new ID("b", s3))), {}),
             false,
             s2
@@ -3169,7 +3361,7 @@ TEST_CASE("interpret", "[interpret]") {
             s2
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
-            ID("__mul__", s2),
+            NodePtr(new ID("__mul__", s2)),
             Args(vec(NodePtr(new ID("b", s3))), {}),
             false,
             s2
@@ -3190,7 +3382,7 @@ TEST_CASE("interpret", "[interpret]") {
             Comp(
                 OpID::TYPE_LABEL,
                 Comp(OpID::ID, "a", s2),
-                Comp(OpID::PLAIN_INT, std::int32_t(1), s4),
+                Comp(OpID::PLAIN_INT, "1", s4),
                 s3
             ),
             s1
@@ -3212,19 +3404,19 @@ TEST_CASE("interpret", "[interpret]") {
                 Comp(
                     OpID::TYPE_LABEL,
                     Comp(OpID::ID, "a", s2),
-                    Comp(OpID::PLAIN_INT, std::int32_t(1), s4),
+                    Comp(OpID::PLAIN_INT, "1", s4),
                     s3
                 ),
                 Comp(
                     OpID::TYPE_LABEL,
                     Comp(OpID::ID, "b", s6),
-                    Comp(OpID::PLAIN_INT, std::int32_t(2), s8),
+                    Comp(OpID::PLAIN_INT, "2", s8),
                     s7
                 ),
                 Comp(
                     OpID::TYPE_LABEL,
                     Comp(OpID::ID, "c", s10),
-                    Comp(OpID::PLAIN_INT, std::int32_t(3), s12),
+                    Comp(OpID::PLAIN_INT, "3", s12),
                     s11
                 )
             ),
@@ -3261,7 +3453,7 @@ TEST_CASE("interpret", "[interpret]") {
                 Comp(
                     OpID::TYPE_LABEL,
                     Comp(OpID::ID, "a", s2),
-                    Comp(OpID::PLAIN_INT, std::int32_t(1), s4),
+                    Comp(OpID::PLAIN_INT, "1", s4),
                     s3
                 ),
                 Comp(
@@ -3272,7 +3464,7 @@ TEST_CASE("interpret", "[interpret]") {
                 Comp(
                     OpID::TYPE_LABEL,
                     Comp(OpID::ID, "b", s9),
-                    Comp(OpID::PLAIN_INT, std::int32_t(2), s11),
+                    Comp(OpID::PLAIN_INT, "2", s11),
                     s10
                 )
             ),
@@ -3335,7 +3527,11 @@ TEST_CASE("interpret", "[interpret]") {
                     CallKind::MATCH,
                     NodePtr(new ID("Int", s5)),
                     Args(
-                        vec(NodePtr(new LambdaKeywordVar(ID("y", s8), s7))),
+                        vec(NodePtr(new Unary(
+                            UnaryKind::LAMBDA_VAR,
+                            NodePtr(new ID("y", s8)),
+                            s7
+                        ))),
                         {}
                     ),
                     s6
@@ -3389,7 +3585,11 @@ TEST_CASE("interpret", "[interpret]") {
                     CallKind::MATCH,
                     NodePtr(new ID("Int", s5)),
                     Args(
-                        vec(NodePtr(new LambdaKeywordVar(ID("y", s8), s7))),
+                        vec(NodePtr(new Unary(
+                            UnaryKind::LAMBDA_VAR,
+                            NodePtr(new ID("y", s8)),
+                            s7
+                        ))),
                         {}
                     ),
                     s6
@@ -3444,7 +3644,7 @@ TEST_CASE("interpret", "[interpret]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(0), s21),
+                                Comp(OpID::PLAIN_INT, "0", s21),
                                 s20
                             )),
                             s19
@@ -3462,7 +3662,11 @@ TEST_CASE("interpret", "[interpret]") {
                     CallKind::MATCH,
                     NodePtr(new ID("Int", s5)),
                     Args(
-                        vec(NodePtr(new LambdaKeywordVar(ID("y", s8), s7))),
+                        vec(NodePtr(new Unary(
+                            UnaryKind::LAMBDA_VAR,
+                            NodePtr(new ID("y", s8)),
+                            s7
+                        ))),
                         {}
                     ),
                     s6
@@ -3520,7 +3724,7 @@ TEST_CASE("interpret", "[interpret]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(0), s22),
+                                Comp(OpID::PLAIN_INT, "0", s22),
                                 s21
                             )),
                             s20
@@ -3539,8 +3743,10 @@ TEST_CASE("interpret", "[interpret]") {
                         CallKind::MATCH,
                         NodePtr(new ID("Int", s5)),
                         Args(
-                            vec(NodePtr(new LambdaKeywordVar(
-                                ID("y", s8), s7
+                            vec(NodePtr(new Unary(
+                                UnaryKind::LAMBDA_VAR,
+                                NodePtr(new ID("y", s8)),
+                                s7
                             ))),
                             {}
                         ),
@@ -3639,7 +3845,7 @@ TEST_CASE("interpret", "[interpret]") {
             s1
         )) == CallAttr(
             NodePtr(new ID("a", s2)),
-            ID("__neg__", s1),
+            NodePtr(new ID("__neg__", s1)),
             Args({}, {}),
             false,
             s1
@@ -3670,7 +3876,7 @@ TEST_CASE("interpret", "[interpret]") {
             s2
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
-            ID("__pow__", s2),
+            NodePtr(new ID("__pow__", s2)),
             Args(vec(NodePtr(new ID("b", s3))), {}),
             false,
             s2
@@ -3686,7 +3892,7 @@ TEST_CASE("interpret", "[interpret]") {
             s2
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
-            ID("__rsh__", s2),
+            NodePtr(new ID("__rsh__", s2)),
             Args(vec(NodePtr(new ID("b", s3))), {}),
             false,
             s2
@@ -3734,7 +3940,7 @@ TEST_CASE("interpret", "[interpret]") {
             s2
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
-            ID("__sub__", s2),
+            NodePtr(new ID("__sub__", s2)),
             Args(vec(NodePtr(new ID("b", s3))), {}),
             false,
             s2
@@ -3803,7 +4009,10 @@ TEST_CASE("interpret", "[interpret]") {
             Comp(OpID::ID, "c", s5),
             s4
         )) == SetAttr(
-            NodePtr(new ID("a", s1)), ID("b", s3), NodePtr(new ID("c", s5)), s4
+            NodePtr(new ID("a", s1)),
+            NodePtr(new ID("b", s3)),
+            NodePtr(new ID("c", s5)),
+            s4
         ));
 
         // a.3 = b
@@ -3812,26 +4021,44 @@ TEST_CASE("interpret", "[interpret]") {
             Comp(
                 OpID::GET,
                 Comp(OpID::ID, "a", s1),
-                Comp(OpID::PLAIN_INT, std::int32_t(3), s3),
+                Comp(OpID::PLAIN_INT, "3", s3),
                 s2
             ),
             Comp(OpID::ID, "b", s5),
             s4
-        )) == ExpectedIDErr(s3));
+        )) == SetAttr(
+            NodePtr(new ID("a", s1)),
+            NodePtr(new NumID(3, s3)),
+            NodePtr(new ID("b", s5)),
+            s4
+        ));
+
+        // a.true = b
+        REQUIRE(*interpreter.interpret(Comp(
+            OpID::SET,
+            Comp(
+                OpID::GET,
+                Comp(OpID::ID, "a", s1),
+                Comp(OpID::TRUE, s3),
+                s2
+            ),
+            Comp(OpID::ID, "b", s5),
+            s4
+        )) == ExpectedGeneralIDErr(s3));
     }
 
     SECTION("Symbol") {
         // :x
         REQUIRE(*interpreter.interpret(Comp(
             OpID::SYMBOL, Comp(OpID::ID, "x", s2), s1
-        )) == Symbol(ID("x", s2), s1));
+        )) == Unary(UnaryKind::SYMBOL, NodePtr(new ID("x", s2)), s1));
 
         // :3
         REQUIRE(*interpreter.interpret(Comp(
             OpID::SYMBOL,
-            Comp(OpID::PLAIN_INT, std::int32_t(3), s2),
+            Comp(OpID::PLAIN_INT, "3", s2),
             s1
-        )) == ExpectedIDErr(s2));
+        )) == Unary(UnaryKind::SYMBOL, NodePtr(new NumID(3, s2)), s1));
     }
 
     SECTION("Ternary") {
@@ -3936,7 +4163,11 @@ TEST_CASE("interpret", "[interpret]") {
                     CallKind::MATCH,
                     NodePtr(new ID("E", s8)),
                     Args(
-                        vec(NodePtr(new LambdaKeywordVar(ID("e", s11), s10))),
+                        vec(NodePtr(new Unary(
+                            UnaryKind::LAMBDA_VAR,
+                            NodePtr(new ID("e", s11)),
+                            s10
+                        ))),
                         {}
                     ),
                     s9
@@ -4020,7 +4251,11 @@ TEST_CASE("interpret", "[interpret]") {
                     CallKind::MATCH,
                     NodePtr(new ID("E", s10)),
                     Args(
-                        vec(NodePtr(new LambdaKeywordVar(ID("e", s13), s12))),
+                        vec(NodePtr(new Unary(
+                            UnaryKind::LAMBDA_VAR,
+                            NodePtr(new ID("e", s13)),
+                            s12
+                        ))),
                         {}
                     ),
                     s11
@@ -4122,7 +4357,11 @@ TEST_CASE("interpret", "[interpret]") {
                     CallKind::MATCH,
                     NodePtr(new ID("E", s10)),
                     Args(
-                        vec(NodePtr(new LambdaKeywordVar(ID("e", s13), s12))),
+                        vec(NodePtr(new Unary(
+                            UnaryKind::LAMBDA_VAR,
+                            NodePtr(new ID("e", s13)),
+                            s12
+                        ))),
                         {}
                     ),
                     s11
@@ -4298,9 +4537,11 @@ TEST_CASE("interpret", "[interpret]") {
                         CallKind::MATCH,
                         NodePtr(new ID("E1", s10)),
                         Args(
-                            vec(NodePtr(
-                                new LambdaKeywordVar(ID("e", s13), s12)
-                            )),
+                            vec(NodePtr(new Unary(
+                                UnaryKind::LAMBDA_VAR,
+                                NodePtr(new ID("e", s13)),
+                                s12
+                            ))),
                             {}
                         ),
                         s11
@@ -4317,9 +4558,11 @@ TEST_CASE("interpret", "[interpret]") {
                         CallKind::MATCH,
                         NodePtr(new ID("E2", s23)),
                         Args(
-                            vec(NodePtr(
-                                new LambdaKeywordVar(ID("e", s26), s25)
-                            )),
+                            vec(NodePtr(new Unary(
+                                UnaryKind::LAMBDA_VAR,
+                                NodePtr(new ID("e", s26)),
+                                s25
+                            ))),
                             {}
                         ),
                         s24
@@ -4602,10 +4845,6 @@ TEST_CASE("interpret", "[interpret]") {
 
     }
 
-    SECTION("Type") {
-
-    }
-
     SECTION("Update") {
         // a(i) = b
         REQUIRE(*interpreter.interpret(Comp(
@@ -4649,7 +4888,7 @@ TEST_CASE("interpret", "[interpret]") {
             s7
         )) == UpdateAttr(
             NodePtr(new ID("a", s1)),
-            ID("b", s3),
+            NodePtr(new ID("b", s3)),
             Args(vec(NodePtr(new ID("i", s5))), {}),
             NodePtr(new ID("c", s8)),
             s7
@@ -4663,7 +4902,7 @@ TEST_CASE("interpret", "[interpret]") {
                 Comp(
                     OpID::GET,
                     Comp(OpID::ID, "a", s1),
-                    Comp(OpID::PLAIN_INT, std::int32_t(3), s3),
+                    Comp(OpID::PLAIN_INT, "3", s3),
                     s2
                 ),
                 Comp(
@@ -4675,7 +4914,35 @@ TEST_CASE("interpret", "[interpret]") {
             ),
             Comp(OpID::ID, "c", s8),
             s7
-        )) == ExpectedIDErr{s3});
+        )) == UpdateAttr(
+            NodePtr(new ID("a", s1)),
+            NodePtr(new NumID(3, s3)),
+            Args(vec(NodePtr(new ID("i", s5))), {}),
+            NodePtr(new ID("c", s8)),
+            s7
+        ));
+
+        // a.true(i) = c
+        REQUIRE(*interpreter.interpret(Comp(
+            OpID::SET,
+            Comp(
+                OpID::CALL,
+                Comp(
+                    OpID::GET,
+                    Comp(OpID::ID, "a", s1),
+                    Comp(OpID::TRUE, s3),
+                    s2
+                ),
+                Comp(
+                    OpID::GROUP,
+                    Comp(OpID::ID, "i", s5),
+                    s4
+                ),
+                s4
+            ),
+            Comp(OpID::ID, "c", s8),
+            s7
+        )) == ExpectedGeneralIDErr(s3));
     }
 
     SECTION("While") {

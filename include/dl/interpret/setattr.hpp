@@ -11,10 +11,12 @@ namespace dl {
     
 struct SetAttr final: Node {
     NodePtr object;
-    ID attr;
+    NodePtr attr;
     NodePtr value;
 
-    SetAttr(NodePtr&& object, ID&& attr, NodePtr&& value, Pos src) noexcept:
+    SetAttr(
+        NodePtr&& object, NodePtr&& attr, NodePtr&& value, Pos src
+    ) noexcept:
     Node(src),
     object(std::move(object)),
     attr(std::move(attr)),
@@ -28,7 +30,7 @@ struct SetAttr final: Node {
         const auto& casted = dynamic_cast<const SetAttr&>(that);
         return
             npeq(object, casted.object) &&
-            attr == casted.attr &&
+            npeq(attr, casted.attr) &&
             npeq(value, casted.value);
     }
 

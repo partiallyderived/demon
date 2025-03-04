@@ -148,8 +148,8 @@ TEST_CASE("Composer Core", "[compose]") {
     SECTION("Data Operators") {
         for (Op o: std::vector{
             Op(OpID::CHAR, 50, s1),
+            Op(OpID::FLOAT_TAIL, "1e7", s1),
             Op(OpID::ID, "asdf", s1),
-            Op(OpID::NUMBER, 3.14, s1),
             Op(OpID::PLAIN_INT, 3, s1),
             Op(OpID::STRING, "a string", s1)
         }) {
@@ -262,26 +262,26 @@ TEST_CASE("Composer Core", "[compose]") {
         REQUIRE(feed_all({
             Op(OpID::ID, "a", s1),
             Op(OpID::SET, s1),
-            Op(OpID::PLAIN_INT, std::int32_t(1), s1),
+            Op(OpID::PLAIN_INT, "1", s1),
             Op(OpID::ADD, s1),
-            Op(OpID::PLAIN_INT, std::int32_t(2), s1),
+            Op(OpID::PLAIN_INT, "2", s1),
             Op(OpID::MUL, s1),
-            Op(OpID::PLAIN_INT, std::int32_t(3), s1),
+            Op(OpID::PLAIN_INT, "3", s1),
             Op(OpID::POW, s1),
-            Op(OpID::PLAIN_INT, std::int32_t(4), s1)
+            Op(OpID::PLAIN_INT, "4", s1)
         }) == Comp(
             OpID::SET,
             Comp(OpID::ID, "a", s1),
             Comp(
                 OpID::ADD,
-                Comp(OpID::PLAIN_INT, std::int32_t(1), s1),
+                Comp(OpID::PLAIN_INT, "1", s1),
                 Comp(
                     OpID::MUL,
-                    Comp(OpID::PLAIN_INT, std::int32_t(2), s1),
+                    Comp(OpID::PLAIN_INT, "2", s1),
                     Comp(
                         OpID::POW,
-                        Comp(OpID::PLAIN_INT, std::int32_t(3), s1),
-                        Comp(OpID::PLAIN_INT, std::int32_t(4), s1),
+                        Comp(OpID::PLAIN_INT, "3", s1),
+                        Comp(OpID::PLAIN_INT, "4", s1),
                         s1
                     ),
                     s1
@@ -295,13 +295,13 @@ TEST_CASE("Composer Core", "[compose]") {
         REQUIRE(feed_all({
             Op(OpID::ID, "a", s1),
             Op(OpID::SET, s1),
-            Op(OpID::PLAIN_INT, std::int32_t(1), s1),
+            Op(OpID::PLAIN_INT, "1", s1),
             Op(OpID::POW, s1),
-            Op(OpID::PLAIN_INT, std::int32_t(2), s1),
+            Op(OpID::PLAIN_INT, "2", s1),
             Op(OpID::MUL, s1),
-            Op(OpID::PLAIN_INT, std::int32_t(3), s1),
+            Op(OpID::PLAIN_INT, "3", s1),
             Op(OpID::ADD, s1),
-            Op(OpID::PLAIN_INT, std::int32_t(4), s1)
+            Op(OpID::PLAIN_INT, "4", s1)
         }) == Comp(
             OpID::SET,
             Comp(OpID::ID, "a", s1),
@@ -311,14 +311,14 @@ TEST_CASE("Composer Core", "[compose]") {
                     OpID::MUL,
                     Comp(
                         OpID::POW,
-                        Comp(OpID::PLAIN_INT, std::int32_t(1), s1),
-                        Comp(OpID::PLAIN_INT, std::int32_t(2), s1),
+                        Comp(OpID::PLAIN_INT, "1", s1),
+                        Comp(OpID::PLAIN_INT, "2", s1),
                         s1
                     ),
-                    Comp(OpID::PLAIN_INT, std::int32_t(3), s1),
+                    Comp(OpID::PLAIN_INT, "3", s1),
                     s1
                 ),
-                Comp(OpID::PLAIN_INT, std::int32_t(4), s1),
+                Comp(OpID::PLAIN_INT, "4", s1),
                 s1
             ),
             s1
@@ -326,37 +326,37 @@ TEST_CASE("Composer Core", "[compose]") {
 
         // Left-associative example: 1 + 2 + 3
         REQUIRE(feed_all({
-            Op(OpID::PLAIN_INT, std::int32_t(1), s1),
+            Op(OpID::PLAIN_INT, "1", s1),
             Op(OpID::ADD, s1),
-            Op(OpID::PLAIN_INT, std::int32_t(2), s1),
+            Op(OpID::PLAIN_INT, "2", s1),
             Op(OpID::ADD, s1),
-            Op(OpID::PLAIN_INT, std::int32_t(3), s1)
+            Op(OpID::PLAIN_INT, "3", s1)
         }) == Comp(
             OpID::ADD,
             Comp(
                 OpID::ADD,
-                Comp(OpID::PLAIN_INT, std::int32_t(1), s1),
-                Comp(OpID::PLAIN_INT, std::int32_t(2), s1),
+                Comp(OpID::PLAIN_INT, "1", s1),
+                Comp(OpID::PLAIN_INT, "2", s1),
                 s1
             ),
-            Comp(OpID::PLAIN_INT, std::int32_t(3), s1),
+            Comp(OpID::PLAIN_INT, "3", s1),
             s1
         ));
 
         // Right-associative example: 1 ** 2 ** 3
         REQUIRE(feed_all({
-            Op(OpID::PLAIN_INT, std::int32_t(1), s1),
+            Op(OpID::PLAIN_INT, "1", s1),
             Op(OpID::POW, s1),
-            Op(OpID::PLAIN_INT, std::int32_t(2), s1),
+            Op(OpID::PLAIN_INT, "2", s1),
             Op(OpID::POW, s1),
-            Op(OpID::PLAIN_INT, std::int32_t(3), s1)
+            Op(OpID::PLAIN_INT, "3", s1)
         }) == Comp(
             OpID::POW,
-            Comp(OpID::PLAIN_INT, std::int32_t(1), s1),
+            Comp(OpID::PLAIN_INT, "1", s1),
             Comp(
                 OpID::POW,
-                Comp(OpID::PLAIN_INT, std::int32_t(2), s1),
-                Comp(OpID::PLAIN_INT, std::int32_t(3), s1),
+                Comp(OpID::PLAIN_INT, "2", s1),
+                Comp(OpID::PLAIN_INT, "3", s1),
                 s1
             ),
             s1
@@ -375,14 +375,14 @@ TEST_CASE("Composer Core", "[compose]") {
 
         // 1 + -2: Unary should apply first.
         REQUIRE(feed_all({
-            Op(OpID::PLAIN_INT, std::int32_t(1), s1),
+            Op(OpID::PLAIN_INT, "1", s1),
             Op(OpID::ADD, s1),
             Op(OpID::NEG, s1),
-            Op(OpID::PLAIN_INT, std::int32_t(2), s1)
+            Op(OpID::PLAIN_INT, "2", s1)
         }) == Comp(
             OpID::ADD,
-            Comp(OpID::PLAIN_INT, std::int32_t(1), s1),
-            Comp(OpID::NEG, Comp(OpID::PLAIN_INT, std::int32_t(2), s1), s1),
+            Comp(OpID::PLAIN_INT, "1", s1),
+            Comp(OpID::NEG, Comp(OpID::PLAIN_INT, "2", s1), s1),
             s1
         ));
     }
@@ -567,9 +567,9 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::ID, "fn", s1),
             Op(OpID::CALL, s2),
             Op(OpID::GROUP, s2),
-            Op(OpID::PLAIN_INT, std::int32_t(1), s3),
+            Op(OpID::PLAIN_INT, "1", s3),
             Op(OpID::SEP, s4),
-            Op(OpID::PLAIN_INT, std::int32_t(2), s5),
+            Op(OpID::PLAIN_INT, "2", s5),
             Op(OpID::END, s6)
         )) == Comp(
             OpID::CALL,
@@ -578,8 +578,8 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                 OpID::GROUP,
                 Comp(
                     OpID::SEP,
-                    Comp(OpID::PLAIN_INT, std::int32_t(1), s3),
-                    Comp(OpID::PLAIN_INT, std::int32_t(2), s5),
+                    Comp(OpID::PLAIN_INT, "1", s3),
+                    Comp(OpID::PLAIN_INT, "2", s5),
                     s4
                 ),
                 s2
@@ -592,9 +592,9 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::ID, "fn", s1),
             Op(OpID::CALL, s2),
             Op(OpID::GROUP, s2),
-            Op(OpID::PLAIN_INT, std::int32_t(1), s3),
+            Op(OpID::PLAIN_INT, "1", s3),
             Op(OpID::SEP, s4),
-            Op(OpID::PLAIN_INT, std::int32_t(2), s5),
+            Op(OpID::PLAIN_INT, "2", s5),
             Op(OpID::SEP, s6),
             Op(OpID::UNPACK_ARGS, s7),
             Op(OpID::ID, "args", s8),
@@ -608,8 +608,8 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                     OpID::SEP,
                     Comp(
                         OpID::SEP,
-                        Comp(OpID::PLAIN_INT, std::int32_t(1), s3),
-                        Comp(OpID::PLAIN_INT, std::int32_t(2), s5),
+                        Comp(OpID::PLAIN_INT, "1", s3),
+                        Comp(OpID::PLAIN_INT, "2", s5),
                         s4
                     ),
                     Comp(OpID::UNPACK_ARGS, Comp(OpID::ID, "args", s8), s7),
@@ -625,9 +625,9 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::ID, "fn", s1),
             Op(OpID::CALL, s2),
             Op(OpID::GROUP, s2),
-            Op(OpID::PLAIN_INT, std::int32_t(1), s3),
+            Op(OpID::PLAIN_INT, "1", s3),
             Op(OpID::SEP, s0),
-            Op(OpID::PLAIN_INT, std::int32_t(2), s5),
+            Op(OpID::PLAIN_INT, "2", s5),
             Op(OpID::SEP, s0),
             Op(OpID::UNPACK_ARGS, s7),
             Op(OpID::ID, "args", s8),
@@ -646,8 +646,8 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Comp(
                 OpID::GROUP,
                 csv(
-                    Comp(OpID::PLAIN_INT, std::int32_t(1), s3),
-                    Comp(OpID::PLAIN_INT, std::int32_t(2), s5),
+                    Comp(OpID::PLAIN_INT, "1", s3),
+                    Comp(OpID::PLAIN_INT, "2", s5),
                     Comp(OpID::UNPACK_ARGS, Comp(OpID::ID, "args", s8), s7),
                     Comp(
                         OpID::BIND,
@@ -672,9 +672,9 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::ID, "fn", s1),
             Op(OpID::CALL, s2),
             Op(OpID::GROUP, s2),
-            Op(OpID::PLAIN_INT, std::int32_t(1), s3),
+            Op(OpID::PLAIN_INT, "1", s3),
             Op(OpID::SEP, s0),
-            Op(OpID::PLAIN_INT, std::int32_t(2), s5),
+            Op(OpID::PLAIN_INT, "2", s5),
             Op(OpID::SEP, s0),
             Op(OpID::UNPACK_ARGS, s7),
             Op(OpID::ID, "args", s8),
@@ -696,8 +696,8 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Comp(
                 OpID::GROUP,
                 csv(
-                    Comp(OpID::PLAIN_INT, std::int32_t(1), s3),
-                    Comp(OpID::PLAIN_INT, std::int32_t(2), s5),
+                    Comp(OpID::PLAIN_INT, "1", s3),
+                    Comp(OpID::PLAIN_INT, "2", s5),
                     Comp(OpID::UNPACK_ARGS, Comp(OpID::ID, "args", s8), s7),
                     Comp(
                         OpID::BIND,
@@ -727,13 +727,13 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::ID, "fn", s1),
             Op(OpID::CALL, s2),
             Op(OpID::GROUP, s2),
-            Op(OpID::PLAIN_INT, std::int32_t(1), s3),
+            Op(OpID::PLAIN_INT, "1", s3),
             Op(OpID::SEP, s0),
             Op(OpID::ID, "kw1", s5),
             Op(OpID::BIND, s6),
             Op(OpID::STRING, "yes", s7),
             Op(OpID::SEP, s0),
-            Op(OpID::PLAIN_INT, std::int32_t(2), s9),
+            Op(OpID::PLAIN_INT, "2", s9),
             Op(OpID::END, s10)
         )) == Comp(
             OpID::CALL,
@@ -741,14 +741,14 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Comp(
                 OpID::GROUP,
                 csv(
-                    Comp(OpID::PLAIN_INT, std::int32_t(1), s3),
+                    Comp(OpID::PLAIN_INT, "1", s3),
                     Comp(
                         OpID::BIND,
                         Comp(OpID::ID, "kw1", s5),
                         Comp(OpID::STRING, "yes", s7),
                         s6
                     ),
-                    Comp(OpID::PLAIN_INT, std::int32_t(2), s9)
+                    Comp(OpID::PLAIN_INT, "2", s9)
                 ),
                 s2
             ),
@@ -760,7 +760,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::ID, "fn", s1),
             Op(OpID::CALL, s2),
             Op(OpID::GROUP, s2),
-            Op(OpID::PLAIN_INT, std::int32_t(1), s3),
+            Op(OpID::PLAIN_INT, "1", s3),
             Op(OpID::SEP, s0),
             Op(OpID::ID, "kw1", s5),
             Op(OpID::BIND, s6),
@@ -776,7 +776,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Comp(
                 OpID::GROUP,
                 csv(
-                    Comp(OpID::PLAIN_INT, std::int32_t(1), s3),
+                    Comp(OpID::PLAIN_INT, "1", s3),
                     Comp(
                         OpID::BIND,
                         Comp(OpID::ID, "kw1", s5),
@@ -842,6 +842,56 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             ),
             s4
         ));
+
+        // a.3()
+        REQUIRE(feed_all(vec(
+            Op(OpID::ID, "a", s1),
+            Op(OpID::GET, s2),
+            Op(OpID::PLAIN_INT, "3", s3),
+            Op(OpID::CALL, s4),
+            Op(OpID::GROUP, s4),
+            Op(OpID::NOTHING, s5),
+            Op(OpID::END, s5)
+        )) == Comp(
+            OpID::CALL,
+            Comp(
+                OpID::GET,
+                Comp(OpID::ID, "a", s1),
+                Comp(OpID::PLAIN_INT, "3", s3),
+                s2
+            ),
+            Comp(
+                OpID::GROUP,
+                Comp(OpID::NOTHING, s5),
+                s4
+            ),
+            s4
+        ));
+
+        // a.true()
+        REQUIRE(feed_all(vec(
+            Op(OpID::ID, "a", s1),
+            Op(OpID::GET, s2),
+            Op(OpID::TRUE, s3),
+            Op(OpID::CALL, s4),
+            Op(OpID::GROUP, s4),
+            Op(OpID::NOTHING, s5),
+            Op(OpID::END, s5)
+        )) == Comp(
+            OpID::CALL,
+            Comp(
+                OpID::GET,
+                Comp(OpID::ID, "a", s1),
+                Comp(OpID::TRUE, s3),
+                s2
+            ),
+            Comp(
+                OpID::GROUP,
+                Comp(OpID::NOTHING, s5),
+                s4
+            ),
+            s4
+        ));
     }
 
     SECTION("Continue") {
@@ -868,12 +918,24 @@ TEST_CASE("Composer Input/Output", "[compose]") {
 
         // 3: Int
         REQUIRE(feed_all(vec(
-            Op(OpID::PLAIN_INT, std::int32_t(3), s1),
+            Op(OpID::PLAIN_INT, "3", s1),
             Op(OpID::TYPE_LABEL, s2),
             Op(OpID::ID, "Int", s3)
         )) == Comp(
             OpID::TYPE_LABEL,
-            Comp(OpID::PLAIN_INT, 3, s1),
+            Comp(OpID::PLAIN_INT, "3", s1),
+            Comp(OpID::ID, "Int", s3),
+            s2
+        ));
+
+        // true: Int
+        REQUIRE(feed_all(vec(
+            Op(OpID::TRUE, s1),
+            Op(OpID::TYPE_LABEL, s2),
+            Op(OpID::ID, "Int", s3)
+        )) == Comp(
+            OpID::TYPE_LABEL,
+            Comp(OpID::TRUE, s1),
             Comp(OpID::ID, "Int", s3),
             s2
         ));
@@ -891,7 +953,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::END, s4),
             Op(OpID::LABEL, s5),
             Op(OpID::RETURN, s6),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s7),
+            Op(OpID::PLAIN_INT, "0", s7),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end)
         )) == Comp(
@@ -908,7 +970,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                     ),
                     Comp(
                         OpID::RETURN,
-                        Comp(OpID::PLAIN_INT, std::int32_t(0), s7),
+                        Comp(OpID::PLAIN_INT, "0", s7),
                         s6
                     ),
                     s5
@@ -931,7 +993,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LABEL, s5),
             Op(OpID::BLOCK, s7),
             Op(OpID::RETURN, s8),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s9),
+            Op(OpID::PLAIN_INT, "0", s9),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -952,7 +1014,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s9),
+                            Comp(OpID::PLAIN_INT, "0", s9),
                             s8
                         )),
                         s7
@@ -979,7 +1041,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LABEL, s7),
             Op(OpID::BLOCK, s9),
             Op(OpID::RETURN, s10),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s11),
+            Op(OpID::PLAIN_INT, "0", s11),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -1005,7 +1067,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s11),
+                            Comp(OpID::PLAIN_INT, "0", s11),
                             s10
                         )),
                         s9
@@ -1032,7 +1094,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LABEL, s8),
             Op(OpID::BLOCK, s10),
             Op(OpID::RETURN, s11),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s12),
+            Op(OpID::PLAIN_INT, "0", s12),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -1060,7 +1122,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s12),
+                            Comp(OpID::PLAIN_INT, "0", s12),
                             s11
                         )),
                         s10
@@ -1091,7 +1153,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LABEL, s12),
             Op(OpID::BLOCK, s14),
             Op(OpID::RETURN, s15),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s16),
+            Op(OpID::PLAIN_INT, "0", s16),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -1129,7 +1191,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s16),
+                            Comp(OpID::PLAIN_INT, "0", s16),
                             s15
                         )),
                         s14
@@ -1163,7 +1225,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LABEL, s15),
             Op(OpID::BLOCK, s17),
             Op(OpID::RETURN, s18),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s19),
+            Op(OpID::PLAIN_INT, "0", s19),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -1206,7 +1268,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s19),
+                            Comp(OpID::PLAIN_INT, "0", s19),
                             s18
                         )),
                         s17
@@ -1237,7 +1299,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::SEP, s0),
             Op(OpID::ID, "kw1", s13),
             Op(OpID::BIND, s14),
-            Op(OpID::PLAIN_INT, std::int32_t(1), s15),
+            Op(OpID::PLAIN_INT, "1", s15),
             Op(OpID::SEP, s0),
             Op(OpID::ID, "kw2", s17),
             Op(OpID::TYPE_LABEL, s18),
@@ -1248,7 +1310,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LABEL, s23),
             Op(OpID::BLOCK, s25),
             Op(OpID::RETURN, s26),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s27),
+            Op(OpID::PLAIN_INT, "0", s27),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -1282,7 +1344,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                                     Comp(
                                         OpID::BIND,
                                         Comp(OpID::ID, "kw1", s13),
-                                        Comp(OpID::PLAIN_INT, 1, s15),
+                                        Comp(OpID::PLAIN_INT, "1", s15),
                                         s14
                                     ),
                                     Comp(
@@ -1303,7 +1365,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s27),
+                            Comp(OpID::PLAIN_INT, "0", s27),
                             s26
                         )),
                         s25
@@ -1336,7 +1398,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::SEP, s0),
             Op(OpID::ID, "kw1", s13),
             Op(OpID::BIND, s14),
-            Op(OpID::PLAIN_INT, std::int32_t(1), s15),
+            Op(OpID::PLAIN_INT, "1", s15),
             Op(OpID::SEP, s0),
             Op(OpID::ID, "kw2", s17),
             Op(OpID::TYPE_LABEL, s18),
@@ -1350,7 +1412,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LABEL, s26),
             Op(OpID::BLOCK, s28),
             Op(OpID::RETURN, s29),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s30),
+            Op(OpID::PLAIN_INT, "0", s30),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -1384,7 +1446,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                                     Comp(
                                         OpID::BIND,
                                         Comp(OpID::ID, "kw1", s13),
-                                        Comp(OpID::PLAIN_INT, 1, s15),
+                                        Comp(OpID::PLAIN_INT, "1", s15),
                                         s14
                                     ),
                                     Comp(
@@ -1410,7 +1472,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s30),
+                            Comp(OpID::PLAIN_INT, "0", s30),
                             s29
                         )),
                         s28
@@ -1424,8 +1486,8 @@ TEST_CASE("Composer Input/Output", "[compose]") {
 
         // def f(a: Int, b: String):
         //     return 0
-        // case (c: Float32, true) -> Float64:
-        //     return 3.14
+        // case (c: Float32, true) -> Int64:
+        //     return 3s64
         // case (1, *, kw:: 2):
         //     return 0
         REQUIRE(feed_all(vec(
@@ -1445,7 +1507,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LABEL, s12),
             Op(OpID::BLOCK, s14),
             Op(OpID::RETURN, s15),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s16),
+            Op(OpID::PLAIN_INT, "0", s16),
             Op(OpID::STMT, s17),
             Op(OpID::END, s18),
             Op(OpID::STMT, s18),
@@ -1458,28 +1520,28 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::TRUE, s24),
             Op(OpID::END, s25),
             Op(OpID::RETURNS, s26),
-            Op(OpID::ID, "Float64", s27),
+            Op(OpID::ID, "Int64", s27),
             Op(OpID::LABEL, s28),
             Op(OpID::BLOCK, s30),
             Op(OpID::RETURN, s31),
-            Op(OpID::NUMBER, 3.14, s32),
+            Op(OpID::NUMBER, std::int64_t(3), s32),
             Op(OpID::STMT, s33),
             Op(OpID::END, s34),
             Op(OpID::STMT, s34),
             Op(OpID::CASE, s34),
             Op(OpID::GROUP, s35),
-            Op(OpID::PLAIN_INT, std::int32_t(1), s36),
+            Op(OpID::PLAIN_INT, "1", s36),
             Op(OpID::SEP, s0),
             Op(OpID::POS_KW_SEP, s38),
             Op(OpID::SEP, s0),
             Op(OpID::ID, "kw", s40),
             Op(OpID::MATCHING, s41),
-            Op(OpID::PLAIN_INT, std::int32_t(2), s42),
+            Op(OpID::PLAIN_INT, "2", s42),
             Op(OpID::END, s43),
             Op(OpID::LABEL, s44),
             Op(OpID::BLOCK, s46),
             Op(OpID::RETURN, s47),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s48),
+            Op(OpID::PLAIN_INT, "0", s48),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -1518,7 +1580,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, 0, s16),
+                                Comp(OpID::PLAIN_INT, "0", s16),
                                 s15
                             )),
                             s14
@@ -1546,14 +1608,14 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                                 ),
                                 s19
                             ),
-                            Comp(OpID::ID, "Float64", s27),
+                            Comp(OpID::ID, "Int64", s27),
                             s26
                         ),
                         Comp(
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::NUMBER, 3.14, s32),
+                                Comp(OpID::NUMBER, std::int64_t(3), s32),
                                 s31
                             )),
                             s30
@@ -1569,12 +1631,12 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                         Comp(
                             OpID::GROUP,
                             csv(
-                                Comp(OpID::PLAIN_INT, 1, s36),
+                                Comp(OpID::PLAIN_INT, "1", s36),
                                 Comp(OpID::POS_KW_SEP, s38),
                                 Comp(
                                     OpID::MATCHING,
                                     Comp(OpID::ID, "kw", s40),
-                                    Comp(OpID::PLAIN_INT, 2, s42),
+                                    Comp(OpID::PLAIN_INT, "2", s42),
                                     s41
                                 )
                             ),
@@ -1585,7 +1647,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                             vec(
                                 Comp(
                                     OpID::RETURN,
-                                    Comp(OpID::PLAIN_INT, 0, s48),
+                                    Comp(OpID::PLAIN_INT, "0", s48),
                                     s47
                                 )
                             ),
@@ -1596,6 +1658,52 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                     s34
                 )
             ),
+            s1
+        ));
+
+        // def 3():
+        //     return 0
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::DEF, s1),
+            Op(OpID::PLAIN_INT, "3", s2),
+            Op(OpID::CALL, s3),
+            Op(OpID::GROUP, s3),
+            Op(OpID::NOTHING, s4),
+            Op(OpID::END, s4),
+            Op(OpID::LABEL, s5),
+            Op(OpID::BLOCK, s7),
+            Op(OpID::RETURN, s8),
+            Op(OpID::PLAIN_INT, "0", s9),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(Comp(
+                OpID::DEF,
+                Comp(
+                    OpID::LABEL,
+                    Comp(
+                        OpID::CALL,
+                        Comp(OpID::PLAIN_INT, "3", s2),
+                        Comp(OpID::GROUP, Comp(OpID::NOTHING, s4), s3),
+                        s3
+                    ),
+                    Comp(
+                        OpID::BLOCK,
+                        vec(Comp(
+                            OpID::RETURN,
+                            Comp(OpID::PLAIN_INT, "0", s9),
+                            s8
+                        )),
+                        s7
+                    ),
+                    s5
+                ),
+                s1
+            )),
             s1
         ));
 
@@ -1634,7 +1742,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LABEL, s3),
             Op(OpID::BLOCK, s5),
             Op(OpID::RETURN, s6),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s7),
+            Op(OpID::PLAIN_INT, "0", s7),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -1650,7 +1758,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s7),
+                            Comp(OpID::PLAIN_INT, "0", s7),
                             s6
                         )),
                         s5
@@ -1662,12 +1770,12 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             s1
         ));
 
-        // def 3():
+        // def true():
         //     return 0
         REQUIRE(feed_all(vec(
             Op(OpID::CONSTRUCT, s1),
             Op(OpID::DEF, s1),
-            Op(OpID::PLAIN_INT, std::int32_t(3), s2),
+            Op(OpID::TRUE, s2),
             Op(OpID::CALL, s3),
             Op(OpID::GROUP, s3),
             Op(OpID::NOTHING, s4),
@@ -1675,7 +1783,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LABEL, s5),
             Op(OpID::BLOCK, s7),
             Op(OpID::RETURN, s8),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s9),
+            Op(OpID::PLAIN_INT, "0", s9),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -1688,7 +1796,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                     OpID::LABEL,
                     Comp(
                         OpID::CALL,
-                        Comp(OpID::PLAIN_INT, std::int32_t(3), s2),
+                        Comp(OpID::TRUE, s2),
                         Comp(OpID::GROUP, Comp(OpID::NOTHING, s4), s3),
                         s3
                     ),
@@ -1696,7 +1804,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s9),
+                            Comp(OpID::PLAIN_INT, "0", s9),
                             s8
                         )),
                         s7
@@ -1721,7 +1829,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LABEL, s5),
             Op(OpID::BLOCK, s7),
             Op(OpID::RETURN, s8),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s9),
+            Op(OpID::PLAIN_INT, "0", s9),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -1742,7 +1850,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s9),
+                            Comp(OpID::PLAIN_INT, "0", s9),
                             s8
                         )),
                         s7
@@ -1764,14 +1872,14 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::GROUP, s3),
             Op(OpID::ID, "a", s4),
             Op(OpID::BIND, s5),
-            Op(OpID::PLAIN_INT, std::int32_t(1), s6),
+            Op(OpID::PLAIN_INT, "1", s6),
             Op(OpID::SEP, s0),
             Op(OpID::ID, "b", s8),
             Op(OpID::END, s9),
             Op(OpID::LABEL, s10),
             Op(OpID::BLOCK, s12),
             Op(OpID::RETURN, s13),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s14),
+            Op(OpID::PLAIN_INT, "0", s14),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -1791,7 +1899,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                                 Comp(
                                     OpID::BIND,
                                     Comp(OpID::ID, "a", s4),
-                                    Comp(OpID::PLAIN_INT, std::int32_t(1), s6),
+                                    Comp(OpID::PLAIN_INT, "1", s6),
                                     s5
                                 ),
                                 Comp(OpID::ID, "b", s8)
@@ -1804,7 +1912,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s14),
+                            Comp(OpID::PLAIN_INT, "0", s14),
                             s13
                         )),
                         s12
@@ -1832,7 +1940,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LABEL, s9),
             Op(OpID::BLOCK, s11),
             Op(OpID::RETURN, s12),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s13),
+            Op(OpID::PLAIN_INT, "0", s13),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -1864,7 +1972,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s13),
+                            Comp(OpID::PLAIN_INT, "0", s13),
                             s12
                         )),
                         s11
@@ -1886,7 +1994,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::GROUP, s3),
             Op(OpID::ID, "a", s4),
             Op(OpID::BIND, s5),
-            Op(OpID::PLAIN_INT, std::int32_t(1), s6),
+            Op(OpID::PLAIN_INT, "1", s6),
             Op(OpID::SEP, s0),
             Op(OpID::UNPACK_ARGS, s8),
             Op(OpID::ID, "args", s9),
@@ -1894,7 +2002,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LABEL, s11),
             Op(OpID::BLOCK, s13),
             Op(OpID::RETURN, s14),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s15),
+            Op(OpID::PLAIN_INT, "0", s15),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -1914,7 +2022,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                                 Comp(
                                     OpID::BIND,
                                     Comp(OpID::ID, "a", s4),
-                                    Comp(OpID::PLAIN_INT, 1, s6),
+                                    Comp(OpID::PLAIN_INT, "1", s6),
                                     s5
                                 ),
                                 Comp(
@@ -1931,7 +2039,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s15),
+                            Comp(OpID::PLAIN_INT, "0", s15),
                             s14
                         )),
                         s13
@@ -1953,14 +2061,14 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::GROUP, s3),
             Op(OpID::ID, "a", s4),
             Op(OpID::BIND, s5),
-            Op(OpID::PLAIN_INT, std::int32_t(1), s6),
+            Op(OpID::PLAIN_INT, "1", s6),
             Op(OpID::BIND, s7),
-            Op(OpID::PLAIN_INT, std::int32_t(2), s8),
+            Op(OpID::PLAIN_INT, "2", s8),
             Op(OpID::END, s9),
             Op(OpID::LABEL, s10),
             Op(OpID::BLOCK, s12),
             Op(OpID::RETURN, s13),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s14),
+            Op(OpID::PLAIN_INT, "0", s14),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -1981,10 +2089,10 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                                 Comp(
                                     OpID::BIND,
                                     Comp(OpID::ID, "a", s4),
-                                    Comp(OpID::PLAIN_INT, 1, s6),
+                                    Comp(OpID::PLAIN_INT, "1", s6),
                                     s5
                                 ),
-                                Comp(OpID::PLAIN_INT, 2, s8),
+                                Comp(OpID::PLAIN_INT, "2", s8),
                                 s7
                             ),
                             s3
@@ -1995,7 +2103,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s14),
+                            Comp(OpID::PLAIN_INT, "0", s14),
                             s13
                         )),
                         s12
@@ -2018,12 +2126,12 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::UNPACK_ARGS, s4),
             Op(OpID::ID, "args", s5),
             Op(OpID::BIND, s6),
-            Op(OpID::PLAIN_INT, std::int32_t(1), s7),
+            Op(OpID::PLAIN_INT, "1", s7),
             Op(OpID::END, s8),
             Op(OpID::LABEL, s9),
             Op(OpID::BLOCK, s11),
             Op(OpID::RETURN, s12),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s13),
+            Op(OpID::PLAIN_INT, "0", s13),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -2046,7 +2154,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                                     Comp(OpID::ID, "args", s5),
                                     s4
                                 ),
-                                Comp(OpID::PLAIN_INT, std::int32_t(1), s7),
+                                Comp(OpID::PLAIN_INT, "1", s7),
                                 s6
                             ),
                             s3
@@ -2057,7 +2165,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s13),
+                            Comp(OpID::PLAIN_INT, "0", s13),
                             s12
                         )),
                         s11
@@ -2080,12 +2188,12 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::UNPACK_KWARGS, s4),
             Op(OpID::ID, "kwargs", s5),
             Op(OpID::BIND, s6),
-            Op(OpID::PLAIN_INT, std::int32_t(1), s7),
+            Op(OpID::PLAIN_INT, "1", s7),
             Op(OpID::END, s8),
             Op(OpID::LABEL, s9),
             Op(OpID::BLOCK, s11),
             Op(OpID::RETURN, s12),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s13),
+            Op(OpID::PLAIN_INT, "0", s13),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -2108,7 +2216,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                                     Comp(OpID::ID, "kwargs", s5),
                                     s4
                                 ),
-                                Comp(OpID::PLAIN_INT, std::int32_t(1), s7),
+                                Comp(OpID::PLAIN_INT, "1", s7),
                                 s6
                             ),
                             s3
@@ -2119,7 +2227,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s13),
+                            Comp(OpID::PLAIN_INT, "0", s13),
                             s12
                         )),
                         s11
@@ -2140,12 +2248,12 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::CALL, s3),
             Op(OpID::GROUP, s3),
             Op(OpID::UNPACK_ARGS, s4),
-            Op(OpID::PLAIN_INT, std::int32_t(3), s5),
+            Op(OpID::PLAIN_INT, "3", s5),
             Op(OpID::END, s6),
             Op(OpID::LABEL, s7),
             Op(OpID::BLOCK, s9),
             Op(OpID::RETURN, s10),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s11),
+            Op(OpID::PLAIN_INT, "0", s11),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -2163,7 +2271,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                             OpID::GROUP,
                             Comp(
                                 OpID::UNPACK_ARGS,
-                                Comp(OpID::PLAIN_INT, std::int32_t(3), s5),
+                                Comp(OpID::PLAIN_INT, "3", s5),
                                 s4
                             ),
                             s3
@@ -2174,7 +2282,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s11),
+                            Comp(OpID::PLAIN_INT, "0", s11),
                             s10
                         )),
                         s9
@@ -2195,12 +2303,12 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::CALL, s3),
             Op(OpID::GROUP, s3),
             Op(OpID::UNPACK_KWARGS, s4),
-            Op(OpID::PLAIN_INT, std::int32_t(3), s5),
+            Op(OpID::PLAIN_INT, "3", s5),
             Op(OpID::END, s6),
             Op(OpID::LABEL, s7),
             Op(OpID::BLOCK, s9),
             Op(OpID::RETURN, s10),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s11),
+            Op(OpID::PLAIN_INT, "0", s11),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -2218,7 +2326,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                             OpID::GROUP,
                             Comp(
                                 OpID::UNPACK_KWARGS,
-                                Comp(OpID::PLAIN_INT, std::int32_t(3), s5),
+                                Comp(OpID::PLAIN_INT, "3", s5),
                                 s4
                             ),
                             s3
@@ -2229,7 +2337,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s11),
+                            Comp(OpID::PLAIN_INT, "0", s11),
                             s10
                         )),
                         s9
@@ -2249,14 +2357,14 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::ID, "f", s2),
             Op(OpID::CALL, s3),
             Op(OpID::GROUP, s3),
-            Op(OpID::PLAIN_INT, std::int32_t(3), s4),
+            Op(OpID::PLAIN_INT, "3", s4),
             Op(OpID::TYPE_LABEL, s5),
             Op(OpID::ID, "Int", s6),
             Op(OpID::END, s7),
             Op(OpID::LABEL, s8),
             Op(OpID::BLOCK, s10),
             Op(OpID::RETURN, s11),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s12),
+            Op(OpID::PLAIN_INT, "0", s12),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -2274,7 +2382,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                             OpID::GROUP,
                             Comp(
                                 OpID::TYPE_LABEL,
-                                Comp(OpID::PLAIN_INT, std::int32_t(3), s4),
+                                Comp(OpID::PLAIN_INT, "3", s4),
                                 Comp(OpID::ID, "Int", s6),
                                 s5
                             ),
@@ -2286,7 +2394,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s12),
+                            Comp(OpID::PLAIN_INT, "0", s12),
                             s11
                         )),
                         s10
@@ -2317,7 +2425,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LABEL, s12),
             Op(OpID::BLOCK, s14),
             Op(OpID::RETURN, s15),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s16),
+            Op(OpID::PLAIN_INT, "0", s16),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -2355,7 +2463,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s16),
+                            Comp(OpID::PLAIN_INT, "0", s16),
                             s15
                         )),
                         s14
@@ -2382,7 +2490,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LABEL, s5),
             Op(OpID::BLOCK, s7),
             Op(OpID::RETURN, s8),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s9),
+            Op(OpID::PLAIN_INT, "0", s9),
             Op(OpID::STMT, s10),
             Op(OpID::END, s11),
             Op(OpID::STMT, s11),
@@ -2391,7 +2499,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LABEL, s13),
             Op(OpID::BLOCK, s15),
             Op(OpID::RETURN, s16),
-            Op(OpID::PLAIN_INT, std::int32_t(1), s17),
+            Op(OpID::PLAIN_INT, "1", s17),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -2417,7 +2525,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(0), s9),
+                                Comp(OpID::PLAIN_INT, "0", s9),
                                 s8
                             )),
                             s7
@@ -2435,7 +2543,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(1), s17),
+                                Comp(OpID::PLAIN_INT, "1", s17),
                                 s16
                             )),
                             s15
@@ -2629,7 +2737,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::BLOCK, s13),
             Op(OpID::ID, "a", s14),
             Op(OpID::IADD, s15),
-            Op(OpID::PLAIN_INT, std::int32_t(1), s16),
+            Op(OpID::PLAIN_INT, "1", s16),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -2665,7 +2773,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                             vec(Comp(
                                 OpID::IADD,
                                 Comp(OpID::ID, "a", s14),
-                                Comp(OpID::PLAIN_INT, std::int32_t(1), s16),
+                                Comp(OpID::PLAIN_INT, "1", s16),
                                 s15
                             )),
                             s13
@@ -2746,14 +2854,14 @@ TEST_CASE("Composer Input/Output", "[compose]") {
         REQUIRE(feed_all(vec(
             Op(OpID::CONSTRUCT, s1),
             Op(OpID::FOR, s1),
-            Op(OpID::PLAIN_INT, std::int32_t(3), s2),
+            Op(OpID::PLAIN_INT, "3", s2),
             Op(OpID::IN, s3),
             Op(OpID::ID, "c", s4),
             Op(OpID::LABEL, s5),
             Op(OpID::BLOCK, s7),
             Op(OpID::ID, "a", s8),
             Op(OpID::IADD, s9),
-            Op(OpID::PLAIN_INT, std::int32_t(1), s10),
+            Op(OpID::PLAIN_INT, "1", s10),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -2766,7 +2874,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                     OpID::LABEL,
                     Comp(
                         OpID::IN,
-                        Comp(OpID::PLAIN_INT, std::int32_t(3), s2),
+                        Comp(OpID::PLAIN_INT, "3", s2),
                         Comp(OpID::ID, "c", s4),
                         s3
                     ),
@@ -2775,7 +2883,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                         vec(Comp(
                             OpID::IADD,
                             Comp(OpID::ID, "a", s8),
-                            Comp(OpID::PLAIN_INT, std::int32_t(1), s10),
+                            Comp(OpID::PLAIN_INT, "1", s10),
                             s9
                         )),
                         s7
@@ -2810,7 +2918,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LABEL, s14),
             Op(OpID::BLOCK, s16),
             Op(OpID::RETURN, s17),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s18),
+            Op(OpID::PLAIN_INT, "0", s18),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -2851,7 +2959,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, 0, s18),
+                                Comp(OpID::PLAIN_INT, "0", s18),
                                 s17
                             )),
                             s16
@@ -2882,11 +2990,23 @@ TEST_CASE("Composer Input/Output", "[compose]") {
         REQUIRE(feed_all(vec(
             Op(OpID::ID, "a", s1),
             Op(OpID::GET, s2),
-            Op(OpID::PLAIN_INT, std::int32_t(3), s3)
+            Op(OpID::PLAIN_INT, "3", s3)
         )) == Comp(
             OpID::GET,
             Comp(OpID::ID, "a", s1),
-            Comp(OpID::PLAIN_INT, 3, s3),
+            Comp(OpID::PLAIN_INT, "3", s3),
+            s2
+        ));
+
+        // a.true
+        REQUIRE(feed_all(vec(
+            Op(OpID::ID, "a", s1),
+            Op(OpID::GET, s2),
+            Op(OpID::TRUE, s3)
+        )) == Comp(
+            OpID::GET,
+            Comp(OpID::ID, "a", s1),
+            Comp(OpID::TRUE, s3),
             s2
         ));
     }
@@ -3062,7 +3182,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::ID, "x", s2),
             Op(OpID::LABEL, s3),
             Op(OpID::RETURN, s4),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s5),
+            Op(OpID::PLAIN_INT, "0", s5),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end)
         )) == Comp(
@@ -3074,7 +3194,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                     Comp(OpID::ID, "x", s2),
                     Comp(
                         OpID::RETURN,
-                        Comp(OpID::PLAIN_INT, std::int32_t(0), s5),
+                        Comp(OpID::PLAIN_INT, "0", s5),
                         s4
                     ),
                     s3
@@ -3093,7 +3213,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LABEL, s3),
             Op(OpID::BLOCK, s5),
             Op(OpID::RETURN, s6),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s7),
+            Op(OpID::PLAIN_INT, "0", s7),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -3109,7 +3229,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, std::int32_t(0), s7),
+                            Comp(OpID::PLAIN_INT, "0", s7),
                             s6
                         )),
                         s5
@@ -3132,7 +3252,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LABEL, s3),
             Op(OpID::BLOCK, s5),
             Op(OpID::RETURN, s6),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s7),
+            Op(OpID::PLAIN_INT, "0", s7),
             Op(OpID::STMT, s8),
             Op(OpID::END, s9),
             Op(OpID::STMT, s9),
@@ -3141,7 +3261,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LABEL, s11),
             Op(OpID::BLOCK, s13),
             Op(OpID::RETURN, s14),
-            Op(OpID::PLAIN_INT, std::int32_t(1), s15),
+            Op(OpID::PLAIN_INT, "1", s15),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -3158,7 +3278,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(0), s7),
+                                Comp(OpID::PLAIN_INT, "0", s7),
                                 s6
                             )),
                             s5
@@ -3176,7 +3296,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(1), s15),
+                                Comp(OpID::PLAIN_INT, "1", s15),
                                 s14
                             )),
                             s13
@@ -3202,7 +3322,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LABEL, s3),
             Op(OpID::BLOCK, s5),
             Op(OpID::RETURN, s6),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s7),
+            Op(OpID::PLAIN_INT, "0", s7),
             Op(OpID::STMT, s8),
             Op(OpID::END, s9),
             Op(OpID::STMT, s9),
@@ -3211,7 +3331,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LABEL, s11),
             Op(OpID::BLOCK, s13),
             Op(OpID::RETURN, s14),
-            Op(OpID::PLAIN_INT, std::int32_t(1), s15),
+            Op(OpID::PLAIN_INT, "1", s15),
             Op(OpID::STMT, s16),
             Op(OpID::END, s17),
             Op(OpID::STMT, s17),
@@ -3219,7 +3339,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::BODY, s18),
             Op(OpID::BLOCK, s20),
             Op(OpID::RETURN, s21),
-            Op(OpID::PLAIN_INT, std::int32_t(2), s22),
+            Op(OpID::PLAIN_INT, "2", s22),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -3236,7 +3356,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(0), s7),
+                                Comp(OpID::PLAIN_INT, "0", s7),
                                 s6
                             )),
                             s5
@@ -3254,7 +3374,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(1), s15),
+                                Comp(OpID::PLAIN_INT, "1", s15),
                                 s14
                             )),
                             s13
@@ -3271,7 +3391,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(2), s22),
+                                Comp(OpID::PLAIN_INT, "2", s22),
                                 s21
                             )),
                             s20
@@ -3295,7 +3415,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LABEL, s3),
             Op(OpID::BLOCK, s5),
             Op(OpID::RETURN, s6),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s7),
+            Op(OpID::PLAIN_INT, "0", s7),
             Op(OpID::STMT, s8),
             Op(OpID::END, s9),
             Op(OpID::STMT, s9),
@@ -3303,7 +3423,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::BODY, s10),
             Op(OpID::BLOCK, s12),
             Op(OpID::RETURN, s13),
-            Op(OpID::PLAIN_INT, std::int32_t(1), s14),
+            Op(OpID::PLAIN_INT, "1", s14),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -3320,7 +3440,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(0), s7),
+                                Comp(OpID::PLAIN_INT, "0", s7),
                                 s6
                             )),
                             s5
@@ -3337,7 +3457,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(1), s14),
+                                Comp(OpID::PLAIN_INT, "1", s14),
                                 s13
                             )),
                             s12
@@ -3363,7 +3483,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LABEL, s3),
             Op(OpID::BLOCK, s5),
             Op(OpID::RETURN, s6),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s7),
+            Op(OpID::PLAIN_INT, "0", s7),
             Op(OpID::STMT, s8),
             Op(OpID::END, s9),
             Op(OpID::STMT, s9),
@@ -3372,7 +3492,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LABEL, s11),
             Op(OpID::BLOCK, s13),
             Op(OpID::RETURN, s14),
-            Op(OpID::PLAIN_INT, std::int32_t(1), s15),
+            Op(OpID::PLAIN_INT, "1", s15),
             Op(OpID::STMT, s16),
             Op(OpID::END, s17),
             Op(OpID::STMT, s17),
@@ -3381,7 +3501,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LABEL, s19),
             Op(OpID::BLOCK, s21),
             Op(OpID::RETURN, s22),
-            Op(OpID::PLAIN_INT, std::int32_t(2), s23),
+            Op(OpID::PLAIN_INT, "2", s23),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -3398,7 +3518,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(0), s7),
+                                Comp(OpID::PLAIN_INT, "0", s7),
                                 s6
                             )),
                             s5
@@ -3416,7 +3536,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(1), s15),
+                                Comp(OpID::PLAIN_INT, "1", s15),
                                 s14
                             )),
                             s13
@@ -3434,7 +3554,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(2), s23),
+                                Comp(OpID::PLAIN_INT, "2", s23),
                                 s22
                             )),
                             s21
@@ -3474,7 +3594,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LABEL, s3),
             Op(OpID::BLOCK, s5),
             Op(OpID::RETURN, s6),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s7),
+            Op(OpID::PLAIN_INT, "0", s7),
             Op(OpID::STMT, s8),
             Op(OpID::END, s9),
             Op(OpID::STMT, s9),
@@ -3494,7 +3614,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(0), s7),
+                                Comp(OpID::PLAIN_INT, "0", s7),
                                 s6
                             )),
                             s5
@@ -3519,7 +3639,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LABEL, s3),
             Op(OpID::BLOCK, s5),
             Op(OpID::RETURN, s6),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s7),
+            Op(OpID::PLAIN_INT, "0", s7),
             Op(OpID::STMT, s8),
             Op(OpID::END, s9),
             Op(OpID::STMT, s9),
@@ -3528,7 +3648,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LABEL, s11),
             Op(OpID::BLOCK, s13),
             Op(OpID::RETURN, s14),
-            Op(OpID::PLAIN_INT, std::int32_t(1), s15),
+            Op(OpID::PLAIN_INT, "1", s15),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -3545,7 +3665,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(0), s7),
+                                Comp(OpID::PLAIN_INT, "0", s7),
                                 s6
                             )),
                             s5
@@ -3563,7 +3683,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(1), s15),
+                                Comp(OpID::PLAIN_INT, "1", s15),
                                 s14
                             )),
                             s13
@@ -3587,7 +3707,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LABEL, s3),
             Op(OpID::BLOCK, s5),
             Op(OpID::RETURN, s6),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s7),
+            Op(OpID::PLAIN_INT, "0", s7),
             Op(OpID::STMT, s8),
             Op(OpID::END, s9),
             Op(OpID::STMT, s9),
@@ -3596,7 +3716,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LABEL, s11),
             Op(OpID::BLOCK, s13),
             Op(OpID::RETURN, s14),
-            Op(OpID::PLAIN_INT, std::int32_t(1), s15),
+            Op(OpID::PLAIN_INT, "1", s15),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -3613,7 +3733,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(0), s7),
+                                Comp(OpID::PLAIN_INT, "0", s7),
                                 s6
                             )),
                             s5
@@ -3631,7 +3751,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(1), s15),
+                                Comp(OpID::PLAIN_INT, "1", s15),
                                 s14
                             )),
                             s13
@@ -3652,7 +3772,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::TYPE_LABEL, s2),
             Op(OpID::ID, "Int", s3),
             Op(OpID::SET, s4),
-            Op(OpID::PLAIN_INT, std::int32_t(3), s5)
+            Op(OpID::PLAIN_INT, "3", s5)
         )) == Comp(
             OpID::SET,
             Comp(
@@ -3661,26 +3781,45 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                 Comp(OpID::ID, "Int", s3),
                 s2
             ),
-            Comp(OpID::PLAIN_INT, std::int32_t(3), s5),
+            Comp(OpID::PLAIN_INT, "3", s5),
             s4
         ));
 
         // 3: Int = 3
         REQUIRE(feed_all(vec(
-            Op(OpID::PLAIN_INT, std::int32_t(3), s1),
+            Op(OpID::PLAIN_INT, "3", s1),
             Op(OpID::TYPE_LABEL, s2),
             Op(OpID::ID, "Int", s3),
             Op(OpID::SET, s4),
-            Op(OpID::PLAIN_INT, std::int32_t(3), s5)
+            Op(OpID::PLAIN_INT, "3", s5)
         )) == Comp(
             OpID::SET,
             Comp(
                 OpID::TYPE_LABEL,
-                Comp(OpID::PLAIN_INT, std::int32_t(3), s1),
+                Comp(OpID::PLAIN_INT, "3", s1),
                 Comp(OpID::ID, "Int", s3),
                 s2
             ),
-            Comp(OpID::PLAIN_INT, std::int32_t(3), s5),
+            Comp(OpID::PLAIN_INT, "3", s5),
+            s4
+        ));
+
+        // true: Int = 3
+        REQUIRE(feed_all(vec(
+            Op(OpID::TRUE, s1),
+            Op(OpID::TYPE_LABEL, s2),
+            Op(OpID::ID, "Int", s3),
+            Op(OpID::SET, s4),
+            Op(OpID::PLAIN_INT, "3", s5)
+        )) == Comp(
+            OpID::SET,
+            Comp(
+                OpID::TYPE_LABEL,
+                Comp(OpID::TRUE, s1),
+                Comp(OpID::ID, "Int", s3),
+                s2
+            ),
+            Comp(OpID::PLAIN_INT, "3", s5),
             s4
         ));
     }
@@ -3705,10 +3844,10 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LAMBDA, s1),
             Op(OpID::GROUP, s2),
             Op(OpID::LAMBDA, s3),
-            Op(OpID::PLAIN_INT, std::int32_t(1), s4),
+            Op(OpID::PLAIN_INT, "1", s4),
             Op(OpID::ADD, s5),
             Op(OpID::LAMBDA, s6),
-            Op(OpID::PLAIN_INT, std::int32_t(2), s7),
+            Op(OpID::PLAIN_INT, "2", s7),
             Op(OpID::END, s8)
         )) == Comp(
             OpID::LAMBDA,
@@ -3718,12 +3857,12 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                     OpID::ADD,
                     Comp(
                         OpID::LAMBDA,
-                        Comp(OpID::PLAIN_INT, std::int32_t(1), s4),
+                        Comp(OpID::PLAIN_INT, "1", s4),
                         s3
                     ),
                     Comp(
                         OpID::LAMBDA,
-                        Comp(OpID::PLAIN_INT, std::int32_t(2), s7),
+                        Comp(OpID::PLAIN_INT, "2", s7),
                         s6
                     ),
                     s5
@@ -3738,10 +3877,10 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LAMBDA, s1),
             Op(OpID::LIST, s2),
             Op(OpID::LAMBDA, s3),
-            Op(OpID::PLAIN_INT, std::int32_t(1), s4),
+            Op(OpID::PLAIN_INT, "1", s4),
             Op(OpID::ADD, s5),
             Op(OpID::LAMBDA, s6),
-            Op(OpID::PLAIN_INT, std::int32_t(2), s7),
+            Op(OpID::PLAIN_INT, "2", s7),
             Op(OpID::END, s8)
         )) == Comp(
             OpID::LAMBDA,
@@ -3751,12 +3890,12 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                     OpID::ADD,
                     Comp(
                         OpID::LAMBDA,
-                        Comp(OpID::PLAIN_INT, std::int32_t(1), s4),
+                        Comp(OpID::PLAIN_INT, "1", s4),
                         s3
                     ),
                     Comp(
                         OpID::LAMBDA,
-                        Comp(OpID::PLAIN_INT, std::int32_t(2), s7),
+                        Comp(OpID::PLAIN_INT, "2", s7),
                         s6
                     ),
                     s5
@@ -3767,31 +3906,21 @@ TEST_CASE("Composer Input/Output", "[compose]") {
         ));
     }
 
-    SECTION("Lambda Keyword Var") {
+    SECTION("Lambda Var") {
+        // %1
+        REQUIRE(feed_all(vec(
+            Op(OpID::LAMBDA, s1),
+            Op(OpID::PLAIN_INT, "1", s2)
+        )) == Comp(
+            OpID::LAMBDA, Comp(OpID::PLAIN_INT, "1", s2), s1
+        ));
+
         // %a
         REQUIRE(feed_all(vec(
             Op(OpID::LAMBDA, s1),
             Op(OpID::ID, "a", s2)
         )) == Comp(
             OpID::LAMBDA, Comp(OpID::ID, "a", s2), s1
-        ));
-    }
-
-    SECTION("Lambda Positional Var") {
-        // %1
-        REQUIRE(feed_all(vec(
-            Op(OpID::LAMBDA, s1),
-            Op(OpID::PLAIN_INT, std::int32_t(1), s2)
-        )) == Comp(
-            OpID::LAMBDA, Comp(OpID::PLAIN_INT, std::int32_t(1), s2), s1
-        ));
-
-        // %0
-        REQUIRE(feed_all(vec(
-            Op(OpID::LAMBDA, s1),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s2)
-        )) == Comp(
-            OpID::LAMBDA, Comp(OpID::PLAIN_INT, std::int32_t(0), s2), s1
         ));
     }
 
@@ -3871,9 +4000,9 @@ TEST_CASE("Composer Input/Output", "[compose]") {
 
         // 0
         REQUIRE(feed_all(vec(
-            Op(OpID::PLAIN_INT, std::int32_t(0), s1)
+            Op(OpID::PLAIN_INT, "0", s1)
         )) == Comp(
-            OpID::PLAIN_INT, std::int32_t(0), s1
+            OpID::PLAIN_INT, "0", s1
         ));
 
         // 0s8
@@ -3934,16 +4063,92 @@ TEST_CASE("Composer Input/Output", "[compose]") {
 
         // 0f32
         REQUIRE(feed_all(vec(
-            Op(OpID::NUMBER, 0.0f, s1)
+            Op(OpID::FLOAT_TAIL, "0f32", s1)
         )) == Comp(
-            OpID::NUMBER, 0.0f, s1
+            OpID::FLOAT_TAIL, "0f32", s1
         ));
 
         // 0f64
         REQUIRE(feed_all(vec(
-            Op(OpID::NUMBER, 0.0, s1)
+            Op(OpID::FLOAT_TAIL, "0f64", s1)
         )) == Comp(
-            OpID::NUMBER, 0.0, s1
+            OpID::FLOAT_TAIL, "0f64", s1
+        ));
+
+        // 1e7
+        REQUIRE(feed_all(vec(
+            Op(OpID::FLOAT_TAIL, "1e7", s1)
+        )) == Comp(
+            OpID::FLOAT_TAIL, "1e7", s1
+        ));
+
+        // 1e-7
+        REQUIRE(feed_all(vec(
+            Op(OpID::FLOAT_TAIL, "1e-7", s1)
+        )) == Comp(
+            OpID::FLOAT_TAIL, "1e-7", s1
+        ));
+
+        // 12.34
+        REQUIRE(feed_all(vec(
+            Op(OpID::PLAIN_INT, "12", s1),
+            Op(OpID::GET, s2),
+            Op(OpID::PLAIN_INT, "34", s3)
+        )) == Comp(
+            OpID::GET,
+            Comp(OpID::PLAIN_INT, "12", s1),
+            Comp(OpID::PLAIN_INT, "34", s3),
+            s2
+        ));
+
+        // 12.34f32
+        REQUIRE(feed_all(vec(
+            Op(OpID::PLAIN_INT, "12", s1),
+            Op(OpID::GET, s2),
+            Op(OpID::FLOAT_TAIL, "34f32", s3)
+        )) == Comp(
+            OpID::GET,
+            Comp(OpID::PLAIN_INT, "12", s1),
+            Comp(OpID::FLOAT_TAIL, "34f32", s3),
+            s2
+        ));
+
+        // 12.34e5
+        REQUIRE(feed_all(vec(
+            Op(OpID::PLAIN_INT, "12", s1),
+            Op(OpID::GET, s2),
+            Op(OpID::FLOAT_TAIL, "34e5", s3)
+        )) == Comp(
+            OpID::GET,
+            Comp(OpID::PLAIN_INT, "12", s1),
+            Comp(OpID::FLOAT_TAIL, "34e5", s3),
+            s2
+        ));
+
+        // 12.34e5f32
+        REQUIRE(feed_all(vec(
+            Op(OpID::PLAIN_INT, "12", s1),
+            Op(OpID::GET, s2),
+            Op(OpID::FLOAT_TAIL, "34e5f32", s3)
+        )) == Comp(
+            OpID::GET,
+            Comp(OpID::PLAIN_INT, "12", s1),
+            Comp(OpID::FLOAT_TAIL, "34e5f32", s3),
+            s2
+        ));
+
+        // 1e46f32
+        REQUIRE(feed_all(vec(
+            Op(OpID::FLOAT_TAIL, "1e46f32", s1)
+        )) == Comp(
+            OpID::FLOAT_TAIL, "1e46f32", s1
+        ));
+
+        // 1e309
+        REQUIRE(feed_all(vec(
+            Op(OpID::FLOAT_TAIL, "1e309", s1)
+        )) == Comp(
+            OpID::FLOAT_TAIL, "1e309", s1
         ));
 
         // '\0'
@@ -4004,14 +4209,14 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::ENCLOSURE, s1),
             Op(OpID::ID, "a", s2),
             Op(OpID::TYPE_LABEL, s3),
-            Op(OpID::PLAIN_INT, std::int32_t(1), s4),
+            Op(OpID::PLAIN_INT, "1", s4),
             Op(OpID::END, s5)
         )) == Comp(
             OpID::ENCLOSURE,
             Comp(
                 OpID::TYPE_LABEL,
                 Comp(OpID::ID, "a", s2),
-                Comp(OpID::PLAIN_INT, std::int32_t(1), s4),
+                Comp(OpID::PLAIN_INT, "1", s4),
                 s3
             ),
             s1
@@ -4022,15 +4227,15 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::ENCLOSURE, s1),
             Op(OpID::ID, "a", s2),
             Op(OpID::TYPE_LABEL, s3),
-            Op(OpID::PLAIN_INT, std::int32_t(1), s4),
+            Op(OpID::PLAIN_INT, "1", s4),
             Op(OpID::SEP, s0),
             Op(OpID::ID, "b", s6),
             Op(OpID::TYPE_LABEL, s7),
-            Op(OpID::PLAIN_INT, std::int32_t(2), s8),
+            Op(OpID::PLAIN_INT, "2", s8),
             Op(OpID::SEP, s0),
             Op(OpID::ID, "c", s10),
             Op(OpID::TYPE_LABEL, s11),
-            Op(OpID::PLAIN_INT, std::int32_t(3), s12),
+            Op(OpID::PLAIN_INT, "3", s12),
             Op(OpID::END, s13)
         )) == Comp(
             OpID::ENCLOSURE,
@@ -4038,19 +4243,19 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                 Comp(
                     OpID::TYPE_LABEL,
                     Comp(OpID::ID, "a", s2),
-                    Comp(OpID::PLAIN_INT, std::int32_t(1), s4),
+                    Comp(OpID::PLAIN_INT, "1", s4),
                     s3
                 ),
                 Comp(
                     OpID::TYPE_LABEL,
                     Comp(OpID::ID, "b", s6),
-                    Comp(OpID::PLAIN_INT, std::int32_t(2), s8),
+                    Comp(OpID::PLAIN_INT, "2", s8),
                     s7
                 ),
                 Comp(
                     OpID::TYPE_LABEL,
                     Comp(OpID::ID, "c", s10),
-                    Comp(OpID::PLAIN_INT, std::int32_t(3), s12),
+                    Comp(OpID::PLAIN_INT, "3", s12),
                     s11
                 )
             ),
@@ -4062,14 +4267,14 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::ENCLOSURE, s1),
             Op(OpID::ID, "a", s2),
             Op(OpID::TYPE_LABEL, s3),
-            Op(OpID::PLAIN_INT, std::int32_t(1), s4),
+            Op(OpID::PLAIN_INT, "1", s4),
             Op(OpID::SEP, s0),
             Op(OpID::UNPACK_KWARGS, s6),
             Op(OpID::ID, "kwargs", s7),
             Op(OpID::SEP, s0),
             Op(OpID::ID, "b", s9),
             Op(OpID::TYPE_LABEL, s10),
-            Op(OpID::PLAIN_INT, std::int32_t(2), s11),
+            Op(OpID::PLAIN_INT, "2", s11),
             Op(OpID::END, s12)
         )) == Comp(
             OpID::ENCLOSURE,
@@ -4077,7 +4282,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                 Comp(
                     OpID::TYPE_LABEL,
                     Comp(OpID::ID, "a", s2),
-                    Comp(OpID::PLAIN_INT, std::int32_t(1), s4),
+                    Comp(OpID::PLAIN_INT, "1", s4),
                     s3
                 ),
                 Comp(
@@ -4088,7 +4293,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                 Comp(
                     OpID::TYPE_LABEL,
                     Comp(OpID::ID, "b", s9),
-                    Comp(OpID::PLAIN_INT, std::int32_t(2), s11),
+                    Comp(OpID::PLAIN_INT, "2", s11),
                     s10
                 )
             ),
@@ -4227,7 +4432,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::BODY, s17),
             Op(OpID::BLOCK, s19),
             Op(OpID::RETURN, s20),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s21),
+            Op(OpID::PLAIN_INT, "0", s21),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -4269,7 +4474,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(0), s21),
+                                Comp(OpID::PLAIN_INT, "0", s21),
                                 s20
                             )),
                             s19
@@ -4311,7 +4516,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::LABEL, s18),
             Op(OpID::BLOCK, s20),
             Op(OpID::RETURN, s21),
-            Op(OpID::PLAIN_INT, std::int32_t(0), s22),
+            Op(OpID::PLAIN_INT, "0", s22),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -4354,7 +4559,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, std::int32_t(0), s22),
+                                Comp(OpID::PLAIN_INT, "0", s22),
                                 s21
                             )),
                             s20
@@ -4657,7 +4862,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
         REQUIRE(feed_all(vec(
             Op(OpID::ID, "a", s1),
             Op(OpID::GET, s2),
-            Op(OpID::PLAIN_INT, std::int32_t(3), s3),
+            Op(OpID::PLAIN_INT, "3", s3),
             Op(OpID::SET, s4),
             Op(OpID::ID, "b", s5)
         )) == Comp(
@@ -4665,7 +4870,26 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Comp(
                 OpID::GET,
                 Comp(OpID::ID, "a", s1),
-                Comp(OpID::PLAIN_INT, std::int32_t(3), s3),
+                Comp(OpID::PLAIN_INT, "3", s3),
+                s2
+            ),
+            Comp(OpID::ID, "b", s5),
+            s4
+        ));
+
+        // a.true = b
+        REQUIRE(feed_all(vec(
+            Op(OpID::ID, "a", s1),
+            Op(OpID::GET, s2),
+            Op(OpID::TRUE, s3),
+            Op(OpID::SET, s4),
+            Op(OpID::ID, "b", s5)
+        )) == Comp(
+            OpID::SET,
+            Comp(
+                OpID::GET,
+                Comp(OpID::ID, "a", s1),
+                Comp(OpID::TRUE, s3),
                 s2
             ),
             Comp(OpID::ID, "b", s5),
@@ -4685,10 +4909,10 @@ TEST_CASE("Composer Input/Output", "[compose]") {
         // :3
         REQUIRE(feed_all(vec(
             Op(OpID::SYMBOL, s1),
-            Op(OpID::PLAIN_INT, std::int32_t(3), s2)
+            Op(OpID::PLAIN_INT, "3", s2)
         )) == Comp(
             OpID::SYMBOL,
-            Comp(OpID::PLAIN_INT, std::int32_t(3), s2),
+            Comp(OpID::PLAIN_INT, "3", s2),
             s1
         ));
     }
@@ -5610,10 +5834,6 @@ TEST_CASE("Composer Input/Output", "[compose]") {
         ));
     }
 
-    SECTION("Type") {
-
-    }
-
     SECTION("Update") {
         // a(i) = b
         REQUIRE(feed_all(vec(
@@ -5674,7 +5894,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
         REQUIRE(feed_all(vec(
             Op(OpID::ID, "a", s1),
             Op(OpID::GET, s2),
-            Op(OpID::PLAIN_INT, std::int32_t(3), s3),
+            Op(OpID::PLAIN_INT, "3", s3),
             Op(OpID::CALL, s4),
             Op(OpID::GROUP, s4),
             Op(OpID::ID, "i", s5),
@@ -5688,7 +5908,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                 Comp(
                     OpID::GET,
                     Comp(OpID::ID, "a", s1),
-                    Comp(OpID::PLAIN_INT, std::int32_t(3), s3),
+                    Comp(OpID::PLAIN_INT, "3", s3),
                     s2
                 ),
                 Comp(
@@ -5701,10 +5921,38 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Comp(OpID::ID, "c", s8),
             s7
         ));
-    }
 
-    SECTION("Var") {
-
+        // a.true(i) = c
+        REQUIRE(feed_all(vec(
+            Op(OpID::ID, "a", s1),
+            Op(OpID::GET, s2),
+            Op(OpID::TRUE, s3),
+            Op(OpID::CALL, s4),
+            Op(OpID::GROUP, s4),
+            Op(OpID::ID, "i", s5),
+            Op(OpID::END, s6),
+            Op(OpID::SET, s7),
+            Op(OpID::ID, "c", s8)
+        )) == Comp(
+            OpID::SET,
+            Comp(
+                OpID::CALL,
+                Comp(
+                    OpID::GET,
+                    Comp(OpID::ID, "a", s1),
+                    Comp(OpID::TRUE, s3),
+                    s2
+                ),
+                Comp(
+                    OpID::GROUP,
+                    Comp(OpID::ID, "i", s5),
+                    s4
+                ),
+                s4
+            ),
+            Comp(OpID::ID, "c", s8),
+            s7
+        ));
     }
 
     SECTION("While") {

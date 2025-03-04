@@ -70,7 +70,7 @@ const OpInfo OP_INFO_[] = {
     // BXOR
     OpInfo(OpKind::BINARY, Precedence::BXOR),
     // CALL
-    OpInfo(OpKind::BINARY, Precedence::CALL),
+    OpInfo(OpKind::BINARY, Precedence::GET_CALL),
     // CASE
     FLOW_INFO_,
     // CHAR
@@ -103,10 +103,12 @@ const OpInfo OP_INFO_[] = {
     OpInfo(OpKind::SINGLETON),
     // FINALLY
     FLOW_INFO_,
+    // FLOAT_TAIL
+    OpInfo(OpKind::DATA),
     // FOR
     FLOW_INFO_,
     // GET
-    OpInfo(OpKind::BINARY, Precedence::GET),
+    OpInfo(OpKind::BINARY, Precedence::GET_CALL),
     // GROUP
     LEFT_INFO_,
     // GT

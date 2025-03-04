@@ -680,11 +680,11 @@ TEST_CASE("lex", "[lex]") {
         SECTION("Integers") {
             SECTION("Decimal") {
                 REQUIRE(
-                    result(c, "0") == Token(TokenID::PLAIN_INT, std::int32_t(0))
+                    result(c, "0") == Token(TokenID::PLAIN_INT, "0")
                 );
                 REQUIRE(
                     result(c, "1234") ==
-                    Token(TokenID::PLAIN_INT, std::int32_t(1234))
+                    Token(TokenID::PLAIN_INT, "1234")
                 );
             }
 
@@ -711,6 +711,10 @@ TEST_CASE("lex", "[lex]") {
             }
 
             SECTION("Suffixed") {
+                REQUIRE(
+                    result(c, "0") == Token(TokenID::PLAIN_INT, "0")
+                );
+
                 REQUIRE(
                     result(c, "0s") == Token(TokenID::NUMBER, std::int32_t(0))
                 );
@@ -878,7 +882,7 @@ TEST_CASE("lex", "[lex]") {
             }
 
             SECTION("Out Of Range Error") {
-                REQUIRE(*result(c, "3000000000") == OutOfRangeErr(Pos()));
+                REQUIRE(*result(c, "3000000000s32") == OutOfRangeErr(Pos()));
 
                 REQUIRE(*result(c, "200s8") == OutOfRangeErr(Pos()));
 
@@ -901,165 +905,156 @@ TEST_CASE("lex", "[lex]") {
             }
         }
 
-        SECTION("Floating-point") {
-            SECTION("Simple") {
-                REQUIRE(result(c, "0.0") == Token(TokenID::NUMBER, 0.0));
+        SECTION("Floating-point Tail") {
+            SECTION("Exponential") {
+                REQUIRE(result(c, "1e7") == Token(TokenID::FLOAT_TAIL, "1e7"));
 
                 REQUIRE(
-                    result(c, "1234.5678") == Token(TokenID::NUMBER, 1234.5678)
+                    result(c, "1e-7") == Token(TokenID::FLOAT_TAIL, "1e-7")
                 );
 
-                REQUIRE(result(c, "1e7") == Token(TokenID::NUMBER, 1e7));
-
-                REQUIRE(result(c, "1e-7") == Token(TokenID::NUMBER, 1e-7));
-
                 REQUIRE(
-                    result(c, "1234.56e-78") ==
-                    Token(TokenID::NUMBER, 1234.56e-78)
+                    result(c, "56e-78") == Token(TokenID::FLOAT_TAIL, "56e-78")
                 );
             }
 
             SECTION("Suffixed") {
-                REQUIRE(result(c, "0f") == Token(TokenID::NUMBER, 0.0));
-
-                REQUIRE(result(c, "0f32") == Token(TokenID::NUMBER, 0.0f));
-
-                REQUIRE(result(c, "0f64") == Token(TokenID::NUMBER, 0.0));
+                REQUIRE(result(c, "0f") == Token(TokenID::FLOAT_TAIL, "0f"));
 
                 REQUIRE(
-                    result(c, "12.34e-30f") ==
-                    Token(TokenID::NUMBER, 12.34e-30)
+                    result(c, "1f32") == Token(TokenID::FLOAT_TAIL, "1f32")
                 );
 
                 REQUIRE(
-                    result(c, "12.34e-30f32") ==
-                    Token(TokenID::NUMBER, 12.34e-30f)
+                    result(c, "2f64") == Token(TokenID::FLOAT_TAIL, "2f64")
+                );
+            }
+
+            SECTION("Both") {
+                REQUIRE(
+                    result(c, "0e7f") == Token(TokenID::FLOAT_TAIL, "0e7f")
                 );
 
                 REQUIRE(
-                    result(c, "12.34e-30f64") ==
-                    Token(TokenID::NUMBER, 12.34e-30)
+                    result(c, "1e7f32") == Token(TokenID::FLOAT_TAIL, "1e7f32")
+                );
+
+                REQUIRE(
+                    result(c, "2e7f64") == Token(TokenID::FLOAT_TAIL, "2e7f64")
                 );
             }
 
-            SECTION("Invalid Numeric Literal Error") {
-                REQUIRE(*result(c, "0f31") == InvalidNumericLiteralErr(Pos()));
-
-                REQUIRE(*result(c, "78.9a") == InvalidNumericLiteralErr(Pos()));
-
-                REQUIRE(*result(c, "1234e") == InvalidNumericLiteralErr(Pos()));
-            }
-
-            SECTION("Out Of Range Error") {
-                REQUIRE(*result(c, "1e46f32") == OutOfRangeErr(Pos()));
-
-                REQUIRE(*result(c, "1e309") == OutOfRangeErr(Pos()));
+            SECTION("Invalid Floating-point Tail Error") {
+                REQUIRE(*result(c, "1e") == InvalidFloatTailErr(Pos()));
+                REQUIRE(*result(c, "1e-") == InvalidFloatTailErr(Pos()));
+                REQUIRE(*result(c, "0ef31") == InvalidFloatTailErr(Pos()));
+                REQUIRE(*result(c, "2ea") == InvalidFloatTailErr(Pos()));
             }
         }
+    }
 
-        SECTION("Identifier") {
-            REQUIRE(result(c, "asdf_fdsa") == Token(TokenID::ID, "asdf_fdsa"));
-        }
+    SECTION("Identifier") {
+        REQUIRE(result(c, "asdf_fdsa") == Token(TokenID::ID, "asdf_fdsa"));
+    }
 
-        SECTION("Keywords") {
-            REQUIRE(result(c, "and") == Token(TokenID::AND));
-            REQUIRE(result(c, "break") == Token(TokenID::BREAK));
-            REQUIRE(result(c, "case") == Token(TokenID::CASE));
-            REQUIRE(result(c, "continue") == Token(TokenID::CONTINUE));
-            REQUIRE(result(c, "def") == Token(TokenID::DEF));
-            REQUIRE(result(c, "elif") == Token(TokenID::ELIF));
-            REQUIRE(result(c, "else") == Token(TokenID::ELSE));
-            REQUIRE(result(c, "except") == Token(TokenID::EXCEPT));
-            REQUIRE(result(c, "finally") == Token(TokenID::FINALLY));
-            REQUIRE(result(c, "for") == Token(TokenID::FOR));
-            REQUIRE(result(c, "if") == Token(TokenID::IF));
-            REQUIRE(result(c, "in") == Token(TokenID::IN));
-            REQUIRE(result(c, "match") == Token(TokenID::MATCH));
-            REQUIRE(result(c, "not") == Token(TokenID::NOT));
-            REQUIRE(result(c, "none") == Token(TokenID::NONE));
-            REQUIRE(result(c, "null") == Token(TokenID::NULL_));
-            REQUIRE(result(c, "or") == Token(TokenID::OR));
-            REQUIRE(result(c, "raise") == Token(TokenID::RAISE));
-            REQUIRE(result(c, "return") == Token(TokenID::RETURN));
-            REQUIRE(result(c, "this") == Token(TokenID::THIS));
-            REQUIRE(result(c, "true") == Token(TokenID::TRUE));
-            REQUIRE(result(c, "try") == Token(TokenID::TRY));
-            REQUIRE(result(c, "type") == Token(TokenID::TYPE));
-            REQUIRE(result(c, "vars") == Token(TokenID::VARS));
-            REQUIRE(result(c, "while") == Token(TokenID::WHILE));
-        }
+    SECTION("Keywords") {
+        REQUIRE(result(c, "and") == Token(TokenID::AND));
+        REQUIRE(result(c, "break") == Token(TokenID::BREAK));
+        REQUIRE(result(c, "case") == Token(TokenID::CASE));
+        REQUIRE(result(c, "continue") == Token(TokenID::CONTINUE));
+        REQUIRE(result(c, "def") == Token(TokenID::DEF));
+        REQUIRE(result(c, "elif") == Token(TokenID::ELIF));
+        REQUIRE(result(c, "else") == Token(TokenID::ELSE));
+        REQUIRE(result(c, "except") == Token(TokenID::EXCEPT));
+        REQUIRE(result(c, "finally") == Token(TokenID::FINALLY));
+        REQUIRE(result(c, "for") == Token(TokenID::FOR));
+        REQUIRE(result(c, "if") == Token(TokenID::IF));
+        REQUIRE(result(c, "in") == Token(TokenID::IN));
+        REQUIRE(result(c, "match") == Token(TokenID::MATCH));
+        REQUIRE(result(c, "not") == Token(TokenID::NOT));
+        REQUIRE(result(c, "none") == Token(TokenID::NONE));
+        REQUIRE(result(c, "null") == Token(TokenID::NULL_));
+        REQUIRE(result(c, "or") == Token(TokenID::OR));
+        REQUIRE(result(c, "raise") == Token(TokenID::RAISE));
+        REQUIRE(result(c, "return") == Token(TokenID::RETURN));
+        REQUIRE(result(c, "this") == Token(TokenID::THIS));
+        REQUIRE(result(c, "true") == Token(TokenID::TRUE));
+        REQUIRE(result(c, "try") == Token(TokenID::TRY));
+        REQUIRE(result(c, "type") == Token(TokenID::TYPE));
+        REQUIRE(result(c, "vars") == Token(TokenID::VARS));
+        REQUIRE(result(c, "while") == Token(TokenID::WHILE));
+    }
 
-        SECTION("Several Lines") {
-            REQUIRE(
-                result(c, "a = 3\na += 5\nreturn a") == Token(TokenID::ID, "a")
-            );
-            REQUIRE(c.pos == Pos(1, 2));
+    SECTION("Several Lines") {
+        REQUIRE(
+            result(c, "a = 3\na += 5\nreturn a") == Token(TokenID::ID, "a")
+        );
+        REQUIRE(c.pos == Pos(1, 2));
 
-            REQUIRE(
-                result(c, "", false) == Token(TokenID::SPACE, std::uint32_t(1))
-            );
-            REQUIRE(c.pos == Pos(1, 3));
+        REQUIRE(
+            result(c, "", false) == Token(TokenID::SPACE, std::uint32_t(1))
+        );
+        REQUIRE(c.pos == Pos(1, 3));
 
-            REQUIRE(result(c, "", false) == Token(TokenID::EQUALS));
-            REQUIRE(c.pos == Pos(1, 4));
+        REQUIRE(result(c, "", false) == Token(TokenID::EQUALS));
+        REQUIRE(c.pos == Pos(1, 4));
 
-            REQUIRE(
-                result(c, "", false) == Token(TokenID::SPACE, std::uint32_t(1))
-            );
-            REQUIRE(c.pos == Pos(1, 5));
+        REQUIRE(
+            result(c, "", false) == Token(TokenID::SPACE, std::uint32_t(1))
+        );
+        REQUIRE(c.pos == Pos(1, 5));
 
-            REQUIRE(
-                result(c, "", false) ==
-                Token(TokenID::PLAIN_INT, std::int32_t(3))
-            );
-            REQUIRE(c.pos == Pos(1, 6));
+        REQUIRE(
+            result(c, "", false) ==
+            Token(TokenID::PLAIN_INT, "3")
+        );
+        REQUIRE(c.pos == Pos(1, 6));
 
-            REQUIRE(result(c, "", false) == Token(TokenID::NEWLINE));
-            REQUIRE(c.pos == Pos(2, 1));
+        REQUIRE(result(c, "", false) == Token(TokenID::NEWLINE));
+        REQUIRE(c.pos == Pos(2, 1));
 
-            REQUIRE(result(c, "", false) == Token(TokenID::ID, "a"));
-            REQUIRE(c.pos == Pos(2, 2));
+        REQUIRE(result(c, "", false) == Token(TokenID::ID, "a"));
+        REQUIRE(c.pos == Pos(2, 2));
 
-            REQUIRE(
-                result(c, "", false) == Token(TokenID::SPACE, std::uint32_t(1))
-            );
-            REQUIRE(c.pos == Pos(2, 3));
+        REQUIRE(
+            result(c, "", false) == Token(TokenID::SPACE, std::uint32_t(1))
+        );
+        REQUIRE(c.pos == Pos(2, 3));
 
-            REQUIRE(result(c, "", false) == Token(TokenID::PLUS_EQUALS));
-            REQUIRE(c.pos == Pos(2, 5));
+        REQUIRE(result(c, "", false) == Token(TokenID::PLUS_EQUALS));
+        REQUIRE(c.pos == Pos(2, 5));
 
-            REQUIRE(
-                result(c, "", false) == Token(TokenID::SPACE, std::uint32_t(1))
-            );
-            REQUIRE(c.pos == Pos(2, 6));
+        REQUIRE(
+            result(c, "", false) == Token(TokenID::SPACE, std::uint32_t(1))
+        );
+        REQUIRE(c.pos == Pos(2, 6));
 
-            REQUIRE(
-                result(c, "", false) ==
-                Token(TokenID::PLAIN_INT, std::int32_t(5))
-            );
-            REQUIRE(c.pos == Pos(2, 7));
+        REQUIRE(
+            result(c, "", false) ==
+            Token(TokenID::PLAIN_INT, "5")
+        );
+        REQUIRE(c.pos == Pos(2, 7));
 
-            REQUIRE(result(c, "", false) == Token(TokenID::NEWLINE));
-            REQUIRE(c.pos == Pos(3, 1));
+        REQUIRE(result(c, "", false) == Token(TokenID::NEWLINE));
+        REQUIRE(c.pos == Pos(3, 1));
 
-            REQUIRE(result(c, "", false) == Token(TokenID::RETURN));
-            REQUIRE(c.pos == Pos(3, 7));
+        REQUIRE(result(c, "", false) == Token(TokenID::RETURN));
+        REQUIRE(c.pos == Pos(3, 7));
 
-            REQUIRE(
-                result(c, "", false) == Token(TokenID::SPACE, std::uint32_t(1))
-            );
-            REQUIRE(c.pos == Pos(3, 8));
+        REQUIRE(
+            result(c, "", false) == Token(TokenID::SPACE, std::uint32_t(1))
+        );
+        REQUIRE(c.pos == Pos(3, 8));
 
-            REQUIRE(result(c, "", false) == Token(TokenID::ID, "a"));
-            REQUIRE(c.pos == Pos(3, 9));
+        REQUIRE(result(c, "", false) == Token(TokenID::ID, "a"));
+        REQUIRE(c.pos == Pos(3, 9));
 
-            REQUIRE(result(c, "", false) == Token(TokenID::END_OF_FILE));
-            REQUIRE(c.pos == Pos(3, 9));
-        }
+        REQUIRE(result(c, "", false) == Token(TokenID::END_OF_FILE));
+        REQUIRE(c.pos == Pos(3, 9));
+    }
 
-        SECTION("Unexpected Char Error") {
-            REQUIRE(*result(c, "!") == UnexpectedCharErr(Pos(), '!'));
-            REQUIRE(*result(c, "$") == UnexpectedCharErr(Pos(), '$'));
-        }
+    SECTION("Unexpected Char Error") {
+        REQUIRE(*result(c, "!") == UnexpectedCharErr(Pos(), '!'));
+        REQUIRE(*result(c, "$") == UnexpectedCharErr(Pos(), '$'));
     }
 }

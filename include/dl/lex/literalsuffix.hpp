@@ -83,8 +83,11 @@ int lit_suffix_len(LiteralSuffix suffix) {
     switch (suffix) {
     case LiteralSuffix::NONE:
         return 0;
+    case LiteralSuffix::F:
+    case LiteralSuffix::S:
+    case LiteralSuffix::U:
+        return 1;
     case LiteralSuffix::S8:
-        return 2;
     case LiteralSuffix::U8:
         return 2;
     default:

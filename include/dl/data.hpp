@@ -18,8 +18,6 @@ using Data = std::variant<
     std::uint16_t,
     std::uint32_t,
     std::uint64_t,
-    float,
-    double,
     std::string
 >;
 

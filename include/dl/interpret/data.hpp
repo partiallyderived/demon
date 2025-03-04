@@ -14,6 +14,7 @@ namespace dl {
 
 template<NodeCategory CATEGORY, typename DataType>
 struct DataNode final: Node {
+    using Type = DataType;
     DataType data;
 
     DataNode(DataType&& data, Pos src)
@@ -48,5 +49,6 @@ using Float64 = DataNode<NodeCategory::FLOAT64, double>;
 using Char = DataNode<NodeCategory::CHAR, std::int32_t>;
 using String = DataNode<NodeCategory::STRING, std::string>;
 using ID = DataNode<NodeCategory::ID, std::string>;
+using NumID = DataNode<NodeCategory::NUM_ID, std::int32_t>;
 
 }

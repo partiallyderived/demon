@@ -35,6 +35,7 @@ enum class OpID {
     EXCEPT,
     FALSE,
     FINALLY,
+    FLOAT_TAIL,
     FOR,
     GET,
     GROUP,
@@ -164,6 +165,8 @@ std::ostream& operator<<(std::ostream& os, OpID id) {
         return os << "FALSE";
     case FINALLY:
         return os << "FINALLY";
+    case FLOAT_TAIL:
+        return os << "FLOAT_TAIL";
     case FOR:
         return os << "FOR";
     case GET:

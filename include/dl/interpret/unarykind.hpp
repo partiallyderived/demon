@@ -9,9 +9,11 @@ enum class UnaryKind {
     ADDR_TYPE,
     EXPANSION,
     LAMBDA,
+    LAMBDA_VAR,
     NOT,
     RAISE,
-    RETURN
+    RETURN,
+    SYMBOL
 };
 
 std::ostream& operator<<(std::ostream& os, UnaryKind x) {
@@ -26,12 +28,16 @@ std::ostream& operator<<(std::ostream& os, UnaryKind x) {
         return os << "EXPANSION";
     case LAMBDA:
         return os << "LAMBDA";
+    case LAMBDA_VAR:
+        return os << "LAMBDA_VAR";
     case NOT:
         return os << "NOT";
     case RAISE:
         return os << "RAISE";
     case RETURN:
         return os << "RETURN";
+    case SYMBOL:
+        return os << "SYMBOL";
     }
 }
 

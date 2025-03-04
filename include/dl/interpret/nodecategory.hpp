@@ -19,17 +19,13 @@ enum class NodeCategory {
     CHAR,
     STRING,
     ID,
-    SYMBOL,
-    DECLARE,
+    NUM_ID,
     INIT,
     UPDATE,
     CALL_ATTR,
-    GET_ATTR,
     SET_ATTR,
     UPDATE_ATTR,
     KEYWORD_ARG,
-    LAMBDA_POS,
-    LAMBDA_KEYWORD,
     TERNARY,
     NULLARY,
     UNARY,
@@ -77,28 +73,20 @@ std::ostream& operator<<(std::ostream& os, NodeCategory x) {
         return os << "STRING";
     case ID:
         return os << "ID";
-    case SYMBOL:
-        return os << "SYMBOL";
-    case DECLARE:
-        return os << "DECLARE";
+    case NUM_ID:
+        return os << "NUM_ID";
     case INIT:
         return os << "INIT";
     case UPDATE:
         return os << "UPDATE";
-    case CALL_ATTR:
-        return os << "CALL_ATTR";
-    case GET_ATTR:
-        return os << "GET_ATTR";
     case SET_ATTR:
         return os << "SET_ATTR";
+    case CALL_ATTR:
+        return os << "CALL_ATTR";
     case UPDATE_ATTR:
         return os << "UPDATE_ATTR";
     case KEYWORD_ARG:
         return os << "KEYWORD_ARG";
-    case LAMBDA_POS:
-        return os << "LAMBDA_POS";
-    case LAMBDA_KEYWORD:
-        return os << "LAMBDA_KEYWORD";
     case TERNARY:
         return os << "TERNARY";
     case NULLARY:

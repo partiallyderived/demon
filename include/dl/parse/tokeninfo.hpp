@@ -160,6 +160,8 @@ const TokenInfo TOKEN_INFO_[static_cast<int>(TokenID::WHILE) + 1] = {
     value_info_(OpID::FALSE, OpID::SUFFIX),
     // FINALLY
     construct_last_info_(OpID::FINALLY),
+    // FLOAT_TAIL
+    value_info_(OpID::FLOAT_TAIL, OpID::SUFFIX),
     // FOR
     construct_first_info_(OpID::FOR),
     // HASH

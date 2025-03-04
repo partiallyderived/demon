@@ -70,19 +70,19 @@ struct InvalidEscapeErr final: SourcedErr {
     }
 };
 
+struct InvalidFloatTailErr final: SourcedErr {
+    InvalidFloatTailErr(Pos src) noexcept: SourcedErr(src) {}
+
+    virtual std::ostream& out_name(std::ostream& os) const override {
+        return os << "InvalidFloatTailErr";
+    }
+};
+
 struct InvalidHexDigitErr final: SourcedErr {
     InvalidHexDigitErr(Pos src) noexcept: SourcedErr(src) {}
 
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "InvalidHexDigitErr";
-    }
-};
-
-struct InvalidNumericLiteralErr final: SourcedErr {
-    InvalidNumericLiteralErr(Pos src) noexcept: SourcedErr(src) {}
-
-    virtual std::ostream& out_name(std::ostream& os) const override {
-        return os << "InvalidNumericLiteralErr";
     }
 };
 
@@ -99,14 +99,6 @@ struct LeadingZeroesErr final: SourcedErr {
 
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "LeadingZeroesErr";
-    }
-};
-
-struct OutOfRangeErr final: SourcedErr {
-    OutOfRangeErr(Pos src) noexcept: SourcedErr(src) {}
-
-    virtual std::ostream& out_name(std::ostream& os) const override {
-        return os << "OutOfRangeErr";
     }
 };
 
@@ -356,61 +348,50 @@ void read_alnum(std::int32_t c, Cursor& cursor, std::string& res) {
     cursor.ungetc();
 }
 
+Res<Token> read_float_tail(
+    Cursor& cursor, Pos start, std::string&& res
+) noexcept {
+    std::int32_t c = cursor.getc();
+    if (c == '-') {
+        res += char(c);
+        c = cursor.getc();
+    }
+
+    if (!is_digit(c)) {
+        // Invalid: floating point literal can't end with e or -.
+        read_alnum(c, cursor, res);
+        return ErrPtr(new InvalidFloatTailErr(start));
+    }
+
+    while(is_digit(c)) {
+        res += char(c);
+        c = cursor.getc();
+    }
+
+    if (is_alnum(c) || c == '_') {
+        std::uint32_t alnum_start = res.size();
+        read_alnum(c, cursor, res);
+        LiteralSuffix suffix = lit_suffix(res);
+        if (res.size() - alnum_start != lit_suffix_len(suffix)) 
+            return ErrPtr(new InvalidFloatTailErr(start));
+    }
+
+    // Got one extra character, put it back.
+    cursor.ungetc();
+    return Token(TokenID::FLOAT_TAIL, std::move(res));
+}
+
 template<typename T>
-Res<Token> read_number(
+Res<Token> read_number_token(
     Pos start,
     const char* begin,
     const char* expected_end,
-    int base,
-    bool plain_int=false
-) noexcept {
-    char* end;
-    errno = 0;
-    T res = strto<T>(begin, &end, base);
-    if (errno == ERANGE)
-        return ErrPtr(new OutOfRangeErr(start));
-    if (end == begin || end < expected_end)
-        return ErrPtr(new InvalidNumericLiteralErr(start));
-    if (plain_int)
-        // Base 10 integers without suffixes can be used in more contexts than
-        // ordinary literals.
-        return Token(TokenID::PLAIN_INT, res);
-    return Token(TokenID::NUMBER, res);
-}
-
-Res<Token> read_float(Pos start, const std::string& res) noexcept {
-    const char* begin = &res[0];
-    LiteralSuffix suffix = lit_suffix(res);
-    const char* end = begin + res.size() - lit_suffix_len(suffix);
-
-    switch(suffix) {
-    case LiteralSuffix::F:
-    case LiteralSuffix::F64:
-    case LiteralSuffix::NONE:
-        return read_number<double>(start, begin, end, 10);
-    case LiteralSuffix::F32:
-        return read_number<float>(start, begin, end, 10);
-    default:
-        return ErrPtr(new InvalidNumericLiteralErr(start));
-    }
-}
-
-Res<Token> read_exponent_then_float(
-    Cursor& cursor, Pos start, std::string& res
-) noexcept {
-    std::int32_t c = cursor.getc();
-    if (c == '-' || is_alnum(c) || c == '_')
-        res += char(c);
-    else {
-        // Invalid: floating point literal can't end with e.
-        cursor.ungetc();
-        return ErrPtr(new InvalidNumericLiteralErr(start));
-    }
-    // Eat the remaining alphanumeric characters.
-    c = cursor.getc();
-    read_alnum(c, cursor, res);
-
-    return read_float(start, res);
+    int base
+) {
+    Res<T> res = read_number<T>(start, begin, expected_end, base);
+    if (res.is_err)
+        return std::move(res.err);
+    return Token(TokenID::NUMBER, res.res);
 }
 
 bool seek_quote(Cursor& cursor, std::int32_t quote) {
@@ -477,7 +458,7 @@ Token next_id(int c, Cursor& cursor) {
 
 // Read the next numeric literal.
 // This function is very careful not to eat a `.` or a `-` unless the preceding
-// characters are thus far indiciate a valid floating point literal.
+// characters thus far indiciate a valid floating point literal.
 // Additionally, any concatenated alphanumeric or underscore characters are
 // read, not just digits, even if the result is invalid.
 Res<Token> next_number(std::int32_t c, Cursor& cursor) {
@@ -510,46 +491,23 @@ Res<Token> next_number(std::int32_t c, Cursor& cursor) {
             c = cursor.getc();
         }
         if (c == 'e' || c == 'E') {
-            // Floating point literal with exponent but no fractional part.
+            // Something like 123e45
+            // Note that, because tokens are always split on dots, we might be
+            // missing the integral part, like 89.123e45. These parts are
+            // combined into a floating-point number later by the interpreter.
             res += char(c);
-            return read_exponent_then_float(cursor, start, res);
+            return read_float_tail(cursor, start, std::move(res));
         }
-        if (c == '.') {
-            c = cursor.getc();
-            if (is_digit(c)) {
-                // Floating point literal.
-                res += '.';
-                do {
-                    res += char(c);
-                    c = cursor.getc();
-                } while (is_digit(c));
+    }
 
-                // Check for exponent.
-                if (c == 'e' || c == 'E') {
-                    res += char(c);
-                    return read_exponent_then_float(cursor, start, res);
-                }
-
-                // Otherwise, eat remaining alphanum characters and then read
-                // the float.
-                read_alnum(c, cursor, res);
-                return read_float(start, res);
-            }
-            // Not a necessarily a floating point literal, gotta put back two
-            // chars.
-            cursor.ungetc();
-            cursor.ungetc();
-
-    // By this point, we know the literal contains no decimal point and is not a
-    // valid floating-point literal with an exponent.
-    // Because of this, no minus sign or decimal point can be part of the
-    // literal, and we are safe to read the remaining alphanumeric characters
-    // without risk of reading a `.` or a `-` into an invalid float.
-        } else
-            read_alnum(c, cursor, res);
-    } else
+    bool has_alnum = false;
+    if (is_alnum(c)) {
+        has_alnum = true;
+        // Eat the remaining alphanumeric characters.
         read_alnum(c, cursor, res);
-
+    } else
+        // Put back the character we read.
+        cursor.ungetc();
     if (res.size() > 1 && res[0] == '0' && is_digit(res[1]))
         return ErrPtr(new LeadingZeroesErr(start));
 
@@ -559,46 +517,72 @@ Res<Token> next_number(std::int32_t c, Cursor& cursor) {
 
     switch(suffix) {
     case LiteralSuffix::NONE:
-        return read_number<std::int32_t>(
-            start, begin, expected_end, base, base == 10
+        if (base == 10 && !has_alnum) {
+            // Plain integers stay as strings for now until they are interpreted
+            // by the interpreter.
+            return Token(TokenID::PLAIN_INT, std::move(res));
+        }
+        return read_number_token<std::int32_t>(
+            start, begin, expected_end, base
         );
     case LiteralSuffix::S:
     case LiteralSuffix::S32:
-        return read_number<std::int32_t>(start, begin, expected_end, base);
+        return read_number_token<std::int32_t>(
+            start, begin, expected_end, base
+        );
     case LiteralSuffix::S8:
-        return read_number<std::int8_t>(start, begin, expected_end, base);
+        return read_number_token<std::int8_t>(
+            start, begin, expected_end, base
+        );
     case LiteralSuffix::S16:
-        return read_number<std::int16_t>(start, begin, expected_end, base);
+        return read_number_token<std::int16_t>(
+            start, begin, expected_end, base
+        );
     case LiteralSuffix::S64:
-        return read_number<std::int64_t>(start, begin, expected_end, base);
+        return read_number_token<std::int64_t>(
+            start, begin, expected_end, base
+        );
     case LiteralSuffix::U:
     case LiteralSuffix::U32:
-        return read_number<std::uint32_t>(start, begin, expected_end, base);
+        return read_number_token<std::uint32_t>(
+            start, begin, expected_end, base
+        );
     case LiteralSuffix::U8:
-        return read_number<std::uint8_t>(start, begin, expected_end, base);
+        return read_number_token<std::uint8_t>(
+            start, begin, expected_end, base
+        );
     case LiteralSuffix::U16:
-        return read_number<std::uint16_t>(start, begin, expected_end, base);
+        return read_number_token<std::uint16_t>(
+            start, begin, expected_end, base
+        );
     case LiteralSuffix::U64:
-        return read_number<std::uint64_t>(start, begin, expected_end, base);
+        return read_number_token<std::uint64_t>(
+            start, begin, expected_end, base
+        );
     case LiteralSuffix::F:
     case LiteralSuffix::F64:
         if (base == 16) {
             // Suffix is valid hex, let it be read as such.
             expected_end += lit_suffix_len(suffix);
-            return read_number<std::int32_t>(start, begin, expected_end, base);
+            return read_number_token<std::int32_t>(
+                start, begin, expected_end, base
+            );
         }
         else if (base == 8)
             // Octal floating point not allowed.
             return ErrPtr(new InvalidNumericLiteralErr(start));
-        return read_number<double>(start, begin, expected_end, base);
+        // May not be the entire float, since the lexer splits on . always.
+        return Token(TokenID::FLOAT_TAIL, std::move(res));
     case LiteralSuffix::F32:
         if (base == 16) {
             expected_end += 3;
-            return read_number<std::int32_t>(start, begin, expected_end, base);
+            return read_number_token<std::int32_t>(
+                start, begin, expected_end, base
+            );
         }
         else if (base == 8)
             return ErrPtr(new InvalidNumericLiteralErr(start));
-        return read_number<float>(start, begin, expected_end, base);
+        return Token(TokenID::FLOAT_TAIL, std::move(res));
     }
 }
 

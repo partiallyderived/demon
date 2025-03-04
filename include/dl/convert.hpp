@@ -6,7 +6,26 @@
 #include <limits>
 #include <type_traits>
 
+#include "dl/res.hpp"
+
 namespace dl {
+
+struct InvalidNumericLiteralErr final: SourcedErr {
+    InvalidNumericLiteralErr(Pos src) noexcept: SourcedErr(src) {}
+
+    virtual std::ostream& out_name(std::ostream& os) const override {
+        return os << "InvalidNumericLiteralErr";
+    }
+};
+
+struct OutOfRangeErr final: SourcedErr {
+    OutOfRangeErr(Pos src) noexcept: SourcedErr(src) {}
+
+    virtual std::ostream& out_name(std::ostream& os) const override {
+        return os << "OutOfRangeErr";
+    }
+};
+
 
 template<typename T>
 T strto(const char* str, char** str_end, int base = 10) {
@@ -43,6 +62,23 @@ T strto(const char* str, char** str_end, int base = 10) {
         }
         return static_cast<T>(res);
     }
+}
+
+template<typename T>
+Res<T> read_number(
+    Pos start,
+    const char* begin,
+    const char* expected_end,
+    int base
+) noexcept {
+    char* end;
+    errno = 0;
+    T res = strto<T>(begin, &end, base);
+    if (errno == ERANGE)
+        return ErrPtr(new OutOfRangeErr(start));
+    if (end < expected_end)
+        return ErrPtr(new InvalidNumericLiteralErr(start));
+    return res;
 }
 
 }

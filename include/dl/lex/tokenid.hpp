@@ -37,6 +37,7 @@ enum class TokenID {
     EXCEPT,
     FALSE,
     FINALLY,
+    FLOAT_TAIL,
     FOR,
     HASH,
     ID,
@@ -149,6 +150,8 @@ std::ostream& operator<<(std::ostream& os, TokenID id) {
         return os << "FALSE";
     case FINALLY:
         return os << "FINALLY";
+    case FLOAT_TAIL:
+        return os << "FLOAT_TAIL";
     case FOR:
         return os << "FOR";
     case HASH:

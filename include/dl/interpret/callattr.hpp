@@ -13,12 +13,12 @@ namespace dl {
 
 struct CallAttr final: Node {
     NodePtr object;
-    ID attr;
+    NodePtr attr;
     Args args;
     bool cached;
 
     CallAttr(
-        NodePtr&& object, ID&& attr, Args&& args, bool cached, Pos src
+        NodePtr&& object, NodePtr&& attr, Args&& args, bool cached, Pos src
     ) noexcept:
     Node(src),
     object(std::move(object)),
@@ -35,7 +35,7 @@ struct CallAttr final: Node {
         const auto& casted = dynamic_cast<const CallAttr&>(that);
         return
             npeq(object, casted.object) &&
-            attr == casted.attr &&
+            npeq(attr, casted.attr) &&
             args == casted.args &&
             cached == casted.cached;
     }
