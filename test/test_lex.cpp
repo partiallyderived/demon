@@ -224,8 +224,16 @@ TEST_CASE("lex", "[lex]") {
         REQUIRE(result(c, "%") == Token(TokenID::PERCENT));
     }
 
-    SECTION("Percent") {
+    SECTION("Percent Equals") {
         REQUIRE(result(c, "%=") == Token(TokenID::PERCENT_EQUALS));
+    }
+
+    SECTION("Percent Star") {
+        REQUIRE(result(c, "%*") == Token(TokenID::PERCENT_STAR));
+    }
+
+    SECTION("Percent Double Star") {
+        REQUIRE(result(c, "%**") == Token(TokenID::PERCENT_DOUBLE_STAR));
     }
 
     SECTION("Tilde") {

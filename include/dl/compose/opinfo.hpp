@@ -147,6 +147,10 @@ const OpInfo OP_INFO_[] = {
     OpInfo(OpKind::BINARY, Precedence::LABEL),
     // LAMBDA
     PREFIX_INFO_,
+    // LAMBDA_ARGS
+    OpInfo(OpKind::SINGLETON),
+    // LAMBDA_KWARGS
+    OpInfo(OpKind::SINGLETON),
     // LIST
     LEFT_INFO_,
     // LOOP_VAR_SEP

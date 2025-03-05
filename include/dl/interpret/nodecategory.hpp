@@ -27,6 +27,10 @@ enum class NodeCategory {
     UPDATE_ATTR,
     KEYWORD_ARG,
     TERNARY,
+    VAR,
+    LAMBDA_VAR,
+    LAMBDA_ARGS,
+    LAMBDA_KWARGS,
     NULLARY,
     UNARY,
     BINARY,
@@ -89,6 +93,14 @@ std::ostream& operator<<(std::ostream& os, NodeCategory x) {
         return os << "KEYWORD_ARG";
     case TERNARY:
         return os << "TERNARY";
+    case VAR:
+        return os << "VAR";
+    case LAMBDA_VAR:
+        return os << "LAMBDA_VAR";
+    case LAMBDA_ARGS:
+        return os << "LAMBDA_ARGS";
+    case LAMBDA_KWARGS:
+        return os << "LAMBDA_KWARGS";
     case NULLARY:
         return os << "NULLARY";
     case UNARY:

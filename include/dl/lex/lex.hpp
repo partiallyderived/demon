@@ -727,6 +727,19 @@ Res<Token> next_token(Cursor& cursor) {
             check_next(cursor, '=') ? TokenID::SLASH_EQUALS: TokenID::SLASH
         );
     case '%':
+        c = cursor.getc();
+        switch(c) {
+        case '=':
+            return Token(TokenID::PERCENT_EQUALS);
+        case '*':
+            return Token(
+                check_next(cursor, '*') ?
+                    TokenID::PERCENT_DOUBLE_STAR: TokenID::PERCENT_STAR
+            );
+        default:
+            cursor.ungetc();
+            return Token(TokenID::PERCENT);
+        }
         return Token(
             check_next(cursor, '=') ?
             TokenID::PERCENT_EQUALS: TokenID::PERCENT

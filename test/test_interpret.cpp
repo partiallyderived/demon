@@ -3032,6 +3032,30 @@ TEST_CASE("interpret", "[interpret]") {
         ));
     }
 
+    SECTION("Lambda Args") {
+        // %*
+        REQUIRE(*interpreter.interpret(Comp(
+            OpID::LAMBDA_ARGS, s1
+        )) == LambdaArgs(
+            1, s1
+        ));
+
+        // %%%*
+        REQUIRE(*interpreter.interpret(Comp(
+            OpID::LAMBDA,
+            Comp(
+                OpID::LAMBDA,
+                Comp(
+                    OpID::LAMBDA_ARGS, s3
+                ),
+                s2
+            ),
+            s1
+        )) == LambdaArgs(
+            3, s1
+        ));
+    }
+
     SECTION("Lambda Expression") {
         // %(%1 + %2)
         REQUIRE(*interpreter.interpret(Comp(
@@ -3058,15 +3082,11 @@ TEST_CASE("interpret", "[interpret]") {
         )) == Unary(
             UnaryKind::LAMBDA,
             NodePtr(new CallAttr(
-                NodePtr(new Unary(
-                    UnaryKind::LAMBDA_VAR,
-                    NodePtr(new NumID(1, s4)),
-                    s3
-                )),
+                NodePtr(new LambdaVar(1, NodePtr(new NumID(1, s4)), s3)),
                 NodePtr(new ID("__add__", s5)),
                 Args(
-                    vec(NodePtr(new Unary(
-                        UnaryKind::LAMBDA_VAR,
+                    vec(NodePtr(new LambdaVar(
+                        1,
                         NodePtr(new NumID(2, s7)),
                         s6
                     ))),
@@ -3077,6 +3097,34 @@ TEST_CASE("interpret", "[interpret]") {
             )),
             s1
         ));
+
+        // %%(%1 + %2)
+        REQUIRE(*interpreter.interpret(Comp(
+            OpID::LAMBDA,
+            Comp(
+                OpID::LAMBDA,
+                Comp(
+                    OpID::GROUP,
+                    Comp(
+                        OpID::ADD,
+                        Comp(
+                            OpID::LAMBDA,
+                            Comp(OpID::PLAIN_INT, "1", s5),
+                            s4
+                        ),
+                        Comp(
+                            OpID::LAMBDA,
+                            Comp(OpID::PLAIN_INT, "2", s8),
+                            s7
+                        ),
+                        s6
+                    ),
+                    s3
+                ),
+                s2
+            ),
+            s1
+        )) == ExpectedGeneralIDErr(s3));
 
         // %[%1 + %2]
         REQUIRE(*interpreter.interpret(Comp(
@@ -3103,20 +3151,55 @@ TEST_CASE("interpret", "[interpret]") {
         )) == ExpectedGeneralIDErr(s2));
     }
 
+    SECTION("Lambda Keyword Args") {
+        // %**
+        REQUIRE(*interpreter.interpret(Comp(
+            OpID::LAMBDA_KWARGS, s1
+        )) == LambdaKeywordArgs(
+            1, s1
+        ));
+
+        // %%%**
+        REQUIRE(*interpreter.interpret(Comp(
+            OpID::LAMBDA,
+            Comp(
+                OpID::LAMBDA,
+                Comp(
+                    OpID::LAMBDA_KWARGS, s3
+                ),
+                s2
+            ),
+            s1
+        )) == LambdaKeywordArgs(
+            3, s1
+        ));
+    }
+
     SECTION("Lambda Var") {
         // %1
         REQUIRE(*interpreter.interpret(Comp(
             OpID::LAMBDA, Comp(OpID::PLAIN_INT, "1", s2), s1
-        )) == Unary(
-            UnaryKind::LAMBDA_VAR, NodePtr(new NumID(1, s2)), s1
+        )) == LambdaVar(
+            1, NodePtr(new NumID(1, s2)), s1
         ));
 
         // %a
         REQUIRE(*interpreter.interpret(Comp(
             OpID::LAMBDA, Comp(OpID::ID, "a", s2), s1
-        )) == Unary(
-            UnaryKind::LAMBDA_VAR, NodePtr(new ID("a", s2)), s1
+        )) == LambdaVar(
+            1, NodePtr(new ID("a", s2)), s1
         ));
+
+        // %%%1
+        REQUIRE(*interpreter.interpret(Comp(
+            OpID::LAMBDA,
+            Comp(
+                OpID::LAMBDA,
+                Comp(OpID::LAMBDA, Comp(OpID::PLAIN_INT, "1", s4), s3),
+                s2
+            ),
+            s1
+        )) == LambdaVar(3, NodePtr(new NumID(1, s4)), s1));
     }
 
     SECTION("List") {
@@ -3527,10 +3610,8 @@ TEST_CASE("interpret", "[interpret]") {
                     CallKind::MATCH,
                     NodePtr(new ID("Int", s5)),
                     Args(
-                        vec(NodePtr(new Unary(
-                            UnaryKind::LAMBDA_VAR,
-                            NodePtr(new ID("y", s8)),
-                            s7
+                        vec(NodePtr(new LambdaVar(
+                            1, NodePtr(new ID("y", s8)), s7
                         ))),
                         {}
                     ),
@@ -3585,10 +3666,8 @@ TEST_CASE("interpret", "[interpret]") {
                     CallKind::MATCH,
                     NodePtr(new ID("Int", s5)),
                     Args(
-                        vec(NodePtr(new Unary(
-                            UnaryKind::LAMBDA_VAR,
-                            NodePtr(new ID("y", s8)),
-                            s7
+                        vec(NodePtr(new LambdaVar(
+                            1, NodePtr(new ID("y", s8)), s7
                         ))),
                         {}
                     ),
@@ -3662,10 +3741,8 @@ TEST_CASE("interpret", "[interpret]") {
                     CallKind::MATCH,
                     NodePtr(new ID("Int", s5)),
                     Args(
-                        vec(NodePtr(new Unary(
-                            UnaryKind::LAMBDA_VAR,
-                            NodePtr(new ID("y", s8)),
-                            s7
+                        vec(NodePtr(new LambdaVar(
+                            1, NodePtr(new ID("y", s8)), s7
                         ))),
                         {}
                     ),
@@ -3743,10 +3820,8 @@ TEST_CASE("interpret", "[interpret]") {
                         CallKind::MATCH,
                         NodePtr(new ID("Int", s5)),
                         Args(
-                            vec(NodePtr(new Unary(
-                                UnaryKind::LAMBDA_VAR,
-                                NodePtr(new ID("y", s8)),
-                                s7
+                            vec(NodePtr(new LambdaVar(
+                                1, NodePtr(new ID("y", s8)), s7
                             ))),
                             {}
                         ),
@@ -4163,10 +4238,8 @@ TEST_CASE("interpret", "[interpret]") {
                     CallKind::MATCH,
                     NodePtr(new ID("E", s8)),
                     Args(
-                        vec(NodePtr(new Unary(
-                            UnaryKind::LAMBDA_VAR,
-                            NodePtr(new ID("e", s11)),
-                            s10
+                        vec(NodePtr(new LambdaVar(
+                            1, NodePtr(new ID("e", s11)), s10
                         ))),
                         {}
                     ),
@@ -4251,10 +4324,8 @@ TEST_CASE("interpret", "[interpret]") {
                     CallKind::MATCH,
                     NodePtr(new ID("E", s10)),
                     Args(
-                        vec(NodePtr(new Unary(
-                            UnaryKind::LAMBDA_VAR,
-                            NodePtr(new ID("e", s13)),
-                            s12
+                        vec(NodePtr(new LambdaVar(
+                            1, NodePtr(new ID("e", s13)), s12
                         ))),
                         {}
                     ),
@@ -4357,10 +4428,8 @@ TEST_CASE("interpret", "[interpret]") {
                     CallKind::MATCH,
                     NodePtr(new ID("E", s10)),
                     Args(
-                        vec(NodePtr(new Unary(
-                            UnaryKind::LAMBDA_VAR,
-                            NodePtr(new ID("e", s13)),
-                            s12
+                        vec(NodePtr(new LambdaVar(
+                            1, NodePtr(new ID("e", s13)), s12
                         ))),
                         {}
                     ),
@@ -4537,10 +4606,8 @@ TEST_CASE("interpret", "[interpret]") {
                         CallKind::MATCH,
                         NodePtr(new ID("E1", s10)),
                         Args(
-                            vec(NodePtr(new Unary(
-                                UnaryKind::LAMBDA_VAR,
-                                NodePtr(new ID("e", s13)),
-                                s12
+                            vec(NodePtr(new LambdaVar(
+                                1, NodePtr(new ID("e", s13)), s12
                             ))),
                             {}
                         ),
@@ -4558,10 +4625,8 @@ TEST_CASE("interpret", "[interpret]") {
                         CallKind::MATCH,
                         NodePtr(new ID("E2", s23)),
                         Args(
-                            vec(NodePtr(new Unary(
-                                UnaryKind::LAMBDA_VAR,
-                                NodePtr(new ID("e", s26)),
-                                s25
+                            vec(NodePtr(new LambdaVar(
+                                1, NodePtr(new ID("e", s26)), s25
                             ))),
                             {}
                         ),
@@ -4943,6 +5008,35 @@ TEST_CASE("interpret", "[interpret]") {
             Comp(OpID::ID, "c", s8),
             s7
         )) == ExpectedGeneralIDErr(s3));
+    }
+
+    SECTION("Var") {
+        // .1
+        REQUIRE(*interpreter.interpret(Comp(
+            OpID::UP, Comp(OpID::PLAIN_INT, "1", s2), s1
+        )) == Var(1, NodePtr(new NumID(1, s2)), s1));
+
+        // .a
+        REQUIRE(*interpreter.interpret(Comp(
+            OpID::UP, Comp(OpID::ID, "a", s2), s1
+        )) == Var(1, NodePtr(new ID("a", s2)), s1));
+
+        // ...a
+        REQUIRE(*interpreter.interpret(Comp(
+            OpID::UP,
+            Comp(
+                OpID::UP,
+                Comp(
+                    OpID::UP,
+                    Comp(
+                        OpID::ID, "a", s4
+                    ),
+                    s3
+                ),
+                s2
+            ),
+            s1
+        )) == Var(3, NodePtr(new ID("a", s4)), s1));
     }
 
     SECTION("While") {

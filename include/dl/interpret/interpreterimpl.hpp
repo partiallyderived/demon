@@ -32,6 +32,9 @@
 #include "dl/interpret/init.hpp"
 #include "dl/interpret/interpreter.hpp"
 #include "dl/interpret/keywordarg.hpp"
+#include "dl/interpret/lambdaargs.hpp"
+#include "dl/interpret/lambdakeywordargs.hpp"
+#include "dl/interpret/lambdavar.hpp"
 #include "dl/interpret/match.hpp"
 #include "dl/interpret/node.hpp"
 #include "dl/interpret/nullary.hpp"
@@ -46,6 +49,7 @@
 #include "dl/interpret/unarykind.hpp"
 #include "dl/interpret/update.hpp"
 #include "dl/interpret/updateattr.hpp"
+#include "dl/interpret/var.hpp"
 #include "dl/interpret/while.hpp"
 #include "dl/lex/literalsuffix.hpp"
 #include "dl/pos.hpp"
@@ -383,11 +387,11 @@ struct VarArgsWhereKeywordArgExpectedErr final: SourcedErr {
     }
 };
 
-struct ZeroCannotBeLambdaVarErr final: SourcedErr {
-    ZeroCannotBeLambdaVarErr(Pos src) noexcept: SourcedErr(src) {}
+struct ZeroUsedAsIDErr final: SourcedErr {
+    ZeroUsedAsIDErr(Pos src) noexcept: SourcedErr(src) {}
 
     std::ostream& out_name(std::ostream& os) const override {
-        return os << "ZeroCannotBeLambdaVarErr";
+        return os << "ZeroUsedAsIDErr";
     }
 };
 
@@ -412,6 +416,7 @@ struct InterpreterImpl final: Interpreter {
     }
 
     static inline ID as_id(Comp&& comp);
+    static inline std::pair<std::uint32_t, Comp> count_op(Comp&& comp, OpID op);
     static inline Res<Nodes> expect_body_only(Comp&& comp);
     static inline Res<ID> expect_id(Comp&& comp);
     static inline NodeRes interpret_arg(Comp&& comp);
@@ -503,6 +508,7 @@ struct InterpreterImpl final: Interpreter {
     static inline NodeRes interpret_unop_method(
         Comp&& comp, std::string fn_name
     );
+    static inline NodeRes interpret_up(Comp&& comp);
     static inline NodeRes interpret_value(Comp&& comp);
     static inline NodeRes interpret_while(std::vector<Comp>&& comps);
     static inline bool is_map(const Nodes& nodes);
@@ -512,6 +518,16 @@ struct InterpreterImpl final: Interpreter {
 
 ID InterpreterImpl::as_id(Comp&& comp) {
     return ID(std::move(std::get<std::string>(comp.data)), comp.src);
+}
+
+std::pair<std::uint32_t, Comp> InterpreterImpl::count_op(Comp&& comp, OpID op) {
+    std::uint32_t count = 0;
+    Comp* c = &comp;
+    while (c->op == op) {
+        count++;
+        c = c->comp;
+    }
+    return {count, std::move(*c)};
 }
 
 Res<Nodes> InterpreterImpl::interpret_csv(Comp&& comp) {
@@ -1461,26 +1477,33 @@ Res<ArgDefWithKind> InterpreterImpl::interpret_labeled_arg_def(
 }
 
 NodeRes InterpreterImpl::interpret_lambda(Comp&& comp) {
-    using enum OpID;
+    std::pair<std::uint32_t, Comp> counted =
+        count_op(std::move(comp), OpID::LAMBDA);
+    std::uint32_t count = counted.first;
+    Comp arg = std::move(counted.second);
 
-    switch(comp.comp->op) {
-    case GROUP: {
-        NodeRes arg = interpret_value(std::move(*comp.comp->comp));
-        if (arg.is_err)
-            return arg;
+    if (arg.op == OpID::GROUP && count == 1) {
+        NodeRes inner = interpret_value(std::move(arg));
+        if (inner.is_err)
+            return inner;
         return NodePtr(new Unary(
             UnaryKind::LAMBDA,
-            std::move(arg.res),
+            std::move(inner.res),
             comp.src
         ));
     }
+
+    using enum OpID;
+    switch(arg.op) {
+    case LAMBDA_ARGS:
+        return NodePtr(new LambdaArgs(count + 1, comp.src));
+    case LAMBDA_KWARGS:
+        return NodePtr(new LambdaKeywordArgs(count + 1, comp.src));
     default: {
-        NodeRes var = interpret_general_id(std::move(*comp.comp));
+        NodeRes var = interpret_general_id(std::move(arg));
         if (var.is_err)
             return var;
-        return NodePtr(new Unary(
-            UnaryKind::LAMBDA_VAR, std::move(var.res), comp.src
-        ));
+        return NodePtr(new LambdaVar(count, std::move(var.res), comp.src));
     }}
 }
 
@@ -1548,6 +1571,8 @@ NodeRes InterpreterImpl::interpret_num_id(Comp&& comp) {
         read_number<std::int32_t>(comp.src, &s[0], &s[0] + s.size(), 10);
     if (x.is_err)
         return std::move(x.err);
+    if (x.res == 0)
+        return ErrPtr(new ZeroUsedAsIDErr(comp.src));
     return NodePtr(new NumID(std::move(x.res), comp.src));
 }
 
@@ -1796,6 +1821,10 @@ NodeRes InterpreterImpl::interpret_value(Comp&& comp) {
         return interpret_binop_method(std::move(comp), "__in__");
     case LAMBDA:
         return interpret_lambda(std::move(comp));
+    case LAMBDA_ARGS:
+        return NodePtr(new LambdaArgs(1, comp.src));
+    case LAMBDA_KWARGS:
+        return NodePtr(new LambdaKeywordArgs(1, comp.src));
     case LIST:
         return interpret_seq(SeqKind::LIST, std::move(comp)); 
     case LSH:
@@ -1846,9 +1875,20 @@ NodeRes InterpreterImpl::interpret_value(Comp&& comp) {
         return NodePtr(new Nullary(NullaryKind::THIS, comp.src));
     case TRUE:
         return NodePtr(new Bool(true, comp.src));
+    case UP:
+        return interpret_up(std::move(comp));
     default:
         return ErrPtr(new ExpectedExprErr(comp.src));
     }
+}
+
+NodeRes InterpreterImpl::interpret_up(Comp&& comp) {
+    std::pair<std::uint32_t, Comp> counted =
+        count_op(std::move(comp), OpID::UP);
+    NodeRes id = interpret_general_id(std::move(counted.second));
+    if (id.is_err)
+        return id;
+    return NodePtr(new Var(counted.first, std::move(id.res), comp.src));
 }
 
 NodeRes InterpreterImpl::interpret_while(std::vector<Comp>&& comps) {

@@ -57,6 +57,8 @@ enum class OpID {
     ISUB,
     LABEL,
     LAMBDA,
+    LAMBDA_ARGS,
+    LAMBDA_KWARGS,
     LIST,
     LOOP_VAR_SEP,
     LSH,
@@ -209,6 +211,10 @@ std::ostream& operator<<(std::ostream& os, OpID id) {
         return os << "LABEL";
     case LAMBDA:
         return os << "LAMBDA";
+    case LAMBDA_ARGS:
+        return os << "LAMBDA_ARGS";
+    case LAMBDA_KWARGS:
+        return os << "LAMBDA_KWARGS";
     case LIST:
         return os << "LIST";
     case LOOP_VAR_SEP:

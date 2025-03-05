@@ -204,8 +204,12 @@ const TokenInfo TOKEN_INFO_[static_cast<int>(TokenID::WHILE) + 1] = {
     binary_info_(OpID::OR),
     // PERCENT
     multiary_info_(OpID::LAMBDA, OpID::MOD),
+    // PERCENT_DOUBLE_STAR
+    value_info_(OpID::LAMBDA_KWARGS, OpID::SUFFIX),
     // PERCENT_EQUALS
     binary_info_(OpID::IMOD),
+    // PERCENT_STAR
+    value_info_(OpID::LAMBDA_ARGS, OpID::SUFFIX),
     // PIPE
     binary_info_(OpID::BOR),
     // PIPE_EQUALS

@@ -59,7 +59,9 @@ enum class TokenID {
     NUMBER,
     OR,
     PERCENT,
+    PERCENT_DOUBLE_STAR,
     PERCENT_EQUALS,
+    PERCENT_STAR,
     PIPE,
     PIPE_EQUALS,
     PLAIN_INT,
@@ -194,8 +196,12 @@ std::ostream& operator<<(std::ostream& os, TokenID id) {
         return os << "OR";
     case PERCENT:
         return os << "PERCENT";
+    case PERCENT_DOUBLE_STAR:
+        return os << "PERCENT_DOUBLE_STAR";
     case PERCENT_EQUALS:
         return os << "PERCENT_EQUALS";
+    case PERCENT_STAR:
+        return os << "PERCENT_STAR";
     case PIPE:
         return os << "PIPE";
     case PIPE_EQUALS:

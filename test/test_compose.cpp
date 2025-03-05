@@ -134,6 +134,8 @@ TEST_CASE("Composer Core", "[compose]") {
     SECTION("Singleton Operators") {
         for (OpID o: std::vector{
             OpID::FALSE,
+            OpID::LAMBDA_ARGS,
+            OpID::LAMBDA_KWARGS,
             OpID::NONE,
             OpID::NOTHING,
             OpID::POS_KW_SEP,
@@ -3838,6 +3840,32 @@ TEST_CASE("Composer Input/Output", "[compose]") {
         ));
     }
 
+    SECTION("Lambda Args") {
+        // %*
+        REQUIRE(feed_all(vec(
+            Op(OpID::LAMBDA_ARGS, s1)
+        )) == Comp(
+            OpID::LAMBDA_ARGS, s1
+        ));
+
+        // %%%*
+        REQUIRE(feed_all(vec(
+            Op(OpID::LAMBDA, s1),
+            Op(OpID::LAMBDA, s2),
+            Op(OpID::LAMBDA_ARGS, s3)
+        )) == Comp(
+            OpID::LAMBDA,
+            Comp(
+                OpID::LAMBDA,
+                Comp(
+                    OpID::LAMBDA_ARGS, s3
+                ),
+                s2
+            ),
+            s1
+        ));
+    }
+
     SECTION("Lambda Expression") {
         // %(%1 + %2)
         REQUIRE(feed_all(vec(
@@ -3904,6 +3932,70 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             ),
             s1
         ));
+
+        // %%(%1 + %2)
+        REQUIRE(feed_all(vec(
+            Op(OpID::LAMBDA, s1),
+            Op(OpID::LAMBDA, s2),
+            Op(OpID::GROUP, s3),
+            Op(OpID::LAMBDA, s4),
+            Op(OpID::PLAIN_INT, "1", s5),
+            Op(OpID::ADD, s6),
+            Op(OpID::LAMBDA, s7),
+            Op(OpID::PLAIN_INT, "2", s8),
+            Op(OpID::END, s9)
+        )) == Comp(
+            OpID::LAMBDA,
+            Comp(
+                OpID::LAMBDA,
+                Comp(
+                    OpID::GROUP,
+                    Comp(
+                        OpID::ADD,
+                        Comp(
+                            OpID::LAMBDA,
+                            Comp(OpID::PLAIN_INT, "1", s5),
+                            s4
+                        ),
+                        Comp(
+                            OpID::LAMBDA,
+                            Comp(OpID::PLAIN_INT, "2", s8),
+                            s7
+                        ),
+                        s6
+                    ),
+                    s3
+                ),
+                s2
+            ),
+            s1
+        ));
+    }
+
+    SECTION("Lambda Keyword Args") {
+        // %**
+        REQUIRE(feed_all(vec(
+            Op(OpID::LAMBDA_KWARGS, s1)
+        )) == Comp(
+            OpID::LAMBDA_KWARGS, s1
+        ));
+
+        // %%%**
+        REQUIRE(feed_all(vec(
+            Op(OpID::LAMBDA, s1),
+            Op(OpID::LAMBDA, s2),
+            Op(OpID::LAMBDA_KWARGS, s3)
+        )) == Comp(
+            OpID::LAMBDA,
+            Comp(
+                OpID::LAMBDA,
+                Comp(
+                    OpID::LAMBDA_KWARGS, s3
+                ),
+                s2
+            ),
+            s1
+        ));
     }
 
     SECTION("Lambda Var") {
@@ -3921,6 +4013,22 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::ID, "a", s2)
         )) == Comp(
             OpID::LAMBDA, Comp(OpID::ID, "a", s2), s1
+        ));
+
+        // %%%1
+        REQUIRE(feed_all(vec(
+            Op(OpID::LAMBDA, s1),
+            Op(OpID::LAMBDA, s2),
+            Op(OpID::LAMBDA, s3),
+            Op(OpID::PLAIN_INT, "1", s4)
+        )) == Comp(
+            OpID::LAMBDA,
+            Comp(
+                OpID::LAMBDA,
+                Comp(OpID::LAMBDA, Comp(OpID::PLAIN_INT, "1", s4), s3),
+                s2
+            ),
+            s1
         ));
     }
 
@@ -5952,6 +6060,46 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             ),
             Comp(OpID::ID, "c", s8),
             s7
+        ));
+    }
+
+    SECTION("Var") {
+        // .1
+        REQUIRE(feed_all(vec(
+            Op(OpID::UP, s1),
+            Op(OpID::PLAIN_INT, "1", s2)
+        )) == Comp(
+            OpID::UP, Comp(OpID::PLAIN_INT, "1", s2), s1
+        ));
+
+        // .a
+        REQUIRE(feed_all(vec(
+            Op(OpID::UP, s1),
+            Op(OpID::ID, "a", s2)
+        )) == Comp(
+            OpID::UP, Comp(OpID::ID, "a", s2), s1
+        ));
+
+        // ...a
+        REQUIRE(feed_all(vec(
+            Op(OpID::UP, s1),
+            Op(OpID::UP, s2),
+            Op(OpID::UP, s3),
+            Op(OpID::ID, "a", s4)
+        )) == Comp(
+            OpID::UP,
+            Comp(
+                OpID::UP,
+                Comp(
+                    OpID::UP,
+                    Comp(
+                        OpID::ID, "a", s4
+                    ),
+                    s3
+                ),
+                s2
+            ),
+            s1
         ));
     }
 

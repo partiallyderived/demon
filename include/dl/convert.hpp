@@ -26,7 +26,6 @@ struct OutOfRangeErr final: SourcedErr {
     }
 };
 
-
 template<typename T>
 T strto(const char* str, char** str_end, int base = 10) {
     if constexpr (std::is_same_v<T, float>)

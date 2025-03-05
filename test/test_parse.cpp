@@ -855,6 +855,8 @@ TEST_CASE("Parser Core", "[parse]") {
             Token(TokenID::ID, "asdf"),
             Token(TokenID::NONE),
             Token(TokenID::NULL_),
+            Token(TokenID::PERCENT_DOUBLE_STAR),
+            Token(TokenID::PERCENT_STAR),
             Token(TokenID::PLAIN_INT, "1000"),
             Token(TokenID::NUMBER, std::int32_t(1000)),
             Token(TokenID::STRING, "a,s,d,f"),
@@ -3889,6 +3891,26 @@ TEST_CASE("Parser Input/Output", "[parse]") {
         ));
     }
 
+    SECTION("Lambda Args") {
+        // %*
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::PERCENT_STAR}, s1}
+        )) == vec(
+            Op(OpID::LAMBDA_ARGS, s1)
+        ));
+
+        // %%%*
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::PERCENT}, s1},
+            ST{{TokenID::PERCENT}, s2},
+            ST{{TokenID::PERCENT_STAR}, s3}
+        )) == vec(
+            Op(OpID::LAMBDA, s1),
+            Op(OpID::LAMBDA, s2),
+            Op(OpID::LAMBDA_ARGS, s3)
+        ));
+    }
+
     SECTION("Lambda Expression") {
         // %(%1 + %2)
         REQUIRE(feed_all(vec(
@@ -3931,6 +3953,49 @@ TEST_CASE("Parser Input/Output", "[parse]") {
             Op(OpID::PLAIN_INT, "2", s7),
             Op(OpID::END, s8)
         ));
+
+        // %%(%1 + %2)
+        REQUIRE(feed_all(vec(
+            ST{Token(TokenID::PERCENT), s1},
+            ST{Token(TokenID::PERCENT), s2},
+            ST{Token(TokenID::LEFT_CURVED), s3},
+            ST{Token(TokenID::PERCENT), s4},
+            ST{Token(TokenID::PLAIN_INT, "1"), s5},
+            ST{Token(TokenID::PLUS), s6},
+            ST{Token(TokenID::PERCENT), s7},
+            ST{Token(TokenID::PLAIN_INT, "2"), s8},
+            ST{Token(TokenID::RIGHT_CURVED), s9}
+        )) == vec(
+            Op(OpID::LAMBDA, s1),
+            Op(OpID::LAMBDA, s2),
+            Op(OpID::GROUP, s3),
+            Op(OpID::LAMBDA, s4),
+            Op(OpID::PLAIN_INT, "1", s5),
+            Op(OpID::ADD, s6),
+            Op(OpID::LAMBDA, s7),
+            Op(OpID::PLAIN_INT, "2", s8),
+            Op(OpID::END, s9)
+        ));
+    }
+
+    SECTION("Lambda Keyword Args") {
+        // %**
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::PERCENT_DOUBLE_STAR}, s1}
+        )) == vec(
+            Op(OpID::LAMBDA_KWARGS, s1)
+        ));
+
+        // %%%**
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::PERCENT}, s1},
+            ST{{TokenID::PERCENT}, s2},
+            ST{{TokenID::PERCENT_DOUBLE_STAR}, s3}
+        )) == vec(
+            Op(OpID::LAMBDA, s1),
+            Op(OpID::LAMBDA, s2),
+            Op(OpID::LAMBDA_KWARGS, s3)
+        ));
     }
 
     SECTION("Lambda Var") {
@@ -3950,6 +4015,19 @@ TEST_CASE("Parser Input/Output", "[parse]") {
         )) == vec(
             Op(OpID::LAMBDA, s1),
             Op(OpID::ID, "a", s2)
+        ));
+
+        // %%%1
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::PERCENT}, s1},
+            ST{{TokenID::PERCENT}, s2},
+            ST{{TokenID::PERCENT}, s3},
+            ST{{TokenID::PLAIN_INT, "1"}, s4}
+        )) == vec(
+            Op(OpID::LAMBDA, s1),
+            Op(OpID::LAMBDA, s2),
+            Op(OpID::LAMBDA, s3),
+            Op(OpID::PLAIN_INT, "1", s4)
         ));
     }
 
@@ -5518,6 +5596,39 @@ TEST_CASE("Parser Input/Output", "[parse]") {
             Op(OpID::END, s6),
             Op(OpID::SET, s7),
             Op(OpID::ID, "c", s8)
+        ));
+    }
+
+    SECTION("Var") {
+        // .1
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::DOT}, s1},
+            ST{{TokenID::PLAIN_INT, "1"}, s2}
+        )) == vec(
+            Op(OpID::UP, s1),
+            Op(OpID::PLAIN_INT, "1", s2)
+        ));
+
+        // .a
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::DOT}, s1},
+            ST{{TokenID::ID, "a"}, s2}
+        )) == vec(
+            Op(OpID::UP, s1),
+            Op(OpID::ID, "a", s2)
+        ));
+
+        // ...a
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::DOT}, s1},
+            ST{{TokenID::DOT}, s2},
+            ST{{TokenID::DOT}, s3},
+            ST{{TokenID::ID, "a"}, s4}
+        )) == vec(
+            Op(OpID::UP, s1),
+            Op(OpID::UP, s2),
+            Op(OpID::UP, s3),
+            Op(OpID::ID, "a", s4)
         ));
     }
 
