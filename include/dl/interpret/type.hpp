@@ -4,8 +4,9 @@
 #include <utility>
 
 #include "dl/interpret/node.hpp"
-#include "dl/interpret/nodecategory.hpp"
+#include "dl/interpret/nodekind.hpp"
 #include "dl/pos.hpp"
+#include "dl/util.hpp"
 
 namespace dl {
 
@@ -20,10 +21,6 @@ struct Type final: Node {
     parents(std::move(parents)),
     body(std::move(body)) {}
 
-    virtual NodeCategory category() const noexcept override {
-        return NodeCategory::TYPE;
-    }
-
     virtual bool equals(const Node& that) const noexcept override {
         const auto& casted = dynamic_cast<const Type&>(that);
         return
@@ -32,10 +29,12 @@ struct Type final: Node {
             nodes_eq(body, casted.body);
     }
 
-    virtual std::ostream& out(std::ostream& os) const override {
-        return os << category() << "(" <<
-            id << ", " << parents << ", " << body <<
-        ")";
+    virtual NodeKind kind() const noexcept override {
+        return NodeKind::TYPE;
+    }
+
+    virtual std::ostream& out_data(std::ostream& os) const override {
+        return out_csv(os, id, parents, body);
     }
 };
 

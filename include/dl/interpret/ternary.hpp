@@ -4,8 +4,9 @@
 #include <utility>
 
 #include "dl/interpret/node.hpp"
-#include "dl/interpret/nodecategory.hpp"
+#include "dl/interpret/nodekind.hpp"
 #include "dl/pos.hpp"
+#include "dl/util.hpp"
 
 namespace dl {
 
@@ -23,10 +24,6 @@ struct Ternary final: Node {
     if_case(std::move(if_case)),
     else_case(std::move(else_case)) {}
 
-    virtual NodeCategory category() const noexcept override {
-        return NodeCategory::TERNARY;
-    }
-
     virtual bool equals(const Node& that) const noexcept override {
         const auto& casted = dynamic_cast<const Ternary&>(that);
         return
@@ -35,10 +32,12 @@ struct Ternary final: Node {
             npeq(else_case, casted.else_case);
     }
 
-    virtual std::ostream& out(std::ostream& os) const override {
-        return os << category() << "(" <<
-            predicate << ", " << if_case << ", " << else_case <<
-        ")";
+    virtual NodeKind kind() const noexcept override {
+        return NodeKind::TERNARY;
+    }
+
+    virtual std::ostream& out_data(std::ostream& os) const override {
+        return out_csv(os, predicate, if_case, else_case);
     }
 };
 

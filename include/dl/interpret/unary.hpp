@@ -4,31 +4,37 @@
 #include <utility>
 
 #include "dl/interpret/node.hpp"
-#include "dl/interpret/nodecategory.hpp"
-#include "dl/interpret/unarykind.hpp"
+#include "dl/interpret/nodekind.hpp"
 #include "dl/pos.hpp"
 
 namespace dl {
 
+template<NodeKind KIND>
 struct Unary final: Node {
-    UnaryKind kind;
     NodePtr arg;
 
-    Unary(UnaryKind kind, NodePtr&& arg, Pos src) noexcept:
-    Node(src), kind(kind), arg(std::move(arg)) {}
-
-    virtual NodeCategory category() const noexcept override {
-        return NodeCategory::UNARY;
-    }
+    Unary(NodePtr&& arg, Pos src) noexcept: Node(src), arg(std::move(arg)) {}
 
     virtual bool equals(const Node& that) const noexcept override {
-        const auto& casted = dynamic_cast<const Unary&>(that);
-        return kind == casted.kind && npeq(arg, casted.arg);
+        return npeq(arg, dynamic_cast<const Unary&>(that).arg);
     }
 
-    virtual std::ostream& out(std::ostream& os) const override {
-        return os << kind << "(" << arg << ")";
+    virtual NodeKind kind() const noexcept override {
+        return KIND;
+    }
+
+    virtual std::ostream& out_data(std::ostream& os) const override {
+        return os << arg;
     }
 };
+
+using Addr = Unary<NodeKind::ADDR>;
+using AddrType = Unary<NodeKind::ADDR_TYPE>;
+using Expansion = Unary<NodeKind::EXPANSION>;
+using Lambda = Unary<NodeKind::LAMBDA>;
+using Not = Unary<NodeKind::NOT>;
+using Raise = Unary<NodeKind::RAISE>;
+using Return = Unary<NodeKind::RETURN>;
+using Symbol = Unary<NodeKind::SYMBOL>;
 
 }

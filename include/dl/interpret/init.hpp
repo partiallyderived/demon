@@ -5,8 +5,9 @@
 
 #include "dl/interpret/data.hpp"
 #include "dl/interpret/node.hpp"
-#include "dl/interpret/nodecategory.hpp"
+#include "dl/interpret/nodekind.hpp"
 #include "dl/pos.hpp"
+#include "dl/util.hpp"
 
 namespace dl {
 
@@ -21,10 +22,6 @@ struct Init final: Node {
     type(std::move(type)),
     val(std::move(val)) {}
 
-    virtual NodeCategory category() const noexcept override {
-        return NodeCategory::INIT;
-    }
-
     virtual bool equals(const Node& that) const noexcept override {
         const auto& casted = dynamic_cast<const Init&>(that);
         return
@@ -33,10 +30,12 @@ struct Init final: Node {
             npeq(val, casted.val);
     }
 
-    virtual std::ostream& out(std::ostream& os) const override {
-        return os << category() << "(" <<
-            attr << ", " << type << ", " << val <<
-        ")";
+    virtual NodeKind kind() const noexcept override {
+        return NodeKind::INIT;
+    }
+
+    virtual std::ostream& out_data(std::ostream& os) const override {
+        return out_csv(os, attr, type, val);
     }
 };
 

@@ -4,8 +4,9 @@
 #include <utility>
 
 #include "dl/interpret/node.hpp"
-#include "dl/interpret/nodecategory.hpp"
+#include "dl/interpret/nodekind.hpp"
 #include "dl/pos.hpp"
+#include "dl/util.hpp"
 
 namespace dl {
 
@@ -20,8 +21,8 @@ struct While final: Node {
     body(std::move(body)),
     orelse(std::move(orelse)) {}
 
-    virtual NodeCategory category() const noexcept override {
-        return NodeCategory::WHILE;
+    virtual NodeKind kind() const noexcept override {
+        return NodeKind::WHILE;
     }
 
     virtual bool equals(const Node& that) const noexcept override {
@@ -32,10 +33,8 @@ struct While final: Node {
             nodes_eq(orelse, casted.orelse);
     }
 
-    virtual std::ostream& out(std::ostream& os) const override {
-        return os << category() << "(" <<
-            predicate << ", " << body << ", " << orelse <<
-        ")";
+    virtual std::ostream& out_data(std::ostream& os) const override {
+        return out_csv(os, predicate, body, orelse);
     }
 };
 

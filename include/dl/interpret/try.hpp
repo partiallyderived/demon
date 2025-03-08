@@ -5,7 +5,7 @@
 
 #include "dl/interpret/case.hpp"
 #include "dl/interpret/node.hpp"
-#include "dl/interpret/nodecategory.hpp"
+#include "dl/interpret/nodekind.hpp"
 #include "dl/pos.hpp"
 #include "dl/util.hpp"
 
@@ -23,10 +23,6 @@ struct Try final: Node {
     excepts(std::move(excepts)),
     finally(std::move(finally)) {}
 
-    virtual NodeCategory category() const noexcept override {
-        return NodeCategory::TRY;
-    }
-
     virtual bool equals(const Node& that) const noexcept override {
         const auto& casted = dynamic_cast<const Try&>(that);
         return
@@ -35,10 +31,13 @@ struct Try final: Node {
             nodes_eq(finally, casted.finally);
     }
 
-    virtual std::ostream& out(std::ostream& os) const override {
-        return os << category() << "(" <<
-            body << ", " << OutContainerManip(excepts) << ", " << finally <<
-        ")";
+    virtual NodeKind kind() const noexcept override {
+        return NodeKind::TRY;
+    }
+
+    virtual std::ostream& out_data(std::ostream& os) const override {
+        return
+            os << body << ", " << OutContainerManip(excepts) << ", " << finally;
     }
 };
 

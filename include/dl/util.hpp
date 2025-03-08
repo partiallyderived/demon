@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include <ostream>
+#include <type_traits>
 
 namespace dl {
 
@@ -26,6 +27,20 @@ std::ostream& operator<<(
             os << ", " << manip.container[i];
     }
     return os << ']';
+}
+
+template<typename HeadType, typename... TailTypes>
+std::ostream& out_csv(
+    std::ostream& os, const HeadType& x, const TailTypes&... args
+) {
+    if (std::is_same_v<HeadType, bool>)
+        os << std::boolalpha;
+    os << x;
+    if constexpr (sizeof...(TailTypes) > 0) {
+        os << ", ";
+        return out_csv(os, args...);
+    }
+    return os;
 }
 
 }

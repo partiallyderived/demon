@@ -6,8 +6,9 @@
 #include "dl/interpret/args.hpp"
 #include "dl/interpret/data.hpp"
 #include "dl/interpret/node.hpp"
-#include "dl/interpret/nodecategory.hpp"
+#include "dl/interpret/nodekind.hpp"
 #include "dl/pos.hpp"
+#include "dl/util.hpp"
 
 namespace dl {
 
@@ -26,10 +27,6 @@ struct UpdateAttr final: Node {
     args(std::move(args)),
     value(std::move(value)) {}
 
-    virtual NodeCategory category() const noexcept override {
-        return NodeCategory::UPDATE_ATTR;
-    }
-
     virtual bool equals(const Node& that) const noexcept override {
         const auto& casted = dynamic_cast<const UpdateAttr&>(that);
         return
@@ -39,10 +36,12 @@ struct UpdateAttr final: Node {
             npeq(value, casted.value);
     }
 
-    virtual std::ostream& out(std::ostream& os) const override {
-        return os << category() << "(" <<
-            object << ", " << attr << ", " << args << ", " << value <<
-        ")";
+    virtual NodeKind kind() const noexcept override {
+        return NodeKind::UPDATE_ATTR;
+    }
+
+    virtual std::ostream& out_data(std::ostream& os) const override {
+        return out_csv(os, object, attr, args, value);
     }
 };
 

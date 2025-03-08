@@ -7,7 +7,7 @@
 #include "dl/interpret/data.hpp"
 #include "dl/interpret/defcase.hpp"
 #include "dl/interpret/node.hpp"
-#include "dl/interpret/nodecategory.hpp"
+#include "dl/interpret/nodekind.hpp"
 #include "dl/pos.hpp"
 #include "dl/util.hpp"
 
@@ -22,8 +22,8 @@ struct Def final: Node {
     id(std::move(id)),
     cases(std::move(cases)) {}
 
-    virtual NodeCategory category() const noexcept override {
-        return NodeCategory::DEF;
+    virtual NodeKind kind() const noexcept override {
+        return NodeKind::DEF;
     }
 
     virtual bool equals(const Node& that) const noexcept override {
@@ -31,8 +31,8 @@ struct Def final: Node {
         return npeq(id, casted.id) && cases == casted.cases;
     }
 
-    virtual std::ostream& out(std::ostream& os) const override {
-        return os << "Def(" << id << ", " << OutContainerManip(cases) << ")";
+    virtual std::ostream& out_data(std::ostream& os) const override {
+        return os << id << ", " << OutContainerManip(cases);
     }
 };
 

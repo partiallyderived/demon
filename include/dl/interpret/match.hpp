@@ -6,7 +6,7 @@
 
 #include "dl/interpret/case.hpp"
 #include "dl/interpret/node.hpp"
-#include "dl/interpret/nodecategory.hpp"
+#include "dl/interpret/nodekind.hpp"
 #include "dl/pos.hpp"
 #include "dl/util.hpp"
 
@@ -24,10 +24,6 @@ struct Match final: Node {
     cases(std::move(cases)),
     orelse(std::move(orelse)) {}
 
-    virtual NodeCategory category() const noexcept override {
-        return NodeCategory::MATCH;
-    }
-
     virtual bool equals(const Node& that) const noexcept override {
         const auto& casted = dynamic_cast<const Match&>(that);
         return
@@ -36,10 +32,13 @@ struct Match final: Node {
             nodes_eq(orelse, casted.orelse);
     }
 
-    virtual std::ostream& out(std::ostream& os) const override {
-        return os << category() << "(" <<
-            matchee << ", " << OutContainerManip(cases) << ", " << orelse <<
-        ")";
+    virtual NodeKind kind() const noexcept override {
+        return NodeKind::MATCH;
+    }
+
+    virtual std::ostream& out_data(std::ostream& os) const override {
+        return
+            os << matchee << ", " << OutContainerManip(cases) << ", " << orelse;
     }
 };
 

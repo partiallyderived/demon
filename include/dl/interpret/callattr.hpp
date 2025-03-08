@@ -6,48 +6,43 @@
 #include "dl/interpret/args.hpp"
 #include "dl/interpret/data.hpp"
 #include "dl/interpret/node.hpp"
-#include "dl/interpret/nodecategory.hpp"
+#include "dl/interpret/nodekind.hpp"
 #include "dl/pos.hpp"
 
 namespace dl {
 
-struct CallAttr final: Node {
+template<NodeKind KIND>
+struct CallAttrNode final: Node {
     NodePtr object;
     NodePtr attr;
     Args args;
-    bool cached;
 
-    CallAttr(
-        NodePtr&& object, NodePtr&& attr, Args&& args, bool cached, Pos src
-    ) noexcept:
+    CallAttrNode(NodePtr&& object, NodePtr&& attr, Args&& args, Pos src)
+    noexcept:
     Node(src),
     object(std::move(object)),
     attr(std::move(attr)),
-    args(std::move(args)),
-    cached(cached)
+    args(std::move(args))
     {}
 
-    virtual NodeCategory category() const noexcept override {
-        return NodeCategory::CALL_ATTR;
+    virtual NodeKind kind() const noexcept override {
+        return KIND;
     }
 
     virtual bool equals(const Node& that) const noexcept override {
-        const auto& casted = dynamic_cast<const CallAttr&>(that);
+        const auto& casted = dynamic_cast<const CallAttrNode&>(that);
         return
             npeq(object, casted.object) &&
             npeq(attr, casted.attr) &&
-            args == casted.args &&
-            cached == casted.cached;
+            args == casted.args;
     }
 
-    virtual std::ostream& out(std::ostream& os) const override {
-        return os << category() << "(" <<
-            object << ", " <<
-            attr << ", " <<
-            args << ", " <<
-            std::boolalpha << cached <<
-        ")";
+    virtual std::ostream& out_data(std::ostream& os) const override {
+        return out_csv(os, object, attr, args);
     }
 };
+
+using CallAttr = CallAttrNode<NodeKind::CALL_ATTR>;
+using CachedCallAttr = CallAttrNode<NodeKind::CACHED_CALL_ATTR>;
 
 }

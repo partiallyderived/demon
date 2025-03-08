@@ -6,8 +6,9 @@
 
 #include "dl/interpret/data.hpp"
 #include "dl/interpret/node.hpp"
-#include "dl/interpret/nodecategory.hpp"
+#include "dl/interpret/nodekind.hpp"
 #include "dl/pos.hpp"
+#include "dl/util.hpp"
 
 namespace dl {
 
@@ -30,10 +31,6 @@ struct For final: Node {
     body(std::move(body)),
     orelse(std::move(orelse)) {}
 
-    virtual NodeCategory category() const noexcept override {
-        return NodeCategory::FOR;
-    }
-
     virtual bool equals(const Node& that) const noexcept override {
         const auto& casted = dynamic_cast<const For&>(that);
         return
@@ -43,13 +40,16 @@ struct For final: Node {
             nodes_eq(orelse, casted.orelse);
     }
 
-    virtual std::ostream& out(std::ostream& os) const override {
-        return os << category() << "(" <<
+    virtual NodeKind kind() const noexcept override {
+        return NodeKind::FOR;
+    }
+
+    virtual std::ostream& out_data(std::ostream& os) const override {
+        return os <<
             OutContainerManip(vars) << ", " <<
             iterable << ", " <<
             body << ", " <<
-            orelse <<
-        ")";
+            orelse;
     }
 };
 

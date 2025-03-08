@@ -24,8 +24,7 @@ TEST_CASE("interpret", "[interpret]") {
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
             NodePtr(new ID("__add__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}),
-            false,
+            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
             s2
         ));
     }
@@ -34,8 +33,8 @@ TEST_CASE("interpret", "[interpret]") {
         // @a
         REQUIRE(*interpreter.interpret(Comp(
             OpID::ADDR, Comp(OpID::ID, "a", s2), s1
-        )) == Unary(
-            UnaryKind::ADDR, NodePtr(new ID("a", s2)), s1
+        )) == Addr(
+            NodePtr(new ID("a", s2)), s1
         ));
     }
 
@@ -43,8 +42,8 @@ TEST_CASE("interpret", "[interpret]") {
         // Int@
         REQUIRE(*interpreter.interpret(Comp(
             OpID::ADDR_TYPE, Comp(OpID::ID, "Int", s1), s2
-        )) == Unary(
-            UnaryKind::ADDR_TYPE, NodePtr(new ID("Int", s1)), s2
+        )) == AddrType(
+            NodePtr(new ID("Int", s1)), s2
         ));
     }
 
@@ -52,8 +51,7 @@ TEST_CASE("interpret", "[interpret]") {
         // true and false
         REQUIRE(*interpreter.interpret(Comp(
             OpID::AND, Comp(OpID::TRUE, s1), Comp(OpID::FALSE, s3), s2
-        )) == Binary(
-            BinaryKind::AND,
+        )) == And(
             NodePtr(new Bool(true, s1)),
             NodePtr(new Bool(false, s3)),
             s2
@@ -64,8 +62,7 @@ TEST_CASE("interpret", "[interpret]") {
         // a = b
         REQUIRE(*interpreter.interpret(Comp(
             OpID::SET, Comp(OpID::ID, "a", s1), Comp(OpID::ID, "b", s3), s2
-        )) == Binary(
-            BinaryKind::SET,
+        )) == Assign(
             NodePtr(new ID("a", s1)),
             NodePtr(new ID("b", s3)),
             s2
@@ -82,8 +79,7 @@ TEST_CASE("interpret", "[interpret]") {
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
             NodePtr(new ID("__band__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}),
-            false,
+            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
             s2
         ));
     }
@@ -97,8 +93,7 @@ TEST_CASE("interpret", "[interpret]") {
         )) == CallAttr(
             NodePtr(new ID("a", s2)),
             NodePtr(new ID("__bnot__", s1)),
-            Args({}, {}),
-            false,
+            Args({}, {}, s1),
             s1
         ));
     }
@@ -113,8 +108,7 @@ TEST_CASE("interpret", "[interpret]") {
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
             NodePtr(new ID("__bor__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}),
-            false,
+            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
             s2
         ));
     }
@@ -129,8 +123,7 @@ TEST_CASE("interpret", "[interpret]") {
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
             NodePtr(new ID("__bxor__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}),
-            false,
+            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
             s2
         ));
     }
@@ -139,8 +132,8 @@ TEST_CASE("interpret", "[interpret]") {
         // break
         REQUIRE(*interpreter.interpret(Comp(
             OpID::BREAK, s1
-        )) == Nullary(
-            NullaryKind::BREAK, s1
+        )) == Break(
+            s1
         ));
     }
 
@@ -151,10 +144,9 @@ TEST_CASE("interpret", "[interpret]") {
             Comp(OpID::ID, "Vector", s1),
             Comp(OpID::LIST, Comp(OpID::ID, "Int", s3), s2),
             s2
-        )) == Call(
-            CallKind::CACHE,
+        )) == CachedCall(
             NodePtr(new ID("Vector", s1)),
-            Args(vec(NodePtr(new ID("Int", s3))), {}),
+            Args(vec(NodePtr(new ID("Int", s3))), {}, s2),
             s2
         ));
     }
@@ -171,11 +163,10 @@ TEST_CASE("interpret", "[interpret]") {
             ),
             Comp(OpID::LIST, Comp(OpID::ID, "T", s5), s4),
             s4
-        )) == CallAttr(
+        )) == CachedCallAttr(
             NodePtr(new ID("obj", s1)),
             NodePtr(new ID("attr", s3)),
-            Args(vec(NodePtr(new ID("T", s5))), {}),
-            true,
+            Args(vec(NodePtr(new ID("T", s5))), {}, s4),
             s4
         ));
     }
@@ -188,9 +179,8 @@ TEST_CASE("interpret", "[interpret]") {
             Comp(OpID::GROUP, Comp(OpID::NOTHING, s3), s2),
             s2
         )) == Call(
-            CallKind::CALL,
             NodePtr(new ID("fn", s1)),
-            Args({}, {}),
+            Args({}, {}, s2),
             s2
         ));
 
@@ -210,14 +200,14 @@ TEST_CASE("interpret", "[interpret]") {
             ),
             s2
         )) == Call(
-            CallKind::CALL,
             NodePtr(new ID("fn", s1)),
             Args(
-                vec(NodePtr(new Int32(1, s3)), NodePtr(new Int32(2, s5))), {}
+                vec(NodePtr(new Int32(1, s3)), NodePtr(new Int32(2, s5))),
+                {},
+                s2
             ),
             s2
         ));
-
 
         // fn(1, 2, *args)
         REQUIRE(*interpreter.interpret(Comp(
@@ -240,17 +230,17 @@ TEST_CASE("interpret", "[interpret]") {
             ),
             s2
         )) == Call(
-            CallKind::CALL,
             NodePtr(new ID("fn", s1)),
             Args(
                 vec(
                     NodePtr(new Int32(1, s3)),
                     NodePtr(new Int32(2, s5)),
-                    NodePtr(new Unary(
-                        UnaryKind::EXPANSION, NodePtr(new ID("args", s8)), s7
+                    NodePtr(new Expansion(
+                        NodePtr(new ID("args", s8)), s7
                     ))
                 ),
-                {}
+                {},
+                s2
             ),
             s2
         ));
@@ -282,15 +272,12 @@ TEST_CASE("interpret", "[interpret]") {
             ),
             s2
         )) == Call(
-            CallKind::CALL,
             NodePtr(new ID("fn", s1)),
             Args(
                 vec(
                     NodePtr(new Int32(1, s3)),
                     NodePtr(new Int32(2, s5)),
-                    NodePtr(new Unary(
-                        UnaryKind::EXPANSION, NodePtr(new ID("args", s8)), s7
-                    ))
+                    NodePtr(new Expansion(NodePtr(new ID("args", s8)), s7))
                 ),
                 vec(
                     NodePtr(new KeywordArg(
@@ -299,7 +286,8 @@ TEST_CASE("interpret", "[interpret]") {
                     NodePtr(new KeywordArg{
                         ID("kw2", s14), NodePtr(new Bool(true, s16)), s15
                     })
-                )
+                ),
+                s2
             ),
             s2
         ));
@@ -336,15 +324,12 @@ TEST_CASE("interpret", "[interpret]") {
             ),
             s2
         )) == Call(
-            CallKind::CALL,
             NodePtr(new ID("fn", s1)),
             Args(
                 vec(
                     NodePtr(new Int32(1, s3)),
                     NodePtr(new Int32(2, s5)),
-                    NodePtr(new Unary(
-                        UnaryKind::EXPANSION, NodePtr(new ID("args", s8)), s7
-                    ))
+                    NodePtr(new Expansion(NodePtr(new ID("args", s8)), s7))
                 ),
                 vec(
                     NodePtr(new KeywordArg(
@@ -353,12 +338,9 @@ TEST_CASE("interpret", "[interpret]") {
                     NodePtr(new KeywordArg(
                         ID("kw2", s14), NodePtr(new Bool(true, s16)), s15
                     )),
-                    NodePtr(new Unary(
-                        UnaryKind::EXPANSION,
-                        NodePtr(new ID("kwargs", s19)),
-                        s18
-                    ))
-                )
+                    NodePtr(new Expansion(NodePtr(new ID("kwargs", s19)), s18))
+                ),
+                s2
             ),
             s2
         ));
@@ -451,9 +433,9 @@ TEST_CASE("interpret", "[interpret]") {
                     NodePtr(new KeywordArg(
                         ID("setting", s9), NodePtr(new Bool(true, s11)), s10
                     ))
-                )
+                ),
+                s4
             ),
-            false,
             s4
         ));
 
@@ -475,8 +457,7 @@ TEST_CASE("interpret", "[interpret]") {
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
             NodePtr(new NumID(3, s3)),
-            Args({}, {}),
-            false,
+            Args({}, {}, s4),
             s4
         ));
 
@@ -502,8 +483,8 @@ TEST_CASE("interpret", "[interpret]") {
         // continue
         REQUIRE(*interpreter.interpret(Comp(
             OpID::CONTINUE, s1
-        )) == Nullary(
-            NullaryKind::CONTINUE, s1
+        )) == Continue(
+            s1
         ));
     }
 
@@ -514,8 +495,7 @@ TEST_CASE("interpret", "[interpret]") {
             Comp(OpID::ID, "a", s1),
             Comp(OpID::ID, "Int", s3),
             s2
-        )) == Binary(
-            BinaryKind::DECLARE,
+        )) == Declare(
             NodePtr(new ID("a", s1)),
             NodePtr(new ID("Int", s3)),
             s2
@@ -527,8 +507,7 @@ TEST_CASE("interpret", "[interpret]") {
             Comp(OpID::PLAIN_INT, "3", s1),
             Comp(OpID::ID, "Int", s3),
             s2
-        )) == Binary(
-            BinaryKind::DECLARE,
+        )) == Declare(
             NodePtr(new NumID(3, s1)),
             NodePtr(new ID("Int", s3)),
             s2
@@ -574,12 +553,14 @@ TEST_CASE("interpret", "[interpret]") {
                     {},
                     {},
                     ArgDef(),
-                    ArgDef()
+                    ArgDef(),
+                    s3
                 ),
                 nullptr,
-                vec(NodePtr(new Unary(
-                    UnaryKind::RETURN, NodePtr(new Int32(0, s7)), s6
-                )))
+                vec(NodePtr(new Return(
+                    NodePtr(new Int32(0, s7)), s6
+                ))),
+                s1
             )),
             s1
         ));
@@ -619,12 +600,14 @@ TEST_CASE("interpret", "[interpret]") {
                     {},
                     {},
                     ArgDef(),
-                    ArgDef()
+                    ArgDef(),
+                    s3
                 ),
                 nullptr,
-                vec(NodePtr(new Unary(
-                    UnaryKind::RETURN, NodePtr(new Int32(0, s9)), s8
-                )))
+                vec(NodePtr(new Return(
+                    NodePtr(new Int32(0, s9)), s8
+                ))),
+                s1
             )),
             s1
         ));
@@ -669,12 +652,14 @@ TEST_CASE("interpret", "[interpret]") {
                     {},
                     {},
                     ArgDef(),
-                    ArgDef()
+                    ArgDef(),
+                    s3
                 ),
                 NodePtr(new ID("Int", s6)),
-                vec(NodePtr(new Unary(
-                    UnaryKind::RETURN, NodePtr(new Int32(0, s11)), s10
-                )))
+                vec(NodePtr(new Return(
+                    NodePtr(new Int32(0, s11)), s10
+                ))),
+                s1
             )),
             s1
         ));
@@ -718,15 +703,17 @@ TEST_CASE("interpret", "[interpret]") {
             NodePtr(new ID("f", s2)),
             vec(DefCase(
                 ArgSpec(
-                    vec(ArgDef(ID("arg", s4), nullptr, nullptr, false)),
+                    vec(ArgDef(ID("arg", s4), nullptr, nullptr, false, s4)),
                     {},
                     ArgDef(),
-                    ArgDef()
+                    ArgDef(),
+                    s3
                 ),
                 NodePtr(new ID("Int", s7)),
-                vec(NodePtr(new Unary(
-                    UnaryKind::RETURN, NodePtr(new Int32(0, s12)), s11
-                )))
+                vec(NodePtr(new Return(
+                    NodePtr(new Int32(0, s12)), s11
+                ))),
+                s1
             )),
             s1
         ));
@@ -781,22 +768,25 @@ TEST_CASE("interpret", "[interpret]") {
             vec(DefCase(
                 ArgSpec(
                     vec(
-                        ArgDef(ID("arg1", s4), nullptr, nullptr, false),
+                        ArgDef(ID("arg1", s4), nullptr, nullptr, false, s4),
                         ArgDef(
                             ID("arg2", s6),
                             NodePtr(new ID("Int", s8)),
                             nullptr,
-                            false
+                            false,
+                            s7
                         )
                     ),
                     {},
                     ArgDef(),
-                    ArgDef()
+                    ArgDef(),
+                    s3
                 ),
                 NodePtr(new ID("Int", s11)),
-                vec(NodePtr(new Unary(
-                    UnaryKind::RETURN, NodePtr(new Int32(0, s16)), s15
-                )))
+                vec(NodePtr(new Return(
+                    NodePtr(new Int32(0, s16)), s15
+                ))),
+                s1
             )),
             s1
         ));
@@ -856,22 +846,25 @@ TEST_CASE("interpret", "[interpret]") {
             vec(DefCase(
                 ArgSpec(
                     vec(
-                        ArgDef(ID("arg1", s4), nullptr, nullptr, false),
+                        ArgDef(ID("arg1", s4), nullptr, nullptr, false, s4),
                         ArgDef(
                             ID("arg2", s6),
                             NodePtr(new ID("Int", s8)),
                             nullptr,
-                            false
+                            false,
+                            s7
                         )
                     ),
                     {},
-                    ArgDef(ID("args", s11), nullptr, nullptr, false),
-                    ArgDef()
+                    ArgDef(ID("args", s11), nullptr, nullptr, false, s10),
+                    ArgDef(),
+                    s3
                 ),
                 NodePtr(new ID("Int", s14)),
-                vec(NodePtr(new Unary(
-                    UnaryKind::RETURN, NodePtr(new Int32(0, s19)), s18
-                )))
+                vec(NodePtr(new Return(
+                    NodePtr(new Int32(0, s19)), s18
+                ))),
+                s1
             )),
             s1
         ));
@@ -943,12 +936,13 @@ TEST_CASE("interpret", "[interpret]") {
             vec(DefCase(
                 ArgSpec(
                     vec(
-                        ArgDef(ID("arg1", s4), nullptr, nullptr, false),
+                        ArgDef(ID("arg1", s4), nullptr, nullptr, false, s4),
                         ArgDef(
                             ID("arg2", s6),
                             NodePtr(new ID("Int", s8)),
                             nullptr,
-                            false
+                            false,
+                            s7
                         )
                     ),
                     vec(
@@ -956,22 +950,26 @@ TEST_CASE("interpret", "[interpret]") {
                             ID("kw1", s13),
                             nullptr,
                             NodePtr(new Int32(1, s15)),
-                            false
+                            false,
+                            s14
                         ),
                         ArgDef(
                             ID("kw2", s17),
                             NodePtr(new ID("Bool", s19)),
                             nullptr,
-                            false
+                            false,
+                            s18
                         )
                     ),
-                    ArgDef(ID("args", s11), nullptr, nullptr, false),
-                    ArgDef()
+                    ArgDef(ID("args", s11), nullptr, nullptr, false, s10),
+                    ArgDef(),
+                    s3
                 ),
                 NodePtr(new ID("Int", s22)),
-                vec(NodePtr(new Unary(
-                    UnaryKind::RETURN, NodePtr(new Int32(0, s27)), s26
-                )))
+                vec(NodePtr(new Return(
+                    NodePtr(new Int32(0, s27)), s26
+                ))),
+                s1
             )),
             s1
         ));
@@ -1050,12 +1048,13 @@ TEST_CASE("interpret", "[interpret]") {
             vec(DefCase(
                 ArgSpec(
                     vec(
-                        ArgDef(ID("arg1", s4), nullptr, nullptr, false),
+                        ArgDef(ID("arg1", s4), nullptr, nullptr, false, s4),
                         ArgDef(
                             ID("arg2", s6),
                             NodePtr(new ID("Int", s8)),
                             nullptr,
-                            false
+                            false,
+                            s7
                         )
                     ),
                     vec(
@@ -1063,22 +1062,26 @@ TEST_CASE("interpret", "[interpret]") {
                             ID("kw1", s13),
                             nullptr,
                             NodePtr(new Int32(1, s15)),
-                            false
+                            false,
+                            s14
                         ),
                         ArgDef(
                             ID("kw2", s17),
                             NodePtr(new ID("Bool", s19)),
                             nullptr,
-                            false
+                            false,
+                            s18
                         )
                     ),
-                    ArgDef(ID("args", s11), nullptr, nullptr, false),
-                    ArgDef(ID("kwargs", s22), nullptr, nullptr, false)
+                    ArgDef(ID("args", s11), nullptr, nullptr, false, s10),
+                    ArgDef(ID("kwargs", s22), nullptr, nullptr, false, s21),
+                    s3
                 ),
                 NodePtr(new ID("Int", s25)),
-                vec(NodePtr(new Unary(
-                    UnaryKind::RETURN, NodePtr(new Int32(0, s30)), s29
-                )))
+                vec(NodePtr(new Return(
+                    NodePtr(new Int32(0, s30)), s29
+                ))),
+                s1
             )),
             s1
         ));
@@ -1212,23 +1215,27 @@ TEST_CASE("interpret", "[interpret]") {
                                 ID("a", s4),
                                 NodePtr(new ID("Int", s6)),
                                 nullptr,
-                                false
+                                false,
+                                s5
                             ),
                             ArgDef(
                                 ID("b", s8),
                                 NodePtr(new ID("String", s10)),
                                 nullptr,
-                                false
+                                false,
+                                s9
                             )
                         ),
                         {},
                         ArgDef(),
-                        ArgDef()
+                        ArgDef(),
+                        s3
                     ),
                     nullptr,
-                    vec(NodePtr(new Unary(
-                        UnaryKind::RETURN, NodePtr(new Int32(0, s16)), s15
-                    )))        
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, s16)), s15
+                    ))),
+                    s1
                 ),
                 DefCase(
                     ArgSpec(
@@ -1237,23 +1244,27 @@ TEST_CASE("interpret", "[interpret]") {
                                 ID("c", s20),
                                 NodePtr(new ID("Float32", s22)),
                                 nullptr,
-                                false
+                                false,
+                                s21
                             ),
                             ArgDef(
                                 ID("", Pos(0, 0)),
                                 NodePtr(new Bool(true, s24)),
                                 nullptr,
-                                true
+                                true,
+                                s24
                             )
                         ),
                         {},
                         ArgDef(),
-                        ArgDef()
+                        ArgDef(),
+                        s19
                     ),
                     NodePtr(new ID("Int64", s27)),
-                    vec(NodePtr(new Unary(
-                        UnaryKind::RETURN, NodePtr(new Int64(3, s32)), s31
-                    )))
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int64(3, s32)), s31
+                    ))),
+                    s18
                 ),
                 DefCase(
                     ArgSpec(
@@ -1261,21 +1272,25 @@ TEST_CASE("interpret", "[interpret]") {
                             ID("", Pos(0, 0)),
                             NodePtr(new Int32(1, s36)),
                             nullptr,
-                            true
+                            true,
+                            s36
                         )),
                         vec(ArgDef(
                             ID("kw", s40),
                             NodePtr(new Int32(2, s42)),
                             nullptr,
-                            true
+                            true,
+                            s41
                         )),
                         ArgDef(),
-                        ArgDef()
+                        ArgDef(),
+                        s35
                     ),
                     nullptr,
-                    vec(NodePtr(new Unary(
-                        UnaryKind::RETURN, NodePtr(new Int32(0, s48)), s47
-                    )))
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, s48)), s47
+                    ))),
+                    s34
                 )
             ),
             s1
@@ -1312,11 +1327,12 @@ TEST_CASE("interpret", "[interpret]") {
         )) == Def(
             NodePtr(new NumID(3, s2)),
             vec(DefCase(
-                ArgSpec({}, {}, ArgDef(), ArgDef()),
+                ArgSpec({}, {}, ArgDef(), ArgDef(), s3),
                 nullptr,
-                vec(NodePtr(new Unary(
-                    UnaryKind::RETURN, NodePtr(new Int32(0, s9)), s8
-                )))
+                vec(NodePtr(new Return(
+                    NodePtr(new Int32(0, s9)), s8
+                ))),
+                s1
             )),
             s1
         ));
@@ -1910,8 +1926,7 @@ TEST_CASE("interpret", "[interpret]") {
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
             NodePtr(new ID("__div__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}),
-            false,
+            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
             s2
         ));
     }
@@ -1947,8 +1962,7 @@ TEST_CASE("interpret", "[interpret]") {
             vec(NodePtr(new CallAttr(
                 NodePtr(new ID("a", s6)),
                 NodePtr(new ID("__iadd__", s7)),
-                Args(vec(NodePtr(new ID("x", s8))), {}),
-                false,
+                Args(vec(NodePtr(new ID("x", s8))), {}, s7),
                 s7
             ))),
             {},
@@ -1991,8 +2005,7 @@ TEST_CASE("interpret", "[interpret]") {
             vec(NodePtr(new CallAttr(
                 NodePtr(new ID("a", s8)),
                 NodePtr(new ID("__iadd__", s9)),
-                Args(vec(NodePtr(new ID("x", s10))), {}),
-                false,
+                Args(vec(NodePtr(new ID("x", s10))), {}, s9),
                 s9
             ))),
             {},
@@ -2048,13 +2061,12 @@ TEST_CASE("interpret", "[interpret]") {
                     vec(NodePtr(new CallAttr(
                         NodePtr(new ID("x", s12)),
                         NodePtr(new ID("__add__", s13)),
-                        Args(vec(NodePtr(new ID("y", s14))), {}),
-                        false,
+                        Args(vec(NodePtr(new ID("y", s14))), {}, s13),
                         s13
                     ))),
-                    {}
+                    {},
+                    s11
                 ),
-                false,
                 s11
             ))),
             {},
@@ -2111,12 +2123,11 @@ TEST_CASE("interpret", "[interpret]") {
         )) == For(
             vec(ID("x", s2)),
             NodePtr(new ID("c", s4)),
-            vec(NodePtr(new Nullary(NullaryKind::BREAK, s8))),
+            vec(NodePtr(new Break(s8))),
             vec(NodePtr(new CallAttr(
                 NodePtr(new ID("a", s14)),
                 NodePtr(new ID("__iadd__", s15)),
-                Args(vec(NodePtr(new Int32(1, s16))), {}),
-                false,
+                Args(vec(NodePtr(new Int32(1, s16))), {}, s15),
                 s15
             ))),
             s1
@@ -2256,8 +2267,7 @@ TEST_CASE("interpret", "[interpret]") {
             Comp(OpID::ID, "a", s1),
             Comp(OpID::ID, "b", s3),
             s2
-        )) == Binary(
-            BinaryKind::GET_ATTR,
+        )) == GetAttr(
             NodePtr(new ID("a", s1)),
             NodePtr(new ID("b", s3)),
             s2
@@ -2269,8 +2279,7 @@ TEST_CASE("interpret", "[interpret]") {
             Comp(OpID::ID, "a", s1),
             Comp(OpID::PLAIN_INT, "3", s3),
             s2
-        )) == Binary(
-            BinaryKind::GET_ATTR,
+        )) == GetAttr(
             NodePtr(new ID("a", s1)),
             NodePtr(new NumID(3, s3)),
             s2
@@ -2295,8 +2304,7 @@ TEST_CASE("interpret", "[interpret]") {
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
             NodePtr(new ID("__iadd__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}),
-            false,
+            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
             s2
         ));
     }
@@ -2311,8 +2319,7 @@ TEST_CASE("interpret", "[interpret]") {
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
             NodePtr(new ID("__iband__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}),
-            false,
+            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
             s2
         ));
     }
@@ -2327,8 +2334,7 @@ TEST_CASE("interpret", "[interpret]") {
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
             NodePtr(new ID("__ibor__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}),
-            false,
+            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
             s2
         ));
     }
@@ -2343,8 +2349,7 @@ TEST_CASE("interpret", "[interpret]") {
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
             NodePtr(new ID("__ibxor__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}),
-            false,
+            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
             s2
         ));
     }
@@ -2368,8 +2373,7 @@ TEST_CASE("interpret", "[interpret]") {
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
             NodePtr(new ID("__idiv__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}),
-            false,
+            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
             s2
         ));
     }
@@ -2384,8 +2388,7 @@ TEST_CASE("interpret", "[interpret]") {
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
             NodePtr(new ID("__ilsh__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}),
-            false,
+            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
             s2
         ));
     }
@@ -2400,8 +2403,7 @@ TEST_CASE("interpret", "[interpret]") {
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
             NodePtr(new ID("__imod__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}),
-            false,
+            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
             s2
         ));
     }
@@ -2416,8 +2418,7 @@ TEST_CASE("interpret", "[interpret]") {
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
             NodePtr(new ID("__imul__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}),
-            false,
+            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
             s2
         ));
     }
@@ -2432,8 +2433,7 @@ TEST_CASE("interpret", "[interpret]") {
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
             NodePtr(new ID("__ipow__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}),
-            false,
+            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
             s2
         ));
     }
@@ -2448,8 +2448,7 @@ TEST_CASE("interpret", "[interpret]") {
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
             NodePtr(new ID("__irsh__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}),
-            false,
+            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
             s2
         ));
     }
@@ -2464,8 +2463,7 @@ TEST_CASE("interpret", "[interpret]") {
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
             NodePtr(new ID("__isub__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}),
-            false,
+            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
             s2
         ));
     }
@@ -2492,9 +2490,10 @@ TEST_CASE("interpret", "[interpret]") {
         )) == If(
             vec(Case(
                 NodePtr(new ID("x", s2)),
-                vec(NodePtr(new Unary(
-                    UnaryKind::RETURN, NodePtr(new Int32(0, s5)), s4
-                )))
+                vec(NodePtr(new Return(
+                    NodePtr(new Int32(0, s5)), s4
+                ))),
+                s1
             )),
             {},
             s1
@@ -2526,9 +2525,10 @@ TEST_CASE("interpret", "[interpret]") {
         )) == If(
             vec(Case(
                 NodePtr(new ID("x", s2)),
-                vec(NodePtr(new Unary(
-                    UnaryKind::RETURN, NodePtr(new Int32(0, s7)), s6
-                )))
+                vec(NodePtr(new Return(
+                    NodePtr(new Int32(0, s7)), s6
+                ))),
+                s1
             )),
             {},
             s1
@@ -2583,15 +2583,17 @@ TEST_CASE("interpret", "[interpret]") {
             vec(
                 Case(
                     NodePtr(new ID("x", s2)),
-                    vec(NodePtr(new Unary(
-                        UnaryKind::RETURN, NodePtr(new Int32(0, s7)), s6
-                    )))
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, s7)), s6
+                    ))),
+                    s1
                 ),
                 Case(
                     NodePtr(new ID("y", s10)),
-                    vec(NodePtr(new Unary(
-                        UnaryKind::RETURN, NodePtr(new Int32(1, s15)), s14
-                    )))
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(1, s15)), s14
+                    ))),
+                    s9
                 )
             ),
             {},
@@ -2666,19 +2668,21 @@ TEST_CASE("interpret", "[interpret]") {
             vec(
                 Case(
                     NodePtr(new ID("x", s2)),
-                    vec(NodePtr(new Unary(
-                        UnaryKind::RETURN, NodePtr(new Int32(0, s7)), s6
-                    )))
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, s7)), s6
+                    ))),
+                    s1
                 ),
                 Case(
                     NodePtr(new ID("y", s10)),
-                    vec(NodePtr(new Unary(
-                        UnaryKind::RETURN, NodePtr(new Int32(1, s15)), s14
-                    )))
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(1, s15)), s14
+                    ))),
+                    s9
                 )
             ),
-            vec(NodePtr(new Unary(
-                UnaryKind::RETURN, NodePtr(new Int32(2, s22)), s21
+            vec(NodePtr(new Return(
+                NodePtr(new Int32(2, s22)), s21
             ))),
             s1
         ));
@@ -2730,12 +2734,13 @@ TEST_CASE("interpret", "[interpret]") {
         )) == If(
             vec(Case(
                 NodePtr(new ID("x", s2)),
-                vec(NodePtr(new Unary(
-                    UnaryKind::RETURN, NodePtr(new Int32(0, s7)), s6
-                )))
+                vec(NodePtr(new Return(
+                    NodePtr(new Int32(0, s7)), s6
+                ))),
+                s1
             )),
-            vec(NodePtr(new Unary(
-                UnaryKind::RETURN, NodePtr(new Int32(1, s14)), s13
+            vec(NodePtr(new Return(
+                NodePtr(new Int32(1, s14)), s13
             ))),
             s1
         ));
@@ -2809,21 +2814,24 @@ TEST_CASE("interpret", "[interpret]") {
             vec(
                 Case(
                     NodePtr(new ID("x", s2)),
-                    vec(NodePtr(new Unary(
-                        UnaryKind::RETURN, NodePtr(new Int32(0, s7)), s6
-                    )))
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, s7)), s6
+                    ))),
+                    s1
                 ),
                 Case(
                     NodePtr(new ID("y", s10)),
-                    vec(NodePtr(new Unary(
-                        UnaryKind::RETURN, NodePtr(new Int32(1, s15)), s14
-                    )))
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(1, s15)), s14
+                    ))),
+                    s9
                 ),
                 Case(
                     NodePtr(new ID("z", s18)),
-                    vec(NodePtr(new Unary(
-                        UnaryKind::RETURN, NodePtr(new Int32(2, s23)), s22
-                    )))
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(2, s23)), s22
+                    ))),
+                    s17
                 )
             ),
             {},
@@ -3026,8 +3034,7 @@ TEST_CASE("interpret", "[interpret]") {
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
             NodePtr(new ID("__lsh__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}),
-            false,
+            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
             s2
         ));
     }
@@ -3079,8 +3086,7 @@ TEST_CASE("interpret", "[interpret]") {
                 s2
             ),
             s1
-        )) == Unary(
-            UnaryKind::LAMBDA,
+        )) == Lambda(
             NodePtr(new CallAttr(
                 NodePtr(new LambdaVar(1, NodePtr(new NumID(1, s4)), s3)),
                 NodePtr(new ID("__add__", s5)),
@@ -3090,9 +3096,9 @@ TEST_CASE("interpret", "[interpret]") {
                         NodePtr(new NumID(2, s7)),
                         s6
                     ))),
-                    {}
+                    {},
+                    s5
                 ),
-                false,
                 s5
             )),
             s1
@@ -3206,15 +3212,15 @@ TEST_CASE("interpret", "[interpret]") {
         // []
         REQUIRE(*interpreter.interpret(Comp(
             OpID::LIST, Comp(OpID::NOTHING, s2), s1
-        )) == Seq(
-            SeqKind::LIST, {}, s1
+        )) == List(
+            {}, s1
         ));
 
         // [a]
         REQUIRE(*interpreter.interpret(Comp(
             OpID::LIST, Comp(OpID::ID, "a", s2), s1
-        )) == Seq(
-            SeqKind::LIST, vec(NodePtr(new ID("a", s2))), s1
+        )) == List(
+            vec(NodePtr(new ID("a", s2))), s1
         ));
 
         // [a, b, c]
@@ -3226,8 +3232,7 @@ TEST_CASE("interpret", "[interpret]") {
                 Comp(OpID::ID, "c", s6)
             ),
             s1
-        )) == Seq(
-            SeqKind::LIST,
+        )) == List(
             vec(
                 NodePtr(new ID("a", s2)),
                 NodePtr(new ID("b", s4)),
@@ -3245,12 +3250,11 @@ TEST_CASE("interpret", "[interpret]") {
                 Comp(OpID::ID, "b", s7)
             ),
             s1
-        )) == Seq(
-            SeqKind::LIST,
+        )) == List(
             vec(
                 NodePtr(new ID("a", s2)),
-                NodePtr(new Unary(
-                    UnaryKind::EXPANSION, NodePtr(new ID("args", s5)), s4
+                NodePtr(new Expansion(
+                    NodePtr(new ID("args", s5)), s4
                 )),
                 NodePtr(new ID("b", s7))
             ),
@@ -3429,8 +3433,7 @@ TEST_CASE("interpret", "[interpret]") {
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
             NodePtr(new ID("__mod__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}),
-            false,
+            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
             s2
         ));
     }
@@ -3445,8 +3448,7 @@ TEST_CASE("interpret", "[interpret]") {
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
             NodePtr(new ID("__mul__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}),
-            false,
+            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
             s2
         ));
     }
@@ -3455,8 +3457,8 @@ TEST_CASE("interpret", "[interpret]") {
         // {}
         REQUIRE(*interpreter.interpret(Comp(
             OpID::ENCLOSURE, Comp(OpID::NOTHING, s2), s1
-        )) == Seq(
-            SeqKind::MAP, {}, s1
+        )) == Map(
+            {}, s1
         ));
 
         // {a: 1}
@@ -3469,10 +3471,8 @@ TEST_CASE("interpret", "[interpret]") {
                 s3
             ),
             s1
-        )) == Seq(
-            SeqKind::MAP,
-            vec(NodePtr(new Binary(
-                BinaryKind::ENTRY,
+        )) == Map(
+            vec(NodePtr(new Entry(
                 NodePtr(new ID("a", s2)),
                 NodePtr(new Int32(1, s4)),
                 s3
@@ -3504,23 +3504,19 @@ TEST_CASE("interpret", "[interpret]") {
                 )
             ),
             s1
-        )) == Seq(
-            SeqKind::MAP,
+        )) == Map(
             vec(
-                NodePtr(new Binary(
-                    BinaryKind::ENTRY,
+                NodePtr(new Entry(
                     NodePtr(new ID("a", s2)),
                     NodePtr(new Int32(1, s4)),
                     s3
                 )),
-                NodePtr(new Binary(
-                    BinaryKind::ENTRY,
+                NodePtr(new Entry(
                     NodePtr(new ID("b", s6)),
                     NodePtr(new Int32(2, s8)),
                     s7
                 )),
-                NodePtr(new Binary(
-                    BinaryKind::ENTRY,
+                NodePtr(new Entry(
                     NodePtr(new ID("c", s10)),
                     NodePtr(new Int32(3, s12)),
                     s11
@@ -3552,20 +3548,17 @@ TEST_CASE("interpret", "[interpret]") {
                 )
             ),
             s1
-        )) == Seq(
-            SeqKind::MAP,
+        )) == Map(
             vec(
-                NodePtr(new Binary(
-                    BinaryKind::ENTRY,
+                NodePtr(new Entry(
                     NodePtr(new ID("a", s2)),
                     NodePtr(new Int32(1, s4)),
                     s3
                 )),
-                NodePtr(new Unary(
-                    UnaryKind::EXPANSION, NodePtr(new ID("kwargs", s7)), s6
+                NodePtr(new Expansion(
+                    NodePtr(new ID("kwargs", s7)), s6
                 )),
-                NodePtr(new Binary(
-                    BinaryKind::ENTRY,
+                NodePtr(new Entry(
                     NodePtr(new ID("b", s9)),
                     NodePtr(new Int32(2, s11)),
                     s10
@@ -3606,20 +3599,21 @@ TEST_CASE("interpret", "[interpret]") {
         )) == Match(
             NodePtr(new ID("x", s2)),
             vec(Case(
-                NodePtr(new Call(
-                    CallKind::MATCH,
+                NodePtr(new Matcher(
                     NodePtr(new ID("Int", s5)),
                     Args(
                         vec(NodePtr(new LambdaVar(
                             1, NodePtr(new ID("y", s8)), s7
                         ))),
-                        {}
+                        {},
+                        s6
                     ),
                     s6
                 )),
-                vec(NodePtr(new Unary(
-                    UnaryKind::RETURN, NodePtr(new ID("y", s12)), s11
-                )))
+                vec(NodePtr(new Return(
+                    NodePtr(new ID("y", s12)), s11
+                ))),
+                s4
             )),
             {},
             s1
@@ -3662,20 +3656,21 @@ TEST_CASE("interpret", "[interpret]") {
         )) == Match(
             NodePtr(new ID("x", s2)),
             vec(Case(
-                NodePtr(new Call(
-                    CallKind::MATCH,
+                NodePtr(new Matcher(
                     NodePtr(new ID("Int", s5)),
                     Args(
                         vec(NodePtr(new LambdaVar(
                             1, NodePtr(new ID("y", s8)), s7
                         ))),
-                        {}
+                        {},
+                        s6
                     ),
                     s6
                 )),
-                vec(NodePtr(new Unary(
-                    UnaryKind::RETURN, NodePtr(new ID("y", s14)), s13
-                )))
+                vec(NodePtr(new Return(
+                    NodePtr(new ID("y", s14)), s13
+                ))),
+                s4
             )),
             {},
             s1
@@ -3737,23 +3732,24 @@ TEST_CASE("interpret", "[interpret]") {
         )) == Match(
             NodePtr(new ID("x", s2)),
             vec(Case(
-                NodePtr(new Call(
-                    CallKind::MATCH,
+                NodePtr(new Matcher(
                     NodePtr(new ID("Int", s5)),
                     Args(
                         vec(NodePtr(new LambdaVar(
                             1, NodePtr(new ID("y", s8)), s7
                         ))),
-                        {}
+                        {},
+                        s6
                     ),
                     s6
                 )),
-                vec(NodePtr(new Unary(
-                    UnaryKind::RETURN, NodePtr(new ID("y", s14)), s13
-                )))
+                vec(NodePtr(new Return(
+                    NodePtr(new ID("y", s14)), s13
+                ))),
+                s4
             )),
-            vec(NodePtr(new Unary(
-                UnaryKind::RETURN, NodePtr(new Int32(0, s21)), s20
+            vec(NodePtr(new Return(
+                NodePtr(new Int32(0, s21)), s20
             ))),
             s1
         ));
@@ -3816,26 +3812,28 @@ TEST_CASE("interpret", "[interpret]") {
             NodePtr(new ID("x", s2)),
             vec(
                 Case(
-                    NodePtr(new Call(
-                        CallKind::MATCH,
+                    NodePtr(new Matcher(
                         NodePtr(new ID("Int", s5)),
                         Args(
                             vec(NodePtr(new LambdaVar(
                                 1, NodePtr(new ID("y", s8)), s7
                             ))),
-                            {}
+                            {},
+                            s6
                         ),
                         s6
                     )),
-                    vec(NodePtr(new Unary(
-                        UnaryKind::RETURN, NodePtr(new ID("y", s14)), s13
-                    )))
+                    vec(NodePtr(new Return(
+                        NodePtr(new ID("y", s14)), s13
+                    ))),
+                    s4
                 ),
                 Case(
                     NodePtr(new Bool(false, s17)),
-                    vec(NodePtr(new Unary(
-                        UnaryKind::RETURN, NodePtr(new Int32(0, s22)), s21
-                    )))
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, s22)), s21
+                    ))),
+                    s16
                 )
             ),
             {},
@@ -3921,8 +3919,7 @@ TEST_CASE("interpret", "[interpret]") {
         )) == CallAttr(
             NodePtr(new ID("a", s2)),
             NodePtr(new ID("__neg__", s1)),
-            Args({}, {}),
-            false,
+            Args({}, {}, s1),
             s1
         ));
     }
@@ -3934,8 +3931,7 @@ TEST_CASE("interpret", "[interpret]") {
             Comp(OpID::ID, "a", s1),
             Comp(OpID::ID, "b", s3),
             s2
-        )) == Binary(
-            BinaryKind::OR,
+        )) == Or(
             NodePtr(new ID("a", s1)),
             NodePtr(new ID("b", s3)),
             s2
@@ -3952,8 +3948,7 @@ TEST_CASE("interpret", "[interpret]") {
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
             NodePtr(new ID("__pow__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}),
-            false,
+            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
             s2
         ));
     }
@@ -3968,8 +3963,7 @@ TEST_CASE("interpret", "[interpret]") {
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
             NodePtr(new ID("__rsh__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}),
-            false,
+            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
             s2
         ));
     }
@@ -3978,15 +3972,15 @@ TEST_CASE("interpret", "[interpret]") {
         // raise
         REQUIRE(*interpreter.interpret(Comp(
             OpID::RAISE, Comp(OpID::NOTHING, s_end), s1
-        )) == Unary(
-            UnaryKind::RAISE, nullptr, s1
+        )) == Raise(
+            nullptr, s1
         ));
 
         // raise a
         REQUIRE(*interpreter.interpret(Comp(
             OpID::RAISE, Comp(OpID::ID, "a", s2), s1
-        )) == Unary(
-            UnaryKind::RAISE, NodePtr(new ID("a", s2)), s1
+        )) == Raise(
+            NodePtr(new ID("a", s2)), s1
         ));
     }
 
@@ -3994,15 +3988,15 @@ TEST_CASE("interpret", "[interpret]") {
         // return
         REQUIRE(*interpreter.interpret(Comp(
             OpID::RETURN, Comp(OpID::NOTHING, s_end), s1
-        )) == Unary(
-            UnaryKind::RETURN, nullptr, s1
+        )) == Return(
+            nullptr, s1
         ));
 
         // return a
         REQUIRE(*interpreter.interpret(Comp(
             OpID::RETURN, Comp(OpID::ID, "a", s2), s1
-        )) == Unary(
-            UnaryKind::RETURN, NodePtr(new ID("a", s2)), s1
+        )) == Return(
+            NodePtr(new ID("a", s2)), s1
         ));
     }
 
@@ -4016,8 +4010,7 @@ TEST_CASE("interpret", "[interpret]") {
         )) == CallAttr(
             NodePtr(new ID("a", s1)),
             NodePtr(new ID("__sub__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}),
-            false,
+            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
             s2
         ));
     }
@@ -4028,7 +4021,7 @@ TEST_CASE("interpret", "[interpret]") {
             OpID::ENCLOSURE,
             Comp(OpID::ID, "a", s2),
             s1
-        )) == Seq(SeqKind::SET, vec(NodePtr(new ID("a", s2))), s1));
+        )) == Set(vec(NodePtr(new ID("a", s2))), s1));
 
         // {a, b, c}
         REQUIRE(*interpreter.interpret(Comp(
@@ -4039,8 +4032,7 @@ TEST_CASE("interpret", "[interpret]") {
                 Comp(OpID::ID, "c", s6)
             ),
             s1
-        )) == Seq(
-            SeqKind::SET,
+        )) == Set(
             vec(
                 NodePtr(new ID("a", s2)),
                 NodePtr(new ID("b", s4)),
@@ -4058,12 +4050,11 @@ TEST_CASE("interpret", "[interpret]") {
                 Comp(OpID::ID, "b", s7)
             ),
             s1
-        )) == Seq(
-            SeqKind::SET,
+        )) == Set(
             vec(
                 NodePtr(new ID("a", s2)),
-                NodePtr(new Unary(
-                    UnaryKind::EXPANSION, NodePtr(new ID("args", s5)), s4
+                NodePtr(new Expansion(
+                    NodePtr(new ID("args", s5)), s4
                 )),
                 NodePtr(new ID("b", s7))
             ),
@@ -4126,14 +4117,14 @@ TEST_CASE("interpret", "[interpret]") {
         // :x
         REQUIRE(*interpreter.interpret(Comp(
             OpID::SYMBOL, Comp(OpID::ID, "x", s2), s1
-        )) == Unary(UnaryKind::SYMBOL, NodePtr(new ID("x", s2)), s1));
+        )) == Symbol(NodePtr(new ID("x", s2)), s1));
 
         // :3
         REQUIRE(*interpreter.interpret(Comp(
             OpID::SYMBOL,
             Comp(OpID::PLAIN_INT, "3", s2),
             s1
-        )) == Unary(UnaryKind::SYMBOL, NodePtr(new NumID(3, s2)), s1));
+        )) == Symbol(NodePtr(new NumID(3, s2)), s1));
     }
 
     SECTION("Ternary") {
@@ -4176,7 +4167,7 @@ TEST_CASE("interpret", "[interpret]") {
         // this
         REQUIRE(*interpreter.interpret(Comp(
             OpID::THIS, s1
-        )) == Nullary(NullaryKind::THIS, s1));
+        )) == This(s1));
     }
 
     SECTION("Try") {
@@ -4231,27 +4222,27 @@ TEST_CASE("interpret", "[interpret]") {
             s1
         )) == Try(
             vec(NodePtr(new Call(
-                CallKind::CALL, NodePtr(new ID("f", s3)), Args({}, {}), s4
+                NodePtr(new ID("f", s3)), Args({}, {}, s4), s4
             ))),
-            vec(Case{
-                NodePtr(new Call(
-                    CallKind::MATCH,
+            vec(Case(
+                NodePtr(new Matcher(
                     NodePtr(new ID("E", s8)),
                     Args(
                         vec(NodePtr(new LambdaVar(
                             1, NodePtr(new ID("e", s11)), s10
                         ))),
-                        {}
+                        {},
+                        s9
                     ),
                     s9
                 )),
                 vec(NodePtr(new Call(
-                    CallKind::CALL,
                     NodePtr(new ID("g", s14)),
-                    Args({}, {}),
+                    Args({}, {}, s15),
                     s15
-                )))
-            }),
+                ))),
+                s7
+            )),
             {},
             s1
         ));
@@ -4317,24 +4308,25 @@ TEST_CASE("interpret", "[interpret]") {
             s1
         )) == Try(
             vec(NodePtr(new Call(
-                CallKind::CALL, NodePtr(new ID("f", s5)), Args({}, {}), s6
+                NodePtr(new ID("f", s5)), Args({}, {}, s6), s6
             ))),
-            vec(Case{
-                NodePtr(new Call(
-                    CallKind::MATCH,
+            vec(Case(
+                NodePtr(new Matcher(
                     NodePtr(new ID("E", s10)),
                     Args(
                         vec(NodePtr(new LambdaVar(
                             1, NodePtr(new ID("e", s13)), s12
                         ))),
-                        {}
+                        {},
+                        s11
                     ),
                     s11
                 )),
                 vec(NodePtr(new Call(
-                    CallKind::CALL, NodePtr(new ID("g", s18)), Args({}, {}), s19
-                )))
-            }),
+                    NodePtr(new ID("g", s18)), Args({}, {}, s19), s19
+                ))),
+                s9
+            )),
             {},
             s1
         ));
@@ -4421,26 +4413,27 @@ TEST_CASE("interpret", "[interpret]") {
             s1
         )) == Try(
             vec(NodePtr(new Call(
-                CallKind::CALL, NodePtr(new ID("f", s5)), Args({}, {}), s6
+                NodePtr(new ID("f", s5)), Args({}, {}, s6), s6
             ))),
-            vec(Case{
-                NodePtr(new Call(
-                    CallKind::MATCH,
+            vec(Case(
+                NodePtr(new Matcher(
                     NodePtr(new ID("E", s10)),
                     Args(
                         vec(NodePtr(new LambdaVar(
                             1, NodePtr(new ID("e", s13)), s12
                         ))),
-                        {}
+                        {},
+                        s11
                     ),
                     s11
                 )),
                 vec(NodePtr(new Call(
-                    CallKind::CALL, NodePtr(new ID("g", s18)), Args({}, {}), s19
-                )))
-            }),
+                    NodePtr(new ID("g", s18)), Args({}, {}, s19), s19
+                ))),
+                s9
+            )),
             vec(NodePtr(new Call(
-                CallKind::CALL, NodePtr(new ID("h", s26)), Args({}, {}), s27
+                NodePtr(new ID("h", s26)), Args({}, {}, s27), s27
             ))),
             s1
         ));
@@ -4494,11 +4487,11 @@ TEST_CASE("interpret", "[interpret]") {
             s1
         )) == Try(
             vec(NodePtr(new Call(
-                CallKind::CALL, NodePtr(new ID("f", s5)), Args({}, {}), s6
+                NodePtr(new ID("f", s5)), Args({}, {}, s6), s6
             ))),
             {},
             vec(NodePtr(new Call(
-                CallKind::CALL, NodePtr(new ID("g", s13)), Args({}, {}), s14
+                NodePtr(new ID("g", s13)), Args({}, {}, s14), s14
             ))),
             s1
         ));
@@ -4598,46 +4591,46 @@ TEST_CASE("interpret", "[interpret]") {
             s1
         )) == Try(
             vec(NodePtr(new Call(
-                CallKind::CALL, NodePtr(new ID("f", s5)), Args({}, {}), s6
+                NodePtr(new ID("f", s5)), Args({}, {}, s6), s6
             ))),
             vec(
                 Case(
-                    NodePtr(new Call(
-                        CallKind::MATCH,
+                    NodePtr(new Matcher(
                         NodePtr(new ID("E1", s10)),
                         Args(
                             vec(NodePtr(new LambdaVar(
                                 1, NodePtr(new ID("e", s13)), s12
                             ))),
-                            {}
+                            {},
+                            s11
                         ),
                         s11
                     )),
                     vec(NodePtr(new Call(
-                        CallKind::CALL,
                         NodePtr(new ID("g", s18)),
-                        Args({}, {}),
+                        Args({}, {}, s19),
                         s19
-                    )))
+                    ))),
+                    s9
                 ),
                 Case(
-                    NodePtr(new Call(
-                        CallKind::MATCH,
+                    NodePtr(new Matcher(
                         NodePtr(new ID("E2", s23)),
                         Args(
                             vec(NodePtr(new LambdaVar(
                                 1, NodePtr(new ID("e", s26)), s25
                             ))),
-                            {}
+                            {},
+                            s24
                         ),
                         s24
                     )),
                     vec(NodePtr(new Call(
-                        CallKind::CALL,
                         NodePtr(new ID("h", s31)),
-                        Args({}, {}),
+                        Args({}, {}, s32),
                         s32
-                    )))
+                    ))),
+                    s22
                 )
             ),
             {},
@@ -4831,8 +4824,8 @@ TEST_CASE("interpret", "[interpret]") {
         // ()
         REQUIRE(*interpreter.interpret(Comp(
             OpID::GROUP, Comp(OpID::NOTHING, s2), s1
-        )) == Seq(
-            SeqKind::TUPLE, {}, s1
+        )) == Tuple(
+            {}, s1
         ));
 
         // (a, b, c)
@@ -4844,8 +4837,7 @@ TEST_CASE("interpret", "[interpret]") {
                 Comp(OpID::ID, "c", s6)
             ),
             s1
-        )) == Seq(
-            SeqKind::TUPLE,
+        )) == Tuple(
             vec(
                 NodePtr(new ID("a", s2)),
                 NodePtr(new ID("b", s4)),
@@ -4859,8 +4851,7 @@ TEST_CASE("interpret", "[interpret]") {
             Comp(OpID::ID, "a", s1),
             Comp(OpID::ID, "b", s3),
             Comp(OpID::ID, "c", s5)
-        )) == Seq(
-            SeqKind::TUPLE,
+        )) == Tuple(
             vec(
                 NodePtr(new ID("a", s1)),
                 NodePtr(new ID("b", s3)),
@@ -4879,12 +4870,11 @@ TEST_CASE("interpret", "[interpret]") {
                 Comp(OpID::ID, "b", s7)
             ),
             s1
-        )) == Seq(
-            SeqKind::TUPLE,
+        )) == Tuple(
             vec(
                 NodePtr(new ID("a", s2)),
-                NodePtr(new Unary(
-                    UnaryKind::EXPANSION, NodePtr(new ID("args", s5)), s4
+                NodePtr(new Expansion(
+                    NodePtr(new ID("args", s5)), s4
                 )),
                 NodePtr(new ID("b", s7))
             ),
@@ -4896,12 +4886,11 @@ TEST_CASE("interpret", "[interpret]") {
             Comp(OpID::ID, "a", s1),
             Comp(OpID::UNPACK_ARGS, Comp(OpID::ID, "args", s4), s3),
             Comp(OpID::ID, "b", s6)
-        )) == Seq(
-            SeqKind::TUPLE,
+        )) == Tuple(
             vec(
                 NodePtr(new ID("a", s1)),
-                NodePtr(new Unary(
-                    UnaryKind::EXPANSION, NodePtr(new ID("args", s4)), s3
+                NodePtr(new Expansion(
+                    NodePtr(new ID("args", s4)), s3
                 )),
                 NodePtr(new ID("b", s6))
             ),
@@ -4924,7 +4913,7 @@ TEST_CASE("interpret", "[interpret]") {
             s5
         )) == Update(
             NodePtr(new ID("a", s1)),
-            Args(vec(NodePtr(new ID("i", s3))), {}),
+            Args(vec(NodePtr(new ID("i", s3))), {}, s2),
             NodePtr(new ID("b", s6)),
             s5
         ));
@@ -4954,7 +4943,7 @@ TEST_CASE("interpret", "[interpret]") {
         )) == UpdateAttr(
             NodePtr(new ID("a", s1)),
             NodePtr(new ID("b", s3)),
-            Args(vec(NodePtr(new ID("i", s5))), {}),
+            Args(vec(NodePtr(new ID("i", s5))), {}, s4),
             NodePtr(new ID("c", s8)),
             s7
         ));
@@ -4982,7 +4971,7 @@ TEST_CASE("interpret", "[interpret]") {
         )) == UpdateAttr(
             NodePtr(new ID("a", s1)),
             NodePtr(new NumID(3, s3)),
-            Args(vec(NodePtr(new ID("i", s5))), {}),
+            Args(vec(NodePtr(new ID("i", s5))), {}, s4),
             NodePtr(new ID("c", s8)),
             s7
         ));
@@ -5062,7 +5051,7 @@ TEST_CASE("interpret", "[interpret]") {
         )) == While(
             NodePtr(new ID("a", s2)),
             vec(NodePtr(new Call(
-                CallKind::CALL, NodePtr(new ID("f", s4)), Args({}, {}), s5
+                NodePtr(new ID("f", s4)), Args({}, {}, s5), s5
             ))),
             {},
             s1
@@ -5095,7 +5084,7 @@ TEST_CASE("interpret", "[interpret]") {
         )) == While(
             NodePtr(new ID("a", s2)),
             vec(NodePtr(new Call(
-                CallKind::CALL, NodePtr(new ID("f", s6)), Args({}, {}), s7
+                NodePtr(new ID("f", s6)), Args({}, {}, s7), s7
             ))),
             {},
             s1
@@ -5152,10 +5141,10 @@ TEST_CASE("interpret", "[interpret]") {
         )) == While(
             NodePtr(new ID("a", s2)),
             vec(NodePtr(new Call(
-                CallKind::CALL, NodePtr(new ID("f", s6)), Args{{}, {}}, s7
+                NodePtr(new ID("f", s6)), Args{{}, {}, s7}, s7
             ))),
             vec(NodePtr(new Call(
-                CallKind::CALL, NodePtr(new ID("g", s14)), Args({}, {}), s15
+                NodePtr(new ID("g", s14)), Args({}, {}, s15), s15
             ))),
             s1
         ));

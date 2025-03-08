@@ -5,12 +5,13 @@
 #include <vector>
 
 #include "dl/interpret/node.hpp"
+#include "dl/interpret/nodekind.hpp"
 #include "dl/pos.hpp"
 #include "dl/util.hpp"
 
 namespace dl {
 
-struct ArgSpec {
+struct ArgSpec final: Node {
     std::vector<ArgDef> args;
     std::vector<ArgDef> kwargs;
     ArgDef var_args;
@@ -20,29 +21,35 @@ struct ArgSpec {
         std::vector<ArgDef>&& args,
         std::vector<ArgDef>&& kwargs,
         ArgDef&& var_args,
-        ArgDef&& var_kwargs
+        ArgDef&& var_kwargs,
+        Pos src
     ) noexcept:
+    Node(src),
     args(std::move(args)),
     kwargs(std::move(kwargs)),
     var_args(std::move(var_args)),
     var_kwargs(std::move(var_kwargs)) {}
 
-    bool operator==(const ArgSpec& that) const noexcept {
+    bool equals(const Node& that) const noexcept override {
+        const auto& casted = dynamic_cast<const ArgSpec&>(that);
         return
-            args == that.args &&
-            kwargs == that.kwargs &&
-            var_args == that.var_args &&
-            var_kwargs == that.var_kwargs;
+            args == casted.args &&
+            kwargs == casted.kwargs &&
+            var_args == casted.var_args &&
+            var_kwargs == casted.var_kwargs;
+    }
+
+    virtual NodeKind kind() const noexcept override {
+        return NodeKind::ARG_SPEC;
+    }
+
+    virtual std::ostream& out_data(std::ostream& os) const override {
+        return os <<
+            OutContainerManip(args) << ", " <<
+            OutContainerManip(kwargs) << ", " <<
+            var_args << ", " <<
+            var_kwargs;
     }
 };
-
-std::ostream& operator<<(std::ostream& os, const ArgSpec& x) {
-    return os << "ArgSpec(" <<
-        OutContainerManip(x.args) << ", " <<
-        OutContainerManip(x.kwargs) << ", " <<
-        x.var_args << ", " <<
-        x.var_kwargs <<
-    ")";
-}
 
 }

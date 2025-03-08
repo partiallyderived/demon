@@ -6,7 +6,7 @@
 
 #include "dl/interpret/case.hpp"
 #include "dl/interpret/node.hpp"
-#include "dl/interpret/nodecategory.hpp"
+#include "dl/interpret/nodekind.hpp"
 #include "dl/pos.hpp"
 #include "dl/util.hpp"
 
@@ -19,20 +19,17 @@ struct If final: Node {
     If(std::vector<Case>&& cases, Nodes&& orelse, Pos src) noexcept:
     Node(src), cases(std::move(cases)), orelse(std::move(orelse)) {}
 
-    virtual NodeCategory category() const noexcept override {
-        return NodeCategory::IF;
-    }
-
     virtual bool equals(const Node& that) const noexcept override {
         const auto& casted = dynamic_cast<const If&>(that);
         return cases == casted.cases && nodes_eq(orelse, casted.orelse);
     }
 
-    virtual std::ostream& out(std::ostream& os) const override {
-        return os << category() << "("
-            << OutContainerManip(cases) << ", " <<
-            orelse <<
-        ")";
+    virtual NodeKind kind() const noexcept override {
+        return NodeKind::IF;
+    }
+
+    virtual std::ostream& out_data(std::ostream& os) const override {
+        return os << OutContainerManip(cases) << ", " << orelse;
     }
 };
 

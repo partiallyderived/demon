@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include <ostream>
 #include <utility>
 
@@ -11,14 +13,17 @@
 namespace dl {
 
 template<NodeKind KIND>
-struct Seq final: Node {
-    Nodes nodes;
+struct Counted final: Node {
 
-    Seq(Nodes&& nodes, Pos src) noexcept: 
-    Node(src), nodes(std::move(nodes)) {}
+    std::uint32_t count;
+    NodePtr arg;
+
+    Counted(std::uint32_t count, NodePtr&& arg, Pos src) noexcept:
+    Node(src), count(count), arg(std::move(arg)) {}
 
     virtual bool equals(const Node& that) const noexcept override {
-        return nodes_eq(nodes, dynamic_cast<const Seq&>(that).nodes);
+        const auto& casted = dynamic_cast<const Counted&>(that);
+        return count == casted.count && npeq(arg, casted.arg);
     }
 
     virtual NodeKind kind() const noexcept override {
@@ -26,13 +31,11 @@ struct Seq final: Node {
     }
 
     virtual std::ostream& out_data(std::ostream& os) const override {
-        return os << OutContainerManip(nodes);
+        return out_csv(os, count, arg);
     }
 };
 
-using List = Seq<NodeKind::LIST>;
-using Map = Seq<NodeKind::MAP>;
-using Set = Seq<NodeKind::SET>;
-using Tuple = Seq<NodeKind::TUPLE>;
+using LambdaVar = Counted<NodeKind::LAMBDA_VAR>;
+using Var = Counted<NodeKind::VAR>;
 
 }

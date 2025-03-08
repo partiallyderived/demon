@@ -4,24 +4,31 @@
 #include <utility>
 
 #include "dl/interpret/node.hpp"
+#include "dl/interpret/nodekind.hpp"
 #include "dl/pos.hpp"
+#include "dl/util.hpp"
 
 namespace dl {
 
-struct Args {
+struct Args final: Node {
     Nodes args;
     Nodes kwargs;
 
-    Args(Nodes&& args, Nodes&& kwargs) noexcept:
-    args(std::move(args)), kwargs(std::move(kwargs)) {}
+    Args(Nodes&& args, Nodes&& kwargs, Pos src) noexcept:
+    Node(src), args(std::move(args)), kwargs(std::move(kwargs)) {}
 
-    bool operator==(const Args& that) const noexcept {
-        return nodes_eq(args, that.args) && nodes_eq(kwargs, that.kwargs);
+    virtual bool equals(const Node& that) const noexcept override {
+        const auto& casted = dynamic_cast<const Args&>(that);
+        return nodes_eq(args, casted.args) && nodes_eq(kwargs, casted.kwargs);
+    }
+
+    virtual NodeKind kind() const noexcept override {
+        return NodeKind::ARGS;
+    }
+
+    virtual std::ostream& out_data(std::ostream& os) const override {
+        return out_csv(os, args, kwargs);
     }
 };
-
-std::ostream& operator<<(std::ostream& os, const Args& x) {
-    return os << "Args(" << x.args << ", " << x.kwargs << ")";
-}
 
 }

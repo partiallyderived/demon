@@ -3,36 +3,41 @@
 #include <ostream>
 #include <utility>
 
-#include "dl/interpret/binarykind.hpp"
 #include "dl/interpret/node.hpp"
-#include "dl/interpret/nodecategory.hpp"
+#include "dl/interpret/nodekind.hpp"
 #include "dl/pos.hpp"
+#include "dl/util.hpp"
 
 namespace dl {
 
+template<NodeKind KIND>
 struct Binary final: Node {
-    BinaryKind kind;
     NodePtr lhs;
     NodePtr rhs;
 
-    Binary(BinaryKind kind, NodePtr&& lhs, NodePtr&& rhs, Pos src) noexcept:
-    Node(src), kind(kind), lhs(std::move(lhs)), rhs(std::move(rhs))  {}
+    Binary(NodePtr&& lhs, NodePtr&& rhs, Pos src) noexcept:
+    Node(src), lhs(std::move(lhs)), rhs(std::move(rhs))  {}
 
-    virtual NodeCategory category() const noexcept override {
-        return NodeCategory::BINARY;
+    virtual NodeKind kind() const noexcept override {
+        return KIND;
     }
 
     virtual bool equals(const Node& that) const noexcept override {
         const auto& casted = dynamic_cast<const Binary&>(that);
-        return
-            kind == casted.kind &&
-            npeq(lhs, casted.lhs) &&
-            npeq(rhs, casted.rhs);
+        return npeq(lhs, casted.lhs) && npeq(rhs, casted.rhs);
     }
 
-    virtual std::ostream& out(std::ostream& os) const override {
-        return os << kind << "(" << lhs << ", " << rhs << ")";
+    virtual std::ostream& out_data(std::ostream& os) const override {
+        return out_csv(os, lhs, rhs);
     }
 };
+
+using And = Binary<NodeKind::AND>;
+using Assign = Binary<NodeKind::ASSIGN>;
+using Declare = Binary<NodeKind::DECLARE>;
+using Entry = Binary<NodeKind::ENTRY>;
+using GetAttr = Binary<NodeKind::GET_ATTR>;
+using In = Binary<NodeKind::IN>;
+using Or = Binary<NodeKind::OR>;
 
 }

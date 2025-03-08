@@ -5,7 +5,7 @@
 #include <memory>
 #include <ostream>
 
-#include "dl/interpret/nodecategory.hpp"
+#include "dl/interpret/nodekind.hpp"
 #include "dl/pos.hpp"
 #include "dl/res.hpp"
 #include "dl/util.hpp"
@@ -19,14 +19,14 @@ struct Node {
 
     virtual ~Node() noexcept {}
 
-    virtual NodeCategory category() const noexcept=0;
-
     virtual bool equals(const Node& that) const noexcept=0;
 
-    virtual std::ostream& out(std::ostream& os) const=0;
+    virtual NodeKind kind() const noexcept=0;
+
+    virtual std::ostream& out_data(std::ostream& os) const=0;
 
     bool operator==(const Node& that) const noexcept {
-        return category() == that.category() && src == that.src && equals(that);
+        return kind() == that.kind() && src == that.src && equals(that);
     }
 };
 
@@ -53,7 +53,8 @@ bool nodes_eq(const Nodes& lhs, const Nodes& rhs) noexcept {
 }
 
 std::ostream& operator<<(std::ostream& os, const Node& node) {
-    return node.out(os) << "@" << node.src;
+    os << node.kind() << "(";
+    return node.out_data(os) << ")@" << node.src;
 }
 
 std::ostream& operator<<(std::ostream& os, const NodePtr& node_ptr) {
