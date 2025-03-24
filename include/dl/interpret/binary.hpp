@@ -33,11 +33,14 @@ struct Binary final: Node {
 };
 
 using And = Binary<NodeKind::AND>;
+using As = Binary<NodeKind::AS>;
 using Assign = Binary<NodeKind::ASSIGN>;
 using Declare = Binary<NodeKind::DECLARE>;
+using Defaulted = Binary<NodeKind::DEFAULTED>;
 using Entry = Binary<NodeKind::ENTRY>;
 using GetAttr = Binary<NodeKind::GET_ATTR>;
 using In = Binary<NodeKind::IN>;
 using Or = Binary<NodeKind::OR>;
+using TypeMatch = Binary<NodeKind::TYPE_MATCH>;
 
 }

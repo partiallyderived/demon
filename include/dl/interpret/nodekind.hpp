@@ -9,8 +9,8 @@ enum class NodeKind {
     ADDR_TYPE,
     AND,
     ARG_DEF,
-    ARG_SPEC,
     ARGS,
+    AS,
     ASSIGN,
     BOOL,
     BREAK,
@@ -24,6 +24,7 @@ enum class NodeKind {
     DECLARE,
     DEF,
     DEF_CASE,
+    DEFAULTED,
     ENTRY,
     EXPANSION,
     FLOAT32,
@@ -38,7 +39,7 @@ enum class NodeKind {
     INT16,
     INT32,
     INT64,
-    KEYWORD_ARG,
+    KWARG,
     LAMBDA,
     LAMBDA_ARGS,
     LAMBDA_KWARGS,
@@ -46,12 +47,20 @@ enum class NodeKind {
     LIST,
     MAP,
     MATCH,
-    MATCHER,
+    MATCH_ARGS,
+    MATCH_CASE,
+    MATCH_KWARG,
+    MATCH_LIST,
+    MATCH_MAP,
+    MATCH_OBJECT,
+    MATCH_OPTIONS,
+    MATCH_TUPLE,
     NONE,
     NOT,
     NULL_,
     NUM_ID,
     OR,
+    PLACEHOLDER,
     RAISE,
     RETURN,
     SEQ,
@@ -62,15 +71,16 @@ enum class NodeKind {
     TERNARY,
     THIS,
     TUPLE,
-    UPDATE,
-    UPDATE_ATTR,
-    VAR,
     TRY,
     TYPE,
+    TYPE_MATCH,
     UINT8,
     UINT16,
     UINT32,
     UINT64,
+    UPDATE,
+    UPDATE_ATTR,
+    VAR,
     WHILE
 };
 
@@ -86,10 +96,10 @@ std::ostream& operator<<(std::ostream& os, NodeKind x) {
         return os << "AND";
     case ARG_DEF:
         return os << "ARG_DEF";
-    case ARG_SPEC:
-        return os << "ARG_SPEC";
     case ARGS:
         return os << "ARGS";
+    case AS:
+        return os << "AS";
     case ASSIGN:
         return os << "ASSIGN";
     case BOOL:
@@ -116,6 +126,8 @@ std::ostream& operator<<(std::ostream& os, NodeKind x) {
         return os << "DEF";
     case DEF_CASE:
         return os << "DEF_CASE";
+    case DEFAULTED:
+        return os << "DEFAULTED";
     case ENTRY:
         return os << "ENTRY";
     case EXPANSION:
@@ -144,8 +156,8 @@ std::ostream& operator<<(std::ostream& os, NodeKind x) {
         return os << "INT32";
     case INT64:
         return os << "INT64";
-    case KEYWORD_ARG:
-        return os << "KEYWORD_ARG";
+    case KWARG:
+        return os << "KWARG";
     case LAMBDA:
         return os << "LAMBDA";
     case LAMBDA_ARGS:
@@ -160,8 +172,22 @@ std::ostream& operator<<(std::ostream& os, NodeKind x) {
         return os << "MAP";
     case MATCH:
         return os << "MATCH";
-    case MATCHER:
-        return os << "MATCHER";
+    case MATCH_ARGS:
+        return os << "MATCH_ARGS";
+    case MATCH_CASE:
+        return os << "MATCH_CASE";
+    case MATCH_KWARG:
+        return os << "MATCH_KWARG";
+    case MATCH_LIST:
+        return os << "MATCH_LIST";
+    case MATCH_MAP:
+        return os << "MATCH_MAP";
+    case MATCH_OBJECT:
+        return os << "MATCH_OBJECT";
+    case MATCH_OPTIONS:
+        return os << "MATCH_OPTIONS";
+    case MATCH_TUPLE:
+        return os << "MATCH_TUPLE";
     case NONE:
         return os << "NONE";
     case NOT:
@@ -172,6 +198,8 @@ std::ostream& operator<<(std::ostream& os, NodeKind x) {
         return os << "NUM_ID";
     case OR:
         return os << "OR";
+    case PLACEHOLDER:
+        return os << "PLACEHOLDER";
     case RAISE:
         return os << "RAISE";
     case RETURN:
@@ -192,16 +220,12 @@ std::ostream& operator<<(std::ostream& os, NodeKind x) {
         return os << "THIS";
     case TUPLE:
         return os << "TUPLE";
-    case UPDATE:
-        return os << "UPDATE";
-    case UPDATE_ATTR:
-        return os << "UPDATE_ATTR";
-    case VAR:
-        return os << "VAR";
     case TRY:
         return os << "TRY";
     case TYPE:
         return os << "TYPE";
+    case TYPE_MATCH:
+        return os << "TYPE_MATCH";
     case UINT8:
         return os << "UINT8";
     case UINT16:
@@ -210,6 +234,12 @@ std::ostream& operator<<(std::ostream& os, NodeKind x) {
         return os << "UINT32";
     case UINT64:
         return os << "UINT64";
+    case UPDATE:
+        return os << "UPDATE";
+    case UPDATE_ATTR:
+        return os << "UPDATE_ATTR";
+    case VAR:
+        return os << "VAR";
     case WHILE:
         return os << "WHILE";
     }

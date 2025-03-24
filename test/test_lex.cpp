@@ -128,10 +128,6 @@ TEST_CASE("lex", "[lex]") {
         REQUIRE(result(c, ":") == Token(TokenID::COLON));
     }
 
-    SECTION("Double Colon") {
-        REQUIRE(result(c, "::") == Token(TokenID::DOUBLE_COLON));
-    }
-
     SECTION("Comma") {
         REQUIRE(result(c, ",") == Token(TokenID::COMMA));
     }
@@ -254,6 +250,10 @@ TEST_CASE("lex", "[lex]") {
 
     SECTION("Pipe Equals") {
         REQUIRE(result(c, "|=") == Token(TokenID::PIPE_EQUALS));
+    }
+
+    SECTION("Double Pipe") {
+        REQUIRE(result(c, "||") == Token(TokenID::DOUBLE_PIPE));
     }
 
     SECTION("Carot") {
@@ -967,6 +967,7 @@ TEST_CASE("lex", "[lex]") {
 
     SECTION("Keywords") {
         REQUIRE(result(c, "and") == Token(TokenID::AND));
+        REQUIRE(result(c, "as") == Token(TokenID::AS));
         REQUIRE(result(c, "break") == Token(TokenID::BREAK));
         REQUIRE(result(c, "case") == Token(TokenID::CASE));
         REQUIRE(result(c, "continue") == Token(TokenID::CONTINUE));

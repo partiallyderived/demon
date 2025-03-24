@@ -106,6 +106,8 @@ const TokenInfo TOKEN_INFO_[static_cast<int>(TokenID::WHILE) + 1] = {
     binary_info_(OpID::IBAND),
     // AND
     binary_info_(OpID::AND),
+    // AS
+    binary_info_(OpID::AS),
     // AT
     dual_affix_info_(OpID::ADDR, OpID::ADDR_TYPE),
     // BANG_EQUALS
@@ -128,14 +130,14 @@ const TokenInfo TOKEN_INFO_[static_cast<int>(TokenID::WHILE) + 1] = {
     nullary_info_(OpID::CONTINUE),
     // DEF
     construct_first_info_(OpID::DEF),
-    // DOUBLE_COLON
-    binary_info_(OpID::MATCHING),
     // DOUBLE_EQUALS
     binary_info_(OpID::EQ),
     // DOUBLE_LEFT_ANGLE
     binary_info_(OpID::LSH),
     // DOUBLE_LEFT_ANGLE_EQUALS
     binary_info_(OpID::ILSH),
+    // DOUBLE_PIPE
+    binary_info_(OpID::MATCH_OR),
     // DOUBLE_RIGHT_ANGLE
     binary_info_(OpID::RSH),
     // DOUBLE_RIGHT_ANGLE_EQUALS
@@ -211,9 +213,11 @@ const TokenInfo TOKEN_INFO_[static_cast<int>(TokenID::WHILE) + 1] = {
     // PERCENT_STAR
     value_info_(OpID::LAMBDA_ARGS, OpID::SUFFIX),
     // PIPE
-    binary_info_(OpID::BOR),
+    multiary_info_(OpID::LITERALLY, OpID::BOR),
     // PIPE_EQUALS
     binary_info_(OpID::IBOR),
+    // PLACEHOLDER
+    value_info_(OpID::PLACEHOLDER, OpID::SUFFIX),
     // PLAIN_INT
     value_info_(OpID::PLAIN_INT, OpID::SUFFIX),
     // PLUS

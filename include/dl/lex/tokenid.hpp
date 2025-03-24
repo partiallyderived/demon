@@ -10,6 +10,7 @@ enum class TokenID {
     AMPERSAND,
     AMPERSAND_EQUALS,
     AND,
+    AS,
     AT,
     BANG_EQUALS,
     BREAK,
@@ -21,10 +22,10 @@ enum class TokenID {
     COMMA,
     CONTINUE,
     DEF,
-    DOUBLE_COLON,
     DOUBLE_EQUALS,
     DOUBLE_LEFT_ANGLE,
     DOUBLE_LEFT_ANGLE_EQUALS,
+    DOUBLE_PIPE,
     DOUBLE_RIGHT_ANGLE,
     DOUBLE_RIGHT_ANGLE_EQUALS,
     DOUBLE_STAR,
@@ -64,6 +65,7 @@ enum class TokenID {
     PERCENT_STAR,
     PIPE,
     PIPE_EQUALS,
+    PLACEHOLDER,
     PLAIN_INT,
     PLUS,
     PLUS_EQUALS,
@@ -98,6 +100,8 @@ std::ostream& operator<<(std::ostream& os, TokenID id) {
         return os << "AMPERSAND_EQUALS";
     case AND:
         return os << "AND";
+    case AS:
+        return os << "AS";
     case AT:
         return os << "AT";
     case BANG_EQUALS:
@@ -120,14 +124,14 @@ std::ostream& operator<<(std::ostream& os, TokenID id) {
         return os << "CONTINUE";
     case DEF:
         return os << "DEF";
-    case DOUBLE_COLON:
-        return os << "DOUBLE_COLON";
     case DOUBLE_EQUALS:
         return os << "DOUBLE_EQUALS";
     case DOUBLE_LEFT_ANGLE:
         return os << "DOUBLE_LEFT_ANGLE";
     case DOUBLE_LEFT_ANGLE_EQUALS:
         return os << "DOUBLE_LEFT_ANGLE_EQUALS";
+    case DOUBLE_PIPE:
+        return os << "DOUBLE_PIPE";
     case DOUBLE_RIGHT_ANGLE:
         return os << "DOUBLE_RIGHT_ANGLE";
     case DOUBLE_RIGHT_ANGLE_EQUALS:
@@ -206,6 +210,8 @@ std::ostream& operator<<(std::ostream& os, TokenID id) {
         return os << "PIPE";
     case PIPE_EQUALS:
         return os << "PIPE_EQUALS";
+    case PLACEHOLDER:
+        return os << "PLACEHOLDER";
     case PLAIN_INT:
         return os << "PLAIN_INT";
     case PLUS:

@@ -37,6 +37,5 @@ struct CallNode final: Node {
 
 using Call = CallNode<NodeKind::CALL>;
 using CachedCall = CallNode<NodeKind::CACHED_CALL>;
-using Matcher = CallNode<NodeKind::MATCHER>;
 
 }

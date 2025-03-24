@@ -11,24 +11,24 @@
 
 namespace dl {
 
-struct KeywordArg final: Node {
-    ID id;
-    NodePtr arg;
+struct MatchObject final: Node {
+    NodePtr type;
+    MatchArgs args;
 
-    KeywordArg(ID&& id, NodePtr&& arg, Pos src) noexcept:
-    Node(src), id(std::move(id)), arg(std::move(arg)) {}
+    MatchObject(NodePtr&& type, MatchArgs&& args, Pos src) noexcept:
+    Node(src), type(std::move(type)), args(std::move(args)) {}
 
     virtual bool equals(const Node& that) const noexcept override {
-        const auto& casted = dynamic_cast<const KeywordArg&>(that);
-        return id == casted.id && npeq(arg, casted.arg);
+        const auto& casted = dynamic_cast<const MatchObject&>(that);
+        return npeq(type, casted.type) && args == casted.args;
     }
 
     virtual NodeKind kind() const noexcept override {
-        return NodeKind::KWARG;
+        return NodeKind::MATCH_OBJECT;
     }
 
     virtual std::ostream& out_data(std::ostream& os) const override {
-        return out_csv(os, id, arg);
+        return out_csv(os, type, args);
     }
 };
 

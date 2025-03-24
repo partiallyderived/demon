@@ -31,7 +31,7 @@ struct DataNode final: Node {
     }
 
     std::ostream& out_data(std::ostream& os) const override {
-        return os << data;
+        return os << std::boolalpha << data;
     }
 };
 

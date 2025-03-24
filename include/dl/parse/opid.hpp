@@ -10,6 +10,7 @@ enum class OpID {
     ADDR,
     ADDR_TYPE,
     AND,
+    AS,
     BAND,
     BIND,
     BLOCK,
@@ -60,12 +61,13 @@ enum class OpID {
     LAMBDA_ARGS,
     LAMBDA_KWARGS,
     LIST,
+    LITERALLY,
     LOOP_VAR_SEP,
     LSH,
     LT,
     LTE,
     MATCH,
-    MATCHING,
+    MATCH_OR,
     MOD,
     MUL,
     NEG,
@@ -77,6 +79,7 @@ enum class OpID {
     NULL_,
     NUMBER,
     OR,
+    PLACEHOLDER,
     PLAIN_INT,
     POS_KW_SEP,
     POW,
@@ -117,6 +120,8 @@ std::ostream& operator<<(std::ostream& os, OpID id) {
         return os << "ADDR_TYPE";
     case AND:
         return os << "AND";
+    case AS:
+        return os << "AS";
     case BAND:
         return os << "BAND";
     case BIND:
@@ -217,6 +222,8 @@ std::ostream& operator<<(std::ostream& os, OpID id) {
         return os << "LAMBDA_KWARGS";
     case LIST:
         return os << "LIST";
+    case LITERALLY:
+        return os << "LITERALLY";
     case LOOP_VAR_SEP:
         return os << "LOOP_VAR_SEP";
     case LSH:
@@ -227,8 +234,8 @@ std::ostream& operator<<(std::ostream& os, OpID id) {
         return os << "LTE";
     case MATCH:
         return os << "MATCH";
-    case MATCHING:
-        return os << "MATCHING";
+    case MATCH_OR:
+        return os << "MATCH_OR";
     case MOD:
         return os << "MOD";
     case MUL:
@@ -251,6 +258,8 @@ std::ostream& operator<<(std::ostream& os, OpID id) {
         return os << "NUMBER";
     case OR:
         return os << "OR";
+    case PLACEHOLDER:
+        return os << "PLACEHOLDER";
     case PLAIN_INT:
         return os << "PLAIN_INT";
     case POS_KW_SEP:

@@ -108,14 +108,6 @@ struct ParserImpl: Parser {
     // Contexts include blocks, brackets, and constructs.
     std::vector<Context> contexts;
 
-    // When true, we are parsing a predicate and the colon operator has a
-    // different meaning when used outside of brackets.
-    bool parsing_pred;
-
-    // When true, the previous token was a construct component which expects
-    // no predicate (try, else, etc.)
-    bool prev_was_no_pred_construct;
-
     // When true, we are parsing loop vars and should use a higher-precedence
     // version of separation (comma) operator.
     bool parsing_loop_vars;
@@ -133,8 +125,6 @@ struct ParserImpl: Parser {
     orientation(Orientation::START),
     queue(),
     contexts(),
-    parsing_pred(false),
-    prev_was_no_pred_construct(false),
     parsing_loop_vars(false),
     // TokenID::SPACE is just a meaningless placeholder until prev is set to
     // a token.
@@ -195,7 +185,10 @@ struct ParserImpl: Parser {
 
     // Determine whether we are currently between brackets.
     bool in_brackets() const noexcept {
-        return ctx_is(Context::CURVED) || ctx_is(Context::SQUARE);
+        return
+            ctx_is(Context::CURLY) ||
+            ctx_is(Context::CURVED) ||
+            ctx_is(Context::SQUARE);
     }
 
     // Handle dedenting the specified number of times.
@@ -255,7 +248,7 @@ struct ParserImpl: Parser {
         return handle_dedents(depth - indents, src);
     }
 
-    ErrPtr on_leading_space_stmt(std::uint32_t count, Pos src) {
+    ErrPtr on_leading_space_indenting(std::uint32_t count, Pos src) {
         std::uint32_t indents = count / 4;
         std::uint32_t leftover = count % 4;
         if (leftover)
@@ -265,7 +258,8 @@ struct ParserImpl: Parser {
         if (indents > depth + 1)
             return ErrPtr(new OverIndentErr(src));
         if (indents == depth)
-            // An indent is expected when in STMT orientation with leading space.
+            // An indent is expected when in INDENTING orientation with leading
+            // space.
             return ErrPtr(new ExpectedIndentErr(src));
         // We now know indents == depth + 1
         // When the number of indents is exactly one more than depth
@@ -308,8 +302,8 @@ struct ParserImpl: Parser {
         switch (orientation) {
         case START:
             return on_leading_space_start(count, src);
-        case STMT:
-            return on_leading_space_stmt(count, src);
+        case INDENTING:
+            return on_leading_space_indenting(count, src);
         case BEFORE:
             return on_leading_space_before(count, src);
         case AFTER:
@@ -339,13 +333,6 @@ struct ParserImpl: Parser {
     }
 
     ErrPtr on_unary(TokenID token, Pos src) {
-        if (token == TokenID::COLON && prev_was_no_pred_construct) {
-            // Special case: colon just after a construct which has no
-            // predicate moves to statement orientation.
-            orientation = Orientation::STMT;
-            parsing_pred = false;
-            return pushop(OpID::BODY, src);
-        }
         orientation = Orientation::BEFORE;
         return pushop1(token, src);
     }
@@ -353,15 +340,6 @@ struct ParserImpl: Parser {
     ErrPtr on_binary(TokenID token, Pos src) {
         // Expecting a value now.
         orientation = Orientation::BEFORE;
-
-        if (token == TokenID::COLON && parsing_pred && !in_brackets()) {
-            // Special case: colon as binary operator in a predicate moves to
-            // statement orientation.
-            orientation = Orientation::STMT;
-            parsing_pred = false;
-            return pushop(OpID::LABEL, src);
-        }
-
         if (token == TokenID::COMMA && parsing_loop_vars)
             // Special case: comma has higher precedence when parsing loop
             // variables.
@@ -474,8 +452,6 @@ struct ParserImpl: Parser {
         // about to be parsed.
         if (token == TokenID::FOR)
             parsing_loop_vars = true;
-        parsing_pred = true;
-        prev_was_no_pred_construct = token == TokenID::TRY;
         return pushop1(token, src);
     }
 
@@ -507,7 +483,6 @@ struct ParserImpl: Parser {
 
         // Expecting a value now.
         orientation = Orientation::BEFORE;
-        parsing_pred = true;
         return pushop1(token, src);
     }
 
@@ -531,9 +506,6 @@ struct ParserImpl: Parser {
         // a terminal construct token implies that no predicate or similar value
         // may be parsed in general.
         orientation = Orientation::BEFORE;
-        parsing_pred = true;
-        prev_was_no_pred_construct =
-            token == TokenID::ELSE || token == TokenID::FINALLY;
         return pushop1(token, src);
     }
 
@@ -547,9 +519,19 @@ struct ParserImpl: Parser {
         return nullptr;
     }
 
-    ErrPtr on_before(Token&& token, Pos src) {
-        using enum TokenKind;
+    ErrPtr on_before0(Token&& token, Pos src) {
+        if (token.id == TokenID::COLON && !in_brackets()) {
+            // Could be start of indent, don't push anything yet as different
+            // operators need to be pushed depending on whether or not we are
+            // indenting.
+            // Set Orientation explicitly to BEFORE in case it was START before,
+            // which would cause the prev colon checks in on_before and on_after
+            // to fail.
+            orientation = Orientation::BEFORE;
+            return nullptr;
+        }
 
+        using enum TokenKind;
         switch(tokeninfo(token.id).kind) {
         case UNARY:
         case MULTIARY:
@@ -570,17 +552,20 @@ struct ParserImpl: Parser {
         }
     }
 
-    ErrPtr on_stmt(Token&& token, Pos src) {
+    ErrPtr on_before(Token&& token, Pos src) {
         using enum TokenKind;
 
-        switch(tokeninfo(token.id).kind) {
-        case NULLARY:
-            return on_nullary(token.id, src);
-        case OPTIONAL_STMT:
-            return on_optional_stmt(token.id, src);
-        default:
-            return on_before(std::move(token), src);
-        }
+        // on_before0 exists because we need a version of this function without
+        // the following block to avoid double pushing operators.
+        if (
+            prev == TokenID::COLON &&
+            !in_brackets() && orientation !=
+            Orientation::START
+        )
+            // No indent after last colon, push its unary operator.
+            on_unary(TokenID::COLON, prev_src);
+
+        return on_before0(std::move(token), src);
     }
 
     ErrPtr on_start(Token&& token, Pos src) {
@@ -595,13 +580,38 @@ struct ParserImpl: Parser {
         case CONSTRUCT_LAST:
         case CONSTRUCT_LAST_OR_BINARY:
             return on_construct_last(token.id, src);
+        case NULLARY:
+            return on_nullary(token.id, src);
+        case OPTIONAL_STMT:
+            return on_optional_stmt(token.id, src);
         default:
-            return on_stmt(std::move(token), src);
+            return on_before(std::move(token), src);
         }
     }
 
     ErrPtr on_after(Token&& token, Pos src) {
         using enum TokenKind;
+
+        if (
+            prev == TokenID::COLON &&
+            !in_brackets() && orientation !=
+            Orientation::START
+        ) {
+            // No indent after last colon, push its binary operator.
+            on_binary(TokenID::COLON, prev_src);
+            if (token.id == TokenID::COLON)
+                return nullptr;
+
+            // Need to call on_before0 to avoid pushing colon operator again,
+            // since prev is still TokenID::COLON.
+            return on_before0(std::move(token), src);
+        }
+
+        if (token.id == TokenID::COLON && !in_brackets())
+            // Could be start of indent, don't push anything yet as different
+            // operators need to be pushed depending on whether or not we are
+            // indenting.
+            return nullptr;
 
         switch(tokeninfo(token.id).kind) {
         case VALUE:
@@ -702,6 +712,23 @@ struct ParserImpl: Parser {
             return nullptr;
 
         using enum Orientation;
+        if (prev == TokenID::COLON) {
+            // Special case: newline following a colon outside of brackets means
+            // to expect an indent.
+            switch(orientation) {
+            case AFTER:
+                pushop(OpID::LABEL, prev_src);
+                break;
+            case BEFORE:
+            case OPTIONAL:
+            case START:
+                pushop(OpID::BODY, prev_src);
+                break;
+            default:;
+            }
+            orientation = Orientation::INDENTING;
+            return nullptr;
+        }
         switch(orientation) {
         case BEFORE:
             return ErrPtr(new UnexpectedTokenErr(token, src));
@@ -711,7 +738,6 @@ struct ParserImpl: Parser {
             [[fallthrough]];
         case AFTER:
         case END: {
-            parsing_pred = false;
             orientation = Orientation::START;
             queue.push_back(Op(OpID::STMT, src));
             if (ctx_is(Context::CONSTRUCT_END)) {
@@ -751,8 +777,6 @@ struct ParserImpl: Parser {
         default:;
         }
 
-        bool prev_was_no_pred_construct_val = prev_was_no_pred_construct;
-
         parsing_loop_vars =
             parsing_loop_vars &&
             (token.id == TokenID::ID || token.id == TokenID::COMMA);
@@ -771,9 +795,6 @@ struct ParserImpl: Parser {
         case START:
             res = on_start(std::move(token), src);
             break;
-        case STMT:
-            res = on_stmt(std::move(token), src);
-            break;
         case BEFORE:
         case OPTIONAL:
             res = on_before(std::move(token), src);
@@ -787,16 +808,14 @@ struct ParserImpl: Parser {
         case AFTER_STAR:
             res = on_after_star(std::move(token), src);
             break;
+        case INDENTING:
+            return ErrPtr(new ExpectedIndentErr(src));;
         case END:
             return ErrPtr(new UnexpectedTokenErr(token.id, src));
         }
         // Newlines, comments, spaces, and EOF are not stored to prev.
         prev = token.id;
         prev_src = src;
-
-        // Can't have two constructs in a row.
-        prev_was_no_pred_construct =
-            prev_was_no_pred_construct && !prev_was_no_pred_construct_val;
         return res;
     }
     

@@ -53,6 +53,8 @@ const OpInfo OP_INFO_[] = {
     OpInfo(OpKind::UNARY, Precedence::UNARY),
     // AND
     OpInfo(OpKind::BINARY, Precedence::AND),
+    // AS
+    OpInfo(OpKind::BINARY, Precedence::AS),
     // BAND
     OpInfo(OpKind::BINARY, Precedence::BAND),
     // BIND
@@ -153,6 +155,8 @@ const OpInfo OP_INFO_[] = {
     OpInfo(OpKind::SINGLETON),
     // LIST
     LEFT_INFO_,
+    // LITERALLY
+    OpInfo(OpKind::UNARY, Precedence::LITERALLY),
     // LOOP_VAR_SEP
     OpInfo(OpKind::BINARY, Precedence::LOOP_VAR_SEP),
     // LSH
@@ -163,8 +167,8 @@ const OpInfo OP_INFO_[] = {
     CMP_INFO_,
     // MATCH
     FLOW_INFO_,
-    // MATCHING
-    OpInfo(OpKind::BINARY, Precedence::TYPE_LABEL),
+    // MATCH_OR
+    OpInfo(OpKind::BINARY, Precedence::MATCH_OR),
     // MOD
     OpInfo(OpKind::BINARY, Precedence::MUL),
     // MUL
@@ -187,6 +191,8 @@ const OpInfo OP_INFO_[] = {
     OpInfo(OpKind::DATA),
     // OR
     OpInfo(OpKind::BINARY, Precedence::OR),
+    // PLACEHOLDER
+    OpInfo(OpKind::SINGLETON),
     // PLAIN_INT
     OpInfo(OpKind::DATA),
     // POS_KW_SEP

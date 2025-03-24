@@ -1,5 +1,6 @@
 #pragma once
 
+#include <iostream>
 #include <ostream>
 #include <type_traits>
 #include <utility>
@@ -57,8 +58,9 @@ struct Res {
         if (is_err) {
             err.~ErrType();
             is_err = false;
-        }
-        res = that;
+            new(&res) ResType(that);
+        } else
+            res = that;
         return *this;
     }
 
@@ -66,8 +68,9 @@ struct Res {
         if (is_err) {
             err.~ErrType();
             is_err = false;
-        }
-        res = std::move(that);
+            new(&res) ResType(std::move(that));
+        } else
+            res = std::move(that);
         return *this;
     }
 
@@ -75,8 +78,9 @@ struct Res {
         if (!is_err) {
             res.~ResType();
             is_err = true;
-        }
-        err = that;
+            new(&err) ErrType(that);
+        } else
+            err = that;
         return *this;
     }
 
@@ -84,8 +88,9 @@ struct Res {
         if (!is_err) {
             res.~ResType();
             is_err = true;
-        }
-        err = std::move(that);
+            new(&err) ErrType(std::move(that));
+        } else
+            err = std::move(that);
         return *this;
     }
 

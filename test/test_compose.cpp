@@ -51,6 +51,7 @@ TEST_CASE("Composer Core", "[compose]") {
             OpID::FOR,
             OpID::IF,
             OpID::LAMBDA,
+            OpID::LITERALLY,
             OpID::MATCH,
             OpID::NEG,
             OpID::NOT,
@@ -107,7 +108,6 @@ TEST_CASE("Composer Core", "[compose]") {
             OpID::LSH,
             OpID::LT,
             OpID::LTE,
-            OpID::MATCHING,
             OpID::MOD,
             OpID::MUL,
             OpID::NEQ,
@@ -756,46 +756,6 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             ),
             s2
         ));
-
-        // fn(1, kw1="yes", kw1=true)
-        REQUIRE(feed_all(vec(
-            Op(OpID::ID, "fn", s1),
-            Op(OpID::CALL, s2),
-            Op(OpID::GROUP, s2),
-            Op(OpID::PLAIN_INT, "1", s3),
-            Op(OpID::SEP, s0),
-            Op(OpID::ID, "kw1", s5),
-            Op(OpID::BIND, s6),
-            Op(OpID::STRING, "yes", s7),
-            Op(OpID::SEP, s0),
-            Op(OpID::ID, "kw1", s9),
-            Op(OpID::BIND, s10),
-            Op(OpID::TRUE, s11),
-            Op(OpID::END, s12)
-        )) == Comp(
-            OpID::CALL,
-            Comp(OpID::ID, "fn", s1),
-            Comp(
-                OpID::GROUP,
-                csv(
-                    Comp(OpID::PLAIN_INT, "1", s3),
-                    Comp(
-                        OpID::BIND,
-                        Comp(OpID::ID, "kw1", s5),
-                        Comp(OpID::STRING, "yes", s7),
-                        s6
-                    ),
-                    Comp(
-                        OpID::BIND,
-                        Comp(OpID::ID, "kw1", s9),
-                        Comp(OpID::TRUE, s11),
-                        s10
-                    )
-                ),
-                s2
-            ),
-            s2
-        ));
     }
 
     SECTION("CallAttr") {
@@ -944,44 +904,6 @@ TEST_CASE("Composer Input/Output", "[compose]") {
     }
 
     SECTION("Def") {
-        // def f(): return 0
-        REQUIRE(feed_all(vec(
-            Op(OpID::CONSTRUCT, s1),
-            Op(OpID::DEF, s1),
-            Op(OpID::ID, "f", s2),
-            Op(OpID::CALL, s3),
-            Op(OpID::GROUP, s3),
-            Op(OpID::NOTHING, s4),
-            Op(OpID::END, s4),
-            Op(OpID::LABEL, s5),
-            Op(OpID::RETURN, s6),
-            Op(OpID::PLAIN_INT, "0", s7),
-            Op(OpID::STMT, s_end),
-            Op(OpID::END, s_end)
-        )) == Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::DEF,
-                Comp(
-                    OpID::LABEL,
-                    Comp(
-                        OpID::CALL,
-                        Comp(OpID::ID, "f", s2),
-                        Comp(OpID::GROUP, Comp(OpID::NOTHING, s4), s3),
-                        s3
-                    ),
-                    Comp(
-                        OpID::RETURN,
-                        Comp(OpID::PLAIN_INT, "0", s7),
-                        s6
-                    ),
-                    s5
-                ),
-                s1
-            )),
-            s1
-        ));
-
         // def f():
         //     return 0
         REQUIRE(feed_all(vec(
@@ -1282,7 +1204,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             s1
         ));
 
-        // def f(arg1, arg2: Int, *args, kw1=1, kw2: Bool) -> Int:
+        // def f(arg1, arg2: Int, *args, *, kw1=1, kw2: Bool) -> Int:
         //     return 0
         REQUIRE(feed_all(vec(
             Op(OpID::CONSTRUCT, s1),
@@ -1299,20 +1221,22 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::UNPACK_ARGS, s10),
             Op(OpID::ID, "args", s11),
             Op(OpID::SEP, s0),
-            Op(OpID::ID, "kw1", s13),
-            Op(OpID::BIND, s14),
-            Op(OpID::PLAIN_INT, "1", s15),
+            Op(OpID::POS_KW_SEP, s13),
             Op(OpID::SEP, s0),
-            Op(OpID::ID, "kw2", s17),
-            Op(OpID::TYPE_LABEL, s18),
-            Op(OpID::ID, "Bool", s19),
-            Op(OpID::END, s20),
-            Op(OpID::RETURNS, s21),
-            Op(OpID::ID, "Int", s22),
-            Op(OpID::LABEL, s23),
-            Op(OpID::BLOCK, s25),
-            Op(OpID::RETURN, s26),
-            Op(OpID::PLAIN_INT, "0", s27),
+            Op(OpID::ID, "kw1", s15),
+            Op(OpID::BIND, s16),
+            Op(OpID::PLAIN_INT, "1", s17),
+            Op(OpID::SEP, s0),
+            Op(OpID::ID, "kw2", s19),
+            Op(OpID::TYPE_LABEL, s20),
+            Op(OpID::ID, "Bool", s21),
+            Op(OpID::END, s22),
+            Op(OpID::RETURNS, s23),
+            Op(OpID::ID, "Int", s24),
+            Op(OpID::LABEL, s25),
+            Op(OpID::BLOCK, s27),
+            Op(OpID::RETURN, s28),
+            Op(OpID::PLAIN_INT, "0", s29),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -1344,35 +1268,39 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                                         s10
                                     ),
                                     Comp(
+                                        OpID::POS_KW_SEP,
+                                        s13
+                                    ),
+                                    Comp(
                                         OpID::BIND,
-                                        Comp(OpID::ID, "kw1", s13),
-                                        Comp(OpID::PLAIN_INT, "1", s15),
-                                        s14
+                                        Comp(OpID::ID, "kw1", s15),
+                                        Comp(OpID::PLAIN_INT, "1", s17),
+                                        s16
                                     ),
                                     Comp(
                                         OpID::TYPE_LABEL,
-                                        Comp(OpID::ID, "kw2", s17),
-                                        Comp(OpID::ID, "Bool", s19),
-                                        s18
+                                        Comp(OpID::ID, "kw2", s19),
+                                        Comp(OpID::ID, "Bool", s21),
+                                        s20
                                     )
                                 ),
                                 s3
                             ),
                             s3
                         ),
-                        Comp(OpID::ID, "Int", s22),
-                        s21
+                        Comp(OpID::ID, "Int", s24),
+                        s23
                     ),
                     Comp(
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, "0", s27),
-                            s26
+                            Comp(OpID::PLAIN_INT, "0", s29),
+                            s28
                         )),
-                        s25
+                        s27
                     ),
-                    s23
+                    s25
                 ),
                 s1
             )),
@@ -1380,7 +1308,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
         ));
 
         // def f(
-        //     arg1, arg2: Int, *args, kw1=1, kw2: Bool, **kwargs
+        //     arg1, arg2: Int, *args, *, kw1=1, kw2: Bool, **kwargs
         // ) -> Int:
         //     return 0
         REQUIRE(feed_all(vec(
@@ -1398,23 +1326,25 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::UNPACK_ARGS, s10),
             Op(OpID::ID, "args", s11),
             Op(OpID::SEP, s0),
-            Op(OpID::ID, "kw1", s13),
-            Op(OpID::BIND, s14),
-            Op(OpID::PLAIN_INT, "1", s15),
+            Op(OpID::POS_KW_SEP, s13),
             Op(OpID::SEP, s0),
-            Op(OpID::ID, "kw2", s17),
-            Op(OpID::TYPE_LABEL, s18),
-            Op(OpID::ID, "Bool", s19),
+            Op(OpID::ID, "kw1", s15),
+            Op(OpID::BIND, s16),
+            Op(OpID::PLAIN_INT, "1", s17),
             Op(OpID::SEP, s0),
-            Op(OpID::UNPACK_KWARGS, s21),
-            Op(OpID::ID, "kwargs", s22),
-            Op(OpID::END, s23),
-            Op(OpID::RETURNS, s24),
-            Op(OpID::ID, "Int", s25),
-            Op(OpID::LABEL, s26),
-            Op(OpID::BLOCK, s28),
-            Op(OpID::RETURN, s29),
-            Op(OpID::PLAIN_INT, "0", s30),
+            Op(OpID::ID, "kw2", s19),
+            Op(OpID::TYPE_LABEL, s20),
+            Op(OpID::ID, "Bool", s21),
+            Op(OpID::SEP, s0),
+            Op(OpID::UNPACK_KWARGS, s23),
+            Op(OpID::ID, "kwargs", s24),
+            Op(OpID::END, s25),
+            Op(OpID::RETURNS, s26),
+            Op(OpID::ID, "Int", s27),
+            Op(OpID::LABEL, s28),
+            Op(OpID::BLOCK, s30),
+            Op(OpID::RETURN, s31),
+            Op(OpID::PLAIN_INT, "0", s32),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -1446,40 +1376,44 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                                         s10
                                     ),
                                     Comp(
+                                        OpID::POS_KW_SEP,
+                                        s13
+                                    ),
+                                    Comp(
                                         OpID::BIND,
-                                        Comp(OpID::ID, "kw1", s13),
-                                        Comp(OpID::PLAIN_INT, "1", s15),
-                                        s14
+                                        Comp(OpID::ID, "kw1", s15),
+                                        Comp(OpID::PLAIN_INT, "1", s17),
+                                        s16
                                     ),
                                     Comp(
                                         OpID::TYPE_LABEL,
-                                        Comp(OpID::ID, "kw2", s17),
-                                        Comp(OpID::ID, "Bool", s19),
-                                        s18
+                                        Comp(OpID::ID, "kw2", s19),
+                                        Comp(OpID::ID, "Bool", s21),
+                                        s20
                                     ),
                                     Comp(
                                         OpID::UNPACK_KWARGS,
-                                        Comp(OpID::ID, "kwargs", s22),
-                                        s21
+                                        Comp(OpID::ID, "kwargs", s24),
+                                        s23
                                     )
                                 ),
                                 s3
                             ),
                             s3
                         ),
-                        Comp(OpID::ID, "Int", s25),
-                        s24
+                        Comp(OpID::ID, "Int", s27),
+                        s26
                     ),
                     Comp(
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, "0", s30),
-                            s29
+                            Comp(OpID::PLAIN_INT, "0", s32),
+                            s31
                         )),
-                        s28
+                        s30
                     ),
-                    s26
+                    s28
                 ),
                 s1
             )),
@@ -1490,7 +1424,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
         //     return 0
         // case (c: Float32, true) -> Int64:
         //     return 3s64
-        // case (1, *, kw:: 2):
+        // case (1, *, 2 as kw):
         //     return 0
         REQUIRE(feed_all(vec(
             Op(OpID::CONSTRUCT, s1),
@@ -1536,9 +1470,9 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::SEP, s0),
             Op(OpID::POS_KW_SEP, s38),
             Op(OpID::SEP, s0),
-            Op(OpID::ID, "kw", s40),
-            Op(OpID::MATCHING, s41),
-            Op(OpID::PLAIN_INT, "2", s42),
+            Op(OpID::PLAIN_INT, "2", s40),
+            Op(OpID::AS, s41),
+            Op(OpID::ID, "kw", s42),
             Op(OpID::END, s43),
             Op(OpID::LABEL, s44),
             Op(OpID::BLOCK, s46),
@@ -1636,9 +1570,9 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                                 Comp(OpID::PLAIN_INT, "1", s36),
                                 Comp(OpID::POS_KW_SEP, s38),
                                 Comp(
-                                    OpID::MATCHING,
-                                    Comp(OpID::ID, "kw", s40),
-                                    Comp(OpID::PLAIN_INT, "2", s42),
+                                    OpID::AS,
+                                    Comp(OpID::PLAIN_INT, "2", s40),
+                                    Comp(OpID::ID, "kw", s42),
                                     s41
                                 )
                             ),
@@ -1703,6 +1637,234 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                         s7
                     ),
                     s5
+                ),
+                s1
+            )),
+            s1
+        ));
+
+        // def f(x: Int = 1):
+        //     return 0
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::DEF, s1),
+            Op(OpID::ID, "f", s2),
+            Op(OpID::CALL, s3),
+            Op(OpID::GROUP, s3),
+            Op(OpID::ID, "x", s4),
+            Op(OpID::TYPE_LABEL, s5),
+            Op(OpID::ID, "Int", s6),
+            Op(OpID::BIND, s7),
+            Op(OpID::PLAIN_INT, "1", s8),
+            Op(OpID::END, s9),
+            Op(OpID::LABEL, s10),
+            Op(OpID::BLOCK, s12),
+            Op(OpID::RETURN, s13),
+            Op(OpID::PLAIN_INT, "0", s14),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(Comp(
+                OpID::DEF,
+                Comp(
+                    OpID::LABEL,
+                    Comp(
+                        OpID::CALL,
+                        Comp(OpID::ID, "f", s2),
+                        Comp(
+                            OpID::GROUP,
+                            Comp(
+                                OpID::BIND,
+                                Comp(
+                                    OpID::TYPE_LABEL,
+                                    Comp(OpID::ID, "x", s4),
+                                    Comp(OpID::ID, "Int", s6),
+                                    s5
+                                ),
+                                Comp(OpID::PLAIN_INT, "1", s8),
+                                s7
+                            ),
+                            s3
+                        ),
+                        s3
+                    ),
+                    Comp(
+                        OpID::BLOCK,
+                        vec(Comp(
+                            OpID::RETURN,
+                            Comp(OpID::PLAIN_INT, "0", s14),
+                            s13
+                        )),
+                        s12
+                    ),
+                    s10
+                ),
+                s1
+            )),
+            s1
+        ));
+
+        // def f(x: Int) if x > 2 -> Int:
+        //     return 0
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::DEF, s1),
+            Op(OpID::ID, "f", s2),
+            Op(OpID::CALL, s3),
+            Op(OpID::GROUP, s3),
+            Op(OpID::ID, "x", s4),
+            Op(OpID::TYPE_LABEL, s5),
+            Op(OpID::ID, "Int", s6),
+            Op(OpID::END, s7),
+            Op(OpID::TERNARY_IF, s8),
+            Op(OpID::ID, "x", s9),
+            Op(OpID::GT, s10),
+            Op(OpID::PLAIN_INT, "2", s11),
+            Op(OpID::RETURNS, s12),
+            Op(OpID::ID, "Int", s13),
+            Op(OpID::LABEL, s14),
+            Op(OpID::BLOCK, s16),
+            Op(OpID::RETURN, s17),
+            Op(OpID::PLAIN_INT, "0", s18),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(Comp(
+                OpID::DEF,
+                Comp(
+                    OpID::LABEL,
+                    Comp(
+                        OpID::RETURNS,
+                        Comp(
+                            OpID::TERNARY_IF,
+                            Comp(
+                                OpID::CALL,
+                                Comp(OpID::ID, "f", s2),
+                                Comp(
+                                    OpID::GROUP,
+                                    Comp(
+                                        OpID::TYPE_LABEL,
+                                        Comp(OpID::ID, "x", s4),
+                                        Comp(OpID::ID, "Int", s6),
+                                        s5
+                                    ),
+                                    s3
+                                ),
+                                s3
+                            ),
+                            Comp(
+                                OpID::GT,
+                                Comp(OpID::ID, "x", s9),
+                                Comp(OpID::PLAIN_INT, "2", s11),
+                                s10
+                            ),
+                            s8
+                        ),
+                        Comp(OpID::ID, "Int", s13),
+                        s12
+                    ),
+                    Comp(
+                        OpID::BLOCK,
+                        vec(Comp(
+                            OpID::RETURN,
+                            Comp(OpID::PLAIN_INT, "0", s18),
+                            s17
+                        )),
+                        s16
+                    ),
+                    s14
+                ),
+                s1
+            )),
+            s1
+        ));
+
+        // def f((3, x) as y = (3, 4)):
+        //     return 0
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::DEF, s1),
+            Op(OpID::ID, "f", s2),
+            Op(OpID::CALL, s3),
+            Op(OpID::GROUP, s3),
+            Op(OpID::GROUP, s4),
+            Op(OpID::PLAIN_INT, "3", s5),
+            Op(OpID::SEP, s0),
+            Op(OpID::ID, "x", s7),
+            Op(OpID::END, s8),
+            Op(OpID::AS, s9),
+            Op(OpID::ID, "y", s10),
+            Op(OpID::BIND, s11),
+            Op(OpID::GROUP, s12),
+            Op(OpID::PLAIN_INT, "3", s13),
+            Op(OpID::SEP, s0),
+            Op(OpID::PLAIN_INT, "4", s15),
+            Op(OpID::END, s16),
+            Op(OpID::END, s17),
+            Op(OpID::LABEL, s18),
+            Op(OpID::BLOCK, s20),
+            Op(OpID::RETURN, s21),
+            Op(OpID::PLAIN_INT, "0", s22),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(Comp(
+                OpID::DEF,
+                Comp(
+                    OpID::LABEL,
+                    Comp(
+                        OpID::CALL,
+                        Comp(OpID::ID, "f", s2),
+                        Comp(
+                            OpID::GROUP,
+                            Comp(
+                                OpID::BIND,
+                                Comp(
+                                    OpID::AS,
+                                    Comp(
+                                        OpID::GROUP,
+                                        csv(
+                                            Comp(OpID::PLAIN_INT, "3", s5),
+                                            Comp(OpID::ID, "x", s7)
+                                        ),
+                                        s4
+                                    ),
+                                    Comp(OpID::ID, "y", s10),
+                                    s9
+                                ),
+                                Comp(
+                                    OpID::GROUP,
+                                    csv(
+                                        Comp(OpID::PLAIN_INT, "3", s13),
+                                        Comp(OpID::PLAIN_INT, "4", s15)
+                                    ),
+                                    s12
+                                ),
+                                s11
+                            ),
+                            s3
+                        ),
+                        s3
+                    ),
+                    Comp(
+                        OpID::BLOCK,
+                        vec(Comp(
+                            OpID::RETURN,
+                            Comp(OpID::PLAIN_INT, "0", s22),
+                            s21
+                        )),
+                        s20
+                    ),
+                    s18
                 ),
                 s1
             )),
@@ -1864,7 +2026,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             s1
         ));
 
-        // def f(a=1, b):
+        // def f(x, *, *, y):
         //     return 0
         REQUIRE(feed_all(vec(
             Op(OpID::CONSTRUCT, s1),
@@ -1872,16 +2034,18 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::ID, "f", s2),
             Op(OpID::CALL, s3),
             Op(OpID::GROUP, s3),
-            Op(OpID::ID, "a", s4),
-            Op(OpID::BIND, s5),
-            Op(OpID::PLAIN_INT, "1", s6),
+            Op(OpID::ID, "x", s4),
             Op(OpID::SEP, s0),
-            Op(OpID::ID, "b", s8),
-            Op(OpID::END, s9),
-            Op(OpID::LABEL, s10),
-            Op(OpID::BLOCK, s12),
-            Op(OpID::RETURN, s13),
-            Op(OpID::PLAIN_INT, "0", s14),
+            Op(OpID::POS_KW_SEP, s6),
+            Op(OpID::SEP, s0),
+            Op(OpID::POS_KW_SEP, s8),
+            Op(OpID::SEP, s0),
+            Op(OpID::ID, "y", s10),
+            Op(OpID::END, s11),
+            Op(OpID::LABEL, s12),
+            Op(OpID::BLOCK, s14),
+            Op(OpID::RETURN, s15),
+            Op(OpID::PLAIN_INT, "0", s16),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -1898,13 +2062,10 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                         Comp(
                             OpID::GROUP,
                             csv(
-                                Comp(
-                                    OpID::BIND,
-                                    Comp(OpID::ID, "a", s4),
-                                    Comp(OpID::PLAIN_INT, "1", s6),
-                                    s5
-                                ),
-                                Comp(OpID::ID, "b", s8)
+                                Comp(OpID::ID, "x", s4),
+                                Comp(OpID::POS_KW_SEP, s6),
+                                Comp(OpID::POS_KW_SEP, s8),
+                                Comp(OpID::ID, "y", s10)
                             ),
                             s3
                         ),
@@ -1914,139 +2075,12 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                         OpID::BLOCK,
                         vec(Comp(
                             OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, "0", s14),
-                            s13
+                            Comp(OpID::PLAIN_INT, "0", s16),
+                            s15
                         )),
-                        s12
+                        s14
                     ),
-                    s10
-                ),
-                s1
-            )),
-            s1
-        ));
-
-        // def f(*, *args):
-        //     return 0
-        REQUIRE(feed_all(vec(
-            Op(OpID::CONSTRUCT, s1),
-            Op(OpID::DEF, s1),
-            Op(OpID::ID, "f", s2),
-            Op(OpID::CALL, s3),
-            Op(OpID::GROUP, s3),
-            Op(OpID::POS_KW_SEP, s4),
-            Op(OpID::SEP, s0),
-            Op(OpID::UNPACK_ARGS, s6),
-            Op(OpID::ID, "args", s7),
-            Op(OpID::END, s8),
-            Op(OpID::LABEL, s9),
-            Op(OpID::BLOCK, s11),
-            Op(OpID::RETURN, s12),
-            Op(OpID::PLAIN_INT, "0", s13),
-            Op(OpID::STMT, s_end),
-            Op(OpID::END, s_end),
-            Op(OpID::STMT, s_end),
-            Op(OpID::END, s_end)
-        )) == Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::DEF,
-                Comp(
-                    OpID::LABEL,
-                    Comp(
-                        OpID::CALL,
-                        Comp(OpID::ID, "f", s2),
-                        Comp(
-                            OpID::GROUP,
-                            csv(
-                                Comp(OpID::POS_KW_SEP, s4),
-                                Comp(
-                                    OpID::UNPACK_ARGS,
-                                    Comp(OpID::ID, "args", s7),
-                                    s6
-                                )
-                            ),
-                            s3
-                        ),
-                        s3
-                    ),
-                    Comp(
-                        OpID::BLOCK,
-                        vec(Comp(
-                            OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, "0", s13),
-                            s12
-                        )),
-                        s11
-                    ),
-                    s9
-                ),
-                s1
-            )),
-            s1
-        ));
-
-        // def f(a=1, *args):
-        //     return 0
-        REQUIRE(feed_all(vec(
-            Op(OpID::CONSTRUCT, s1),
-            Op(OpID::DEF, s1),
-            Op(OpID::ID, "f", s2),
-            Op(OpID::CALL, s3),
-            Op(OpID::GROUP, s3),
-            Op(OpID::ID, "a", s4),
-            Op(OpID::BIND, s5),
-            Op(OpID::PLAIN_INT, "1", s6),
-            Op(OpID::SEP, s0),
-            Op(OpID::UNPACK_ARGS, s8),
-            Op(OpID::ID, "args", s9),
-            Op(OpID::END, s10),
-            Op(OpID::LABEL, s11),
-            Op(OpID::BLOCK, s13),
-            Op(OpID::RETURN, s14),
-            Op(OpID::PLAIN_INT, "0", s15),
-            Op(OpID::STMT, s_end),
-            Op(OpID::END, s_end),
-            Op(OpID::STMT, s_end),
-            Op(OpID::END, s_end)
-        )) == Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::DEF,
-                Comp(
-                    OpID::LABEL,
-                    Comp(
-                        OpID::CALL,
-                        Comp(OpID::ID, "f", s2),
-                        Comp(
-                            OpID::GROUP,
-                            csv(
-                                Comp(
-                                    OpID::BIND,
-                                    Comp(OpID::ID, "a", s4),
-                                    Comp(OpID::PLAIN_INT, "1", s6),
-                                    s5
-                                ),
-                                Comp(
-                                    OpID::UNPACK_ARGS,
-                                    Comp(OpID::ID, "args", s9),
-                                    s8
-                                )
-                            ),
-                            s3
-                        ),
-                        s3
-                    ),
-                    Comp(
-                        OpID::BLOCK,
-                        vec(Comp(
-                            OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, "0", s15),
-                            s14
-                        )),
-                        s13
-                    ),
-                    s11
+                    s12
                 ),
                 s1
             )),
@@ -2241,116 +2275,6 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             s1
         ));
 
-        // def f(*3):
-        //     return 0
-        REQUIRE(feed_all(vec(
-            Op(OpID::CONSTRUCT, s1),
-            Op(OpID::DEF, s1),
-            Op(OpID::ID, "f", s2),
-            Op(OpID::CALL, s3),
-            Op(OpID::GROUP, s3),
-            Op(OpID::UNPACK_ARGS, s4),
-            Op(OpID::PLAIN_INT, "3", s5),
-            Op(OpID::END, s6),
-            Op(OpID::LABEL, s7),
-            Op(OpID::BLOCK, s9),
-            Op(OpID::RETURN, s10),
-            Op(OpID::PLAIN_INT, "0", s11),
-            Op(OpID::STMT, s_end),
-            Op(OpID::END, s_end),
-            Op(OpID::STMT, s_end),
-            Op(OpID::END, s_end)
-        )) == Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::DEF,
-                Comp(
-                    OpID::LABEL,
-                    Comp(
-                        OpID::CALL,
-                        Comp(OpID::ID, "f", s2),
-                        Comp(
-                            OpID::GROUP,
-                            Comp(
-                                OpID::UNPACK_ARGS,
-                                Comp(OpID::PLAIN_INT, "3", s5),
-                                s4
-                            ),
-                            s3
-                        ),
-                        s3
-                    ),
-                    Comp(
-                        OpID::BLOCK,
-                        vec(Comp(
-                            OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, "0", s11),
-                            s10
-                        )),
-                        s9
-                    ),
-                    s7
-                ),
-                s1
-            )),
-            s1
-        ));
-
-        // def f(**3):
-        //     return 0
-        REQUIRE(feed_all(vec(
-            Op(OpID::CONSTRUCT, s1),
-            Op(OpID::DEF, s1),
-            Op(OpID::ID, "f", s2),
-            Op(OpID::CALL, s3),
-            Op(OpID::GROUP, s3),
-            Op(OpID::UNPACK_KWARGS, s4),
-            Op(OpID::PLAIN_INT, "3", s5),
-            Op(OpID::END, s6),
-            Op(OpID::LABEL, s7),
-            Op(OpID::BLOCK, s9),
-            Op(OpID::RETURN, s10),
-            Op(OpID::PLAIN_INT, "0", s11),
-            Op(OpID::STMT, s_end),
-            Op(OpID::END, s_end),
-            Op(OpID::STMT, s_end),
-            Op(OpID::END, s_end)
-        )) == Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::DEF,
-                Comp(
-                    OpID::LABEL,
-                    Comp(
-                        OpID::CALL,
-                        Comp(OpID::ID, "f", s2),
-                        Comp(
-                            OpID::GROUP,
-                            Comp(
-                                OpID::UNPACK_KWARGS,
-                                Comp(OpID::PLAIN_INT, "3", s5),
-                                s4
-                            ),
-                            s3
-                        ),
-                        s3
-                    ),
-                    Comp(
-                        OpID::BLOCK,
-                        vec(Comp(
-                            OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, "0", s11),
-                            s10
-                        )),
-                        s9
-                    ),
-                    s7
-                ),
-                s1
-            )),
-            s1
-        ));
-
         // def f(3: Int):
         //     return 0
         REQUIRE(feed_all(vec(
@@ -2402,75 +2326,6 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                         s10
                     ),
                     s8
-                ),
-                s1
-            )),
-            s1
-        ));
-
-        // def f(a: Int, a: Float64):
-        //     return 0
-        REQUIRE(feed_all(vec(
-            Op(OpID::CONSTRUCT, s1),
-            Op(OpID::DEF, s1),
-            Op(OpID::ID, "f", s2),
-            Op(OpID::CALL, s3),
-            Op(OpID::GROUP, s3),
-            Op(OpID::ID, "a", s4),
-            Op(OpID::TYPE_LABEL, s5),
-            Op(OpID::ID, "Int", s6),
-            Op(OpID::SEP, s0),
-            Op(OpID::ID, "a", s8),
-            Op(OpID::TYPE_LABEL, s9),
-            Op(OpID::ID, "Float64", s10),
-            Op(OpID::END, s11),
-            Op(OpID::LABEL, s12),
-            Op(OpID::BLOCK, s14),
-            Op(OpID::RETURN, s15),
-            Op(OpID::PLAIN_INT, "0", s16),
-            Op(OpID::STMT, s_end),
-            Op(OpID::END, s_end),
-            Op(OpID::STMT, s_end),
-            Op(OpID::END, s_end)
-        )) == Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::DEF,
-                Comp(
-                    OpID::LABEL,
-                    Comp(
-                        OpID::CALL,
-                        Comp(OpID::ID, "f", s2),
-                        Comp(
-                            OpID::GROUP,
-                            csv(
-                                Comp(
-                                    OpID::TYPE_LABEL,
-                                    Comp(OpID::ID, "a", s4),
-                                    Comp(OpID::ID, "Int", s6),
-                                    s5
-                                ),
-                                Comp(
-                                    OpID::TYPE_LABEL,
-                                    Comp(OpID::ID, "a", s8),
-                                    Comp(OpID::ID, "Float64", s10),
-                                    s9
-                                )
-                            ),
-                            s3
-                        ),
-                        s3
-                    ),
-                    Comp(
-                        OpID::BLOCK,
-                        vec(Comp(
-                            OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, "0", s16),
-                            s15
-                        )),
-                        s14
-                    ),
-                    s12
                 ),
                 s1
             )),
@@ -2574,44 +2429,6 @@ TEST_CASE("Composer Input/Output", "[compose]") {
     }
 
     SECTION("For") {
-        // for x in c: a += x
-        REQUIRE(feed_all(vec(
-            Op(OpID::CONSTRUCT, s1),
-            Op(OpID::FOR, s1),
-            Op(OpID::ID, "x", s2),
-            Op(OpID::IN, s3),
-            Op(OpID::ID, "c", s4),
-            Op(OpID::LABEL, s5),
-            Op(OpID::ID, "a", s6),
-            Op(OpID::IADD, s7),
-            Op(OpID::ID, "x", s8),
-            Op(OpID::STMT, s_end),
-            Op(OpID::END, s_end)
-        )) == Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::FOR,
-                Comp(
-                    OpID::LABEL,
-                    Comp(
-                        OpID::IN,
-                        Comp(OpID::ID, "x", s2),
-                        Comp(OpID::ID, "c", s4),
-                        s3
-                    ),
-                    Comp(
-                        OpID::IADD,
-                        Comp(OpID::ID, "a", s6),
-                        Comp(OpID::ID, "x", s8),
-                        s7
-                    ),
-                    s5
-                ),
-                s1
-            )),
-            s1
-        ));
-
         // for x in c:
         //     a += x
         REQUIRE(feed_all(vec(
@@ -2785,6 +2602,58 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                     s10
                 )
             ),
+            s1
+        ));
+
+        // for _ in c:
+        //     print("hi")
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::FOR, s1),
+            Op(OpID::PLACEHOLDER, s2),
+            Op(OpID::IN, s3),
+            Op(OpID::ID, "c", s4),
+            Op(OpID::LABEL, s5),
+            Op(OpID::BLOCK, s7),
+            Op(OpID::ID, "print", s8),
+            Op(OpID::CALL, s9),
+            Op(OpID::GROUP, s9),
+            Op(OpID::STRING, "hi", s10),
+            Op(OpID::END, s11),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(Comp(
+                OpID::FOR,
+                Comp(
+                    OpID::LABEL,
+                    Comp(
+                        OpID::IN,
+                        Comp(OpID::PLACEHOLDER, s2),
+                        Comp(OpID::ID, "c", s4),
+                        s3
+                    ),
+                    Comp(
+                        OpID::BLOCK,
+                        vec(Comp(
+                            OpID::CALL,
+                            Comp(OpID::ID, "print", s8),
+                            Comp(
+                                OpID::GROUP,
+                                Comp(OpID::STRING, "hi", s10),
+                                s9
+                            ),
+                            s9
+                        )),
+                        s7
+                    ),
+                    s5
+                ),
+                s1
+            )),
             s1
         ));
 
@@ -3177,35 +3046,6 @@ TEST_CASE("Composer Input/Output", "[compose]") {
     }
 
     SECTION("If") {
-        // if x: return 0
-        REQUIRE(feed_all(vec(
-            Op(OpID::CONSTRUCT, s1),
-            Op(OpID::IF, s1),
-            Op(OpID::ID, "x", s2),
-            Op(OpID::LABEL, s3),
-            Op(OpID::RETURN, s4),
-            Op(OpID::PLAIN_INT, "0", s5),
-            Op(OpID::STMT, s_end),
-            Op(OpID::END, s_end)
-        )) == Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::IF,
-                Comp(
-                    OpID::LABEL,
-                    Comp(OpID::ID, "x", s2),
-                    Comp(
-                        OpID::RETURN,
-                        Comp(OpID::PLAIN_INT, "0", s5),
-                        s4
-                    ),
-                    s3
-                ),
-                s1
-            )),
-            s1
-        ));
-
         // if x:
         //     return 0
         REQUIRE(feed_all(vec(
@@ -4312,17 +4152,17 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             OpID::ENCLOSURE, Comp(OpID::NOTHING, s2), s1
         ));
 
-        // {a: 1}
+        // {a = 1}
         REQUIRE(feed_all(vec(
             Op(OpID::ENCLOSURE, s1),
             Op(OpID::ID, "a", s2),
-            Op(OpID::TYPE_LABEL, s3),
+            Op(OpID::BIND, s3),
             Op(OpID::PLAIN_INT, "1", s4),
             Op(OpID::END, s5)
         )) == Comp(
             OpID::ENCLOSURE,
             Comp(
-                OpID::TYPE_LABEL,
+                OpID::BIND,
                 Comp(OpID::ID, "a", s2),
                 Comp(OpID::PLAIN_INT, "1", s4),
                 s3
@@ -4330,38 +4170,38 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             s1
         ));
 
-        // {a: 1, b: 2, c: 3}
+        // {a = 1, b = 2, c = 3}
         REQUIRE(feed_all(vec(
             Op(OpID::ENCLOSURE, s1),
             Op(OpID::ID, "a", s2),
-            Op(OpID::TYPE_LABEL, s3),
+            Op(OpID::BIND, s3),
             Op(OpID::PLAIN_INT, "1", s4),
             Op(OpID::SEP, s0),
             Op(OpID::ID, "b", s6),
-            Op(OpID::TYPE_LABEL, s7),
+            Op(OpID::BIND, s7),
             Op(OpID::PLAIN_INT, "2", s8),
             Op(OpID::SEP, s0),
             Op(OpID::ID, "c", s10),
-            Op(OpID::TYPE_LABEL, s11),
+            Op(OpID::BIND, s11),
             Op(OpID::PLAIN_INT, "3", s12),
             Op(OpID::END, s13)
         )) == Comp(
             OpID::ENCLOSURE,
             csv(
                 Comp(
-                    OpID::TYPE_LABEL,
+                    OpID::BIND,
                     Comp(OpID::ID, "a", s2),
                     Comp(OpID::PLAIN_INT, "1", s4),
                     s3
                 ),
                 Comp(
-                    OpID::TYPE_LABEL,
+                    OpID::BIND,
                     Comp(OpID::ID, "b", s6),
                     Comp(OpID::PLAIN_INT, "2", s8),
                     s7
                 ),
                 Comp(
-                    OpID::TYPE_LABEL,
+                    OpID::BIND,
                     Comp(OpID::ID, "c", s10),
                     Comp(OpID::PLAIN_INT, "3", s12),
                     s11
@@ -4370,25 +4210,25 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             s1
         ));
 
-        // {a: 1, **kwargs, b: 2}
+        // {a = 1, **kwargs, b = 2}
         REQUIRE(feed_all(vec(
             Op(OpID::ENCLOSURE, s1),
             Op(OpID::ID, "a", s2),
-            Op(OpID::TYPE_LABEL, s3),
+            Op(OpID::BIND, s3),
             Op(OpID::PLAIN_INT, "1", s4),
             Op(OpID::SEP, s0),
             Op(OpID::UNPACK_KWARGS, s6),
             Op(OpID::ID, "kwargs", s7),
             Op(OpID::SEP, s0),
             Op(OpID::ID, "b", s9),
-            Op(OpID::TYPE_LABEL, s10),
+            Op(OpID::BIND, s10),
             Op(OpID::PLAIN_INT, "2", s11),
             Op(OpID::END, s12)
         )) == Comp(
             OpID::ENCLOSURE,
             csv(
                 Comp(
-                    OpID::TYPE_LABEL,
+                    OpID::BIND,
                     Comp(OpID::ID, "a", s2),
                     Comp(OpID::PLAIN_INT, "1", s4),
                     s3
@@ -4399,7 +4239,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                     s6
                 ),
                 Comp(
-                    OpID::TYPE_LABEL,
+                    OpID::BIND,
                     Comp(OpID::ID, "b", s9),
                     Comp(OpID::PLAIN_INT, "2", s11),
                     s10
@@ -4411,44 +4251,46 @@ TEST_CASE("Composer Input/Output", "[compose]") {
 
     SECTION("Match") {
         // match x
-        // case Int{%y}: return y
+        // case y:
+        //     return y
         REQUIRE(feed_all(vec(
             Op(OpID::CONSTRUCT, s1),
             Op(OpID::MATCH, s1),
             Op(OpID::ID, "x", s2),
             Op(OpID::STMT, s3),
             Op(OpID::CASE, s4),
-            Op(OpID::ID, "Int", s5),
-            Op(OpID::CALL, s6),
-            Op(OpID::ENCLOSURE, s6),
-            Op(OpID::LAMBDA, s7),
-            Op(OpID::ID, "y", s8),
-            Op(OpID::END, s9),
-            Op(OpID::LABEL, s10),
-            Op(OpID::RETURN, s11),
-            Op(OpID::ID, "y", s12),
+            Op(OpID::ID, "y", s5),
+            Op(OpID::LABEL, s6),
+            Op(OpID::BLOCK, s8),
+            Op(OpID::RETURN, s9),
+            Op(OpID::ID, "y", s10),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end)
         )) == Comp(
             OpID::CONSTRUCT,
             vec(
-                Comp(OpID::MATCH, Comp(OpID::ID, "x", s2), s1),
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
                 Comp(
                     OpID::CASE,
                     Comp(
                         OpID::LABEL,
+                        Comp(OpID::ID, "y", s5),
                         Comp(
-                            OpID::CALL,
-                            Comp(OpID::ID, "Int", s5),
-                            Comp(
-                                OpID::ENCLOSURE,
-                                Comp(OpID::LAMBDA, Comp(OpID::ID, "y", s8), s7),
-                                s6
-                            ),
-                            s6
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::ID, "y", s10),
+                                s9
+                            )),
+                            s8
                         ),
-                        Comp(OpID::RETURN, Comp(OpID::ID, "y", s12), s11),
-                        s10
+                        s6
                     ),
                     s4
                 )
@@ -4457,7 +4299,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
         ));
 
         // match x
-        // case Int{%y}:
+        // case y: Int:
         //     return y
         REQUIRE(feed_all(vec(
             Op(OpID::CONSTRUCT, s1),
@@ -4465,12 +4307,66 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::ID, "x", s2),
             Op(OpID::STMT, s3),
             Op(OpID::CASE, s4),
-            Op(OpID::ID, "Int", s5),
-            Op(OpID::CALL, s6),
-            Op(OpID::ENCLOSURE, s6),
-            Op(OpID::LAMBDA, s7),
-            Op(OpID::ID, "y", s8),
-            Op(OpID::END, s9),
+            Op(OpID::ID, "y", s5),
+            Op(OpID::TYPE_LABEL, s6),
+            Op(OpID::ID, "Int", s7),
+            Op(OpID::LABEL, s8),
+            Op(OpID::BLOCK, s10),
+            Op(OpID::RETURN, s11),
+            Op(OpID::ID, "y", s12),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(
+                            OpID::TYPE_LABEL,
+                            Comp(OpID::ID, "y", s5),
+                            Comp(OpID::ID, "Int", s7),
+                            s6
+                        ),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::ID, "y", s12),
+                                s11
+                            )),
+                            s10
+                        ),
+                        s8
+                    ),
+                    s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case y if y > 0:
+        //     return y
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ID, "y", s5),
+            Op(OpID::TERNARY_IF, s6),
+            Op(OpID::ID, "y", s7),
+            Op(OpID::GT, s8),
+            Op(OpID::PLAIN_INT, "0", s9),
             Op(OpID::LABEL, s10),
             Op(OpID::BLOCK, s12),
             Op(OpID::RETURN, s13),
@@ -4482,25 +4378,32 @@ TEST_CASE("Composer Input/Output", "[compose]") {
         )) == Comp(
             OpID::CONSTRUCT,
             vec(
-                Comp(OpID::MATCH, Comp(OpID::ID, "x", s2), s1),
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
                 Comp(
                     OpID::CASE,
                     Comp(
                         OpID::LABEL,
                         Comp(
-                            OpID::CALL,
-                            Comp(OpID::ID, "Int", s5),
+                            OpID::TERNARY_IF,
+                            Comp(OpID::ID, "y", s5),
                             Comp(
-                                OpID::ENCLOSURE,
-                                Comp(OpID::LAMBDA, Comp(OpID::ID, "y", s8), s7),
-                                s6
+                                OpID::GT,
+                                Comp(OpID::ID, "y", s7),
+                                Comp(OpID::PLAIN_INT, "0", s9),
+                                s8
                             ),
                             s6
                         ),
                         Comp(
                             OpID::BLOCK,
                             vec(Comp(
-                                OpID::RETURN, Comp(OpID::ID, "y", s14), s13
+                                OpID::RETURN,
+                                Comp(OpID::ID, "y", s14),
+                                s13
                             )),
                             s12
                         ),
@@ -4513,9 +4416,9 @@ TEST_CASE("Composer Input/Output", "[compose]") {
         ));
 
         // match x
-        // case Int{%y}:
+        // case y: Int:
         //     return y
-        // else:
+        // case _:
         //     return 0
         REQUIRE(feed_all(vec(
             Op(OpID::CONSTRUCT, s1),
@@ -4523,24 +4426,22 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::ID, "x", s2),
             Op(OpID::STMT, s3),
             Op(OpID::CASE, s4),
-            Op(OpID::ID, "Int", s5),
-            Op(OpID::CALL, s6),
-            Op(OpID::ENCLOSURE, s6),
-            Op(OpID::LAMBDA, s7),
-            Op(OpID::ID, "y", s8),
-            Op(OpID::END, s9),
-            Op(OpID::LABEL, s10),
-            Op(OpID::BLOCK, s12),
-            Op(OpID::RETURN, s13),
-            Op(OpID::ID, "y", s14),
-            Op(OpID::STMT, s15),
-            Op(OpID::END, s16),
-            Op(OpID::STMT, s16),
-            Op(OpID::ELSE, s16),
-            Op(OpID::BODY, s17),
-            Op(OpID::BLOCK, s19),
-            Op(OpID::RETURN, s20),
-            Op(OpID::PLAIN_INT, "0", s21),
+            Op(OpID::ID, "y", s5),
+            Op(OpID::TYPE_LABEL, s6),
+            Op(OpID::ID, "Int", s7),
+            Op(OpID::LABEL, s8),
+            Op(OpID::BLOCK, s10),
+            Op(OpID::RETURN, s11),
+            Op(OpID::ID, "y", s12),
+            Op(OpID::STMT, s13),
+            Op(OpID::END, s14),
+            Op(OpID::STMT, s14),
+            Op(OpID::CASE, s14),
+            Op(OpID::PLACEHOLDER, s15),
+            Op(OpID::LABEL, s16),
+            Op(OpID::BLOCK, s18),
+            Op(OpID::RETURN, s19),
+            Op(OpID::PLAIN_INT, "0", s20),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -4548,58 +4449,853 @@ TEST_CASE("Composer Input/Output", "[compose]") {
         )) == Comp(
             OpID::CONSTRUCT,
             vec(
-                Comp(OpID::MATCH, Comp(OpID::ID, "x", s2), s1),
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
                 Comp(
                     OpID::CASE,
                     Comp(
                         OpID::LABEL,
                         Comp(
-                            OpID::CALL,
-                            Comp(OpID::ID, "Int", s5),
-                            Comp(
-                                OpID::ENCLOSURE,
-                                Comp(OpID::LAMBDA, Comp(OpID::ID, "y", s8), s7),
-                                s6
-                            ),
+                            OpID::TYPE_LABEL,
+                            Comp(OpID::ID, "y", s5),
+                            Comp(OpID::ID, "Int", s7),
                             s6
                         ),
                         Comp(
                             OpID::BLOCK,
                             vec(Comp(
-                                OpID::RETURN, Comp(OpID::ID, "y", s14), s13
+                                OpID::RETURN,
+                                Comp(OpID::ID, "y", s12),
+                                s11
+                            )),
+                            s10
+                        ),
+                        s8
+                    ),
+                    s4
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(OpID::PLACEHOLDER, s15),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::PLAIN_INT, "0", s20),
+                                s19
+                            )),
+                            s18
+                        ),
+                        s16
+                    ),
+                    s14
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case (y):
+        //     return y
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::GROUP, s5),
+            Op(OpID::ID, "y", s6),
+            Op(OpID::END, s7),
+            Op(OpID::LABEL, s8),
+            Op(OpID::BLOCK, s10),
+            Op(OpID::RETURN, s11),
+            Op(OpID::ID, "y", s12),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(
+                            OpID::GROUP,
+                            Comp(OpID::ID, "y", s6),
+                            s5
+                        ),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::ID, "y", s12),
+                                s11
+                            )),
+                            s10
+                        ),
+                        s8
+                    ),
+                    s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case (y, z):
+        //     return y
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::GROUP, s5),
+            Op(OpID::ID, "y", s6),
+            Op(OpID::SEP, s0),
+            Op(OpID::ID, "z", s8),
+            Op(OpID::END, s9),
+            Op(OpID::LABEL, s10),
+            Op(OpID::BLOCK, s12),
+            Op(OpID::RETURN, s13),
+            Op(OpID::ID, "y", s14),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(
+                            OpID::GROUP,
+                            csv(
+                                Comp(OpID::ID, "y", s6),
+                                Comp(OpID::ID, "z", s8)
+                            ),
+                            s5
+                        ),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::ID, "y", s14),
+                                s13
                             )),
                             s12
                         ),
                         s10
                     ),
                     s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case (y, *args, z):
+        //     return y
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::GROUP, s5),
+            Op(OpID::ID, "y", s6),
+            Op(OpID::SEP, s0),
+            Op(OpID::UNPACK_ARGS, s8),
+            Op(OpID::ID, "args", s9),
+            Op(OpID::SEP, s0),
+            Op(OpID::ID, "z", s11),
+            Op(OpID::END, s12),
+            Op(OpID::LABEL, s13),
+            Op(OpID::BLOCK, s15),
+            Op(OpID::RETURN, s16),
+            Op(OpID::ID, "y", s17),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
                 ),
                 Comp(
-                    OpID::ELSE,
+                    OpID::CASE,
                     Comp(
-                        OpID::BODY,
+                        OpID::LABEL,
+                        Comp(
+                            OpID::GROUP,
+                            csv(
+                                Comp(OpID::ID, "y", s6),
+                                Comp(
+                                    OpID::UNPACK_ARGS,
+                                    Comp(OpID::ID, "args", s9),
+                                    s8
+                                ),
+                                Comp(OpID::ID, "z", s11)
+                            ),
+                            s5
+                        ),
                         Comp(
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "0", s21),
+                                Comp(OpID::ID, "y", s17),
+                                s16
+                            )),
+                            s15
+                        ),
+                        s13
+                    ),
+                    s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case (*args):
+        //     return 0
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::GROUP, s5),
+            Op(OpID::UNPACK_ARGS, s6),
+            Op(OpID::ID, "args", s7),
+            Op(OpID::END, s8),
+            Op(OpID::LABEL, s9),
+            Op(OpID::BLOCK, s11),
+            Op(OpID::RETURN, s12),
+            Op(OpID::PLAIN_INT, "0", s13),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(
+                            OpID::GROUP,
+                            Comp(
+                                OpID::UNPACK_ARGS,
+                                Comp(OpID::ID, "args", s7),
+                                s6
+                            ),
+                            s5
+                        ),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::PLAIN_INT, "0", s13),
+                                s12
+                            )),
+                            s11
+                        ),
+                        s9
+                    ),
+                    s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case [y, z]:
+        //     return y
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::LIST, s5),
+            Op(OpID::ID, "y", s6),
+            Op(OpID::SEP, s0),
+            Op(OpID::ID, "z", s8),
+            Op(OpID::END, s9),
+            Op(OpID::LABEL, s10),
+            Op(OpID::BLOCK, s12),
+            Op(OpID::RETURN, s13),
+            Op(OpID::ID, "y", s14),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(
+                            OpID::LIST,
+                            csv(
+                                Comp(OpID::ID, "y", s6),
+                                Comp(OpID::ID, "z", s8)
+                            ),
+                            s5
+                        ),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::ID, "y", s14),
+                                s13
+                            )),
+                            s12
+                        ),
+                        s10
+                    ),
+                    s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case [y, *args, z]:
+        //     return y
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::LIST, s5),
+            Op(OpID::ID, "y", s6),
+            Op(OpID::SEP, s0),
+            Op(OpID::UNPACK_ARGS, s8),
+            Op(OpID::ID, "args", s9),
+            Op(OpID::SEP, s0),
+            Op(OpID::ID, "z", s11),
+            Op(OpID::END, s12),
+            Op(OpID::LABEL, s13),
+            Op(OpID::BLOCK, s15),
+            Op(OpID::RETURN, s16),
+            Op(OpID::ID, "y", s17),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(
+                            OpID::LIST,
+                            csv(
+                                Comp(OpID::ID, "y", s6),
+                                Comp(
+                                    OpID::UNPACK_ARGS,
+                                    Comp(OpID::ID, "args", s9),
+                                    s8
+                                ),
+                                Comp(OpID::ID, "z", s11)
+                            ),
+                            s5
+                        ),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::ID, "y", s17),
+                                s16
+                            )),
+                            s15
+                        ),
+                        s13
+                    ),
+                    s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case {3 = y, 4 = z}:
+        //     return y
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ENCLOSURE, s5),
+            Op(OpID::PLAIN_INT, "3", s6),
+            Op(OpID::BIND, s7),
+            Op(OpID::ID, "y", s8),
+            Op(OpID::SEP, s0),
+            Op(OpID::PLAIN_INT, "4", s10),
+            Op(OpID::BIND, s11),
+            Op(OpID::ID, "z", s12),
+            Op(OpID::END, s13),
+            Op(OpID::LABEL, s14),
+            Op(OpID::BLOCK, s16),
+            Op(OpID::RETURN, s17),
+            Op(OpID::ID, "y", s18),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(
+                            OpID::ENCLOSURE,
+                            csv(
+                                Comp(
+                                    OpID::BIND,
+                                    Comp(OpID::PLAIN_INT, "3", s6),
+                                    Comp(OpID::ID, "y", s8),
+                                    s7
+                                ),
+                                Comp(
+                                    OpID::BIND,
+                                    Comp(OpID::PLAIN_INT, "4", s10),
+                                    Comp(OpID::ID, "z", s12),
+                                    s11
+                                )
+                            ),
+                            s5
+                        ),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::ID, "y", s18),
+                                s17
+                            )),
+                            s16
+                        ),
+                        s14
+                    ),
+                    s4
+                )
+            ),
+            s1
+        ));
+
+        // match x:
+        // case {3 = y: Int}:
+        //     return y
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ENCLOSURE, s5),
+            Op(OpID::PLAIN_INT, "3", s6),
+            Op(OpID::BIND, s7),
+            Op(OpID::ID, "y", s8),
+            Op(OpID::TYPE_LABEL, s9),
+            Op(OpID::ID, "Int", s10),
+            Op(OpID::END, s11),
+            Op(OpID::LABEL, s12),
+            Op(OpID::BLOCK, s14),
+            Op(OpID::RETURN, s15),
+            Op(OpID::ID, "y", s16),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(
+                            OpID::ENCLOSURE,
+                            Comp(
+                                OpID::BIND,
+                                Comp(OpID::PLAIN_INT, "3", s6),
+                                Comp(
+                                    OpID::TYPE_LABEL,
+                                    Comp(OpID::ID, "y", s8),
+                                    Comp(OpID::ID, "Int", s10),
+                                    s9
+                                ),
+                                s7
+                            ),
+                            s5
+                        ),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::ID, "y", s16),
+                                s15
+                            )),
+                            s14
+                        ),
+                        s12
+                    ),
+                    s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case {3 = y, 4 = z, **kwargs}:
+        //     return y
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ENCLOSURE, s5),
+            Op(OpID::PLAIN_INT, "3", s6),
+            Op(OpID::BIND, s7),
+            Op(OpID::ID, "y", s8),
+            Op(OpID::SEP, s0),
+            Op(OpID::PLAIN_INT, "4", s10),
+            Op(OpID::BIND, s11),
+            Op(OpID::ID, "z", s12),
+            Op(OpID::SEP, s0),
+            Op(OpID::UNPACK_KWARGS, s14),
+            Op(OpID::ID, "kwargs", s15),
+            Op(OpID::END, s16),
+            Op(OpID::LABEL, s17),
+            Op(OpID::BLOCK, s19),
+            Op(OpID::RETURN, s20),
+            Op(OpID::ID, "y", s21),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(
+                            OpID::ENCLOSURE,
+                            csv(
+                                Comp(
+                                    OpID::BIND,
+                                    Comp(OpID::PLAIN_INT, "3", s6),
+                                    Comp(OpID::ID, "y", s8),
+                                    s7
+                                ),
+                                Comp(
+                                    OpID::BIND,
+                                    Comp(OpID::PLAIN_INT, "4", s10),
+                                    Comp(OpID::ID, "z", s12),
+                                    s11
+                                ),
+                                Comp(
+                                    OpID::UNPACK_KWARGS,
+                                    Comp(OpID::ID, "kwargs", s15),
+                                    s14
+                                )
+                            ),
+                            s5
+                        ),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::ID, "y", s21),
                                 s20
                             )),
                             s19
                         ),
                         s17
                     ),
-                    s16
+                    s4
                 )
             ),
             s1
         ));
 
         // match x
-        // case Int{%y}:
+        // case T(y, w=z):
         //     return y
-        // case false:
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ID, "T", s5),
+            Op(OpID::CALL, s6),
+            Op(OpID::GROUP, s6),
+            Op(OpID::ID, "y", s7),
+            Op(OpID::SEP, s0),
+            Op(OpID::ID, "w", s9),
+            Op(OpID::BIND, s10),
+            Op(OpID::ID, "z", s11),
+            Op(OpID::END, s12),
+            Op(OpID::LABEL, s13),
+            Op(OpID::BLOCK, s15),
+            Op(OpID::RETURN, s16),
+            Op(OpID::ID, "y", s17),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(
+                            OpID::CALL,
+                            Comp(OpID::ID, "T", s5),
+                            Comp(
+                                OpID::GROUP,
+                                csv(
+                                    Comp(OpID::ID, "y", s7),
+                                    Comp(
+                                        OpID::BIND,
+                                        Comp(OpID::ID, "w", s9),
+                                        Comp(OpID::ID, "z", s11),
+                                        s10
+                                    )
+                                ),
+                                s6
+                            ),
+                            s6
+                        ),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::ID, "y", s17),
+                                s16
+                            )),
+                            s15
+                        ),
+                        s13
+                    ),
+                    s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case T(y, *args, **kwargs):
+        //     return y
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ID, "T", s5),
+            Op(OpID::CALL, s6),
+            Op(OpID::GROUP, s6),
+            Op(OpID::ID, "y", s7),
+            Op(OpID::SEP, s0),
+            Op(OpID::UNPACK_ARGS, s9),
+            Op(OpID::ID, "args", s10),
+            Op(OpID::SEP, s0),
+            Op(OpID::UNPACK_KWARGS, s12),
+            Op(OpID::ID, "kwargs", s13),
+            Op(OpID::END, s14),
+            Op(OpID::LABEL, s15),
+            Op(OpID::BLOCK, s17),
+            Op(OpID::RETURN, s18),
+            Op(OpID::ID, "y", s19),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(
+                            OpID::CALL,
+                            Comp(OpID::ID, "T", s5),
+                            Comp(
+                                OpID::GROUP,
+                                csv(
+                                    Comp(OpID::ID, "y", s7),
+                                    Comp(
+                                        OpID::UNPACK_ARGS,
+                                        Comp(OpID::ID, "args", s10),
+                                        s9
+                                    ),
+                                    Comp(
+                                        OpID::UNPACK_KWARGS,
+                                        Comp(OpID::ID, "kwargs", s13),
+                                        s12
+                                    )
+                                ),
+                                s6
+                            ),
+                            s6
+                        ),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::ID, "y", s19),
+                                s18
+                            )),
+                            s17
+                        ),
+                        s15
+                    ),
+                    s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case 1 || 2:
         //     return 0
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::PLAIN_INT, "1", s5),
+            Op(OpID::MATCH_OR, s6),
+            Op(OpID::PLAIN_INT, "2", s7),
+            Op(OpID::LABEL, s8),
+            Op(OpID::BLOCK, s10),
+            Op(OpID::RETURN, s11),
+            Op(OpID::PLAIN_INT, "0", s12),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(
+                            OpID::MATCH_OR,
+                            Comp(OpID::PLAIN_INT, "1", s5),
+                            Comp(OpID::PLAIN_INT, "2", s7),
+                            s6
+                        ),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::PLAIN_INT, "0", s12),
+                                s11
+                            )),
+                            s10
+                        ),
+                        s8
+                    ),
+                    s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case Int(y) || String(y):
+        //     return y
         REQUIRE(feed_all(vec(
             Op(OpID::CONSTRUCT, s1),
             Op(OpID::MATCH, s1),
@@ -4608,23 +5304,19 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::CASE, s4),
             Op(OpID::ID, "Int", s5),
             Op(OpID::CALL, s6),
-            Op(OpID::ENCLOSURE, s6),
-            Op(OpID::LAMBDA, s7),
-            Op(OpID::ID, "y", s8),
-            Op(OpID::END, s9),
-            Op(OpID::LABEL, s10),
-            Op(OpID::BLOCK, s12),
-            Op(OpID::RETURN, s13),
-            Op(OpID::ID, "y", s14),
-            Op(OpID::STMT, s15),
-            Op(OpID::END, s16),
-            Op(OpID::STMT, s16),
-            Op(OpID::CASE, s16),
-            Op(OpID::FALSE, s17),
-            Op(OpID::LABEL, s18),
-            Op(OpID::BLOCK, s20),
-            Op(OpID::RETURN, s21),
-            Op(OpID::PLAIN_INT, "0", s22),
+            Op(OpID::GROUP, s6),
+            Op(OpID::ID, "y", s7),
+            Op(OpID::END, s8),
+            Op(OpID::MATCH_OR, s9),
+            Op(OpID::ID, "String", s10),
+            Op(OpID::CALL, s11),
+            Op(OpID::GROUP, s11),
+            Op(OpID::ID, "y", s12),
+            Op(OpID::END, s13),
+            Op(OpID::LABEL, s14),
+            Op(OpID::BLOCK, s16),
+            Op(OpID::RETURN, s17),
+            Op(OpID::ID, "y", s18),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -4632,49 +5324,443 @@ TEST_CASE("Composer Input/Output", "[compose]") {
         )) == Comp(
             OpID::CONSTRUCT,
             vec(
-                Comp(OpID::MATCH, Comp(OpID::ID, "x", s2), s1),
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
                 Comp(
                     OpID::CASE,
                     Comp(
                         OpID::LABEL,
                         Comp(
-                            OpID::CALL,
-                            Comp(OpID::ID, "Int", s5),
+                            OpID::MATCH_OR,
                             Comp(
-                                OpID::ENCLOSURE,
-                                Comp(OpID::LAMBDA, Comp(OpID::ID, "y", s8), s7),
+                                OpID::CALL,
+                                Comp(OpID::ID, "Int", s5),
+                                Comp(
+                                    OpID::GROUP,
+                                    Comp(OpID::ID, "y", s7),
+                                    s6
+                                ),
                                 s6
                             ),
-                            s6
+                            Comp(
+                                OpID::CALL,
+                                Comp(OpID::ID, "String", s10),
+                                Comp(
+                                    OpID::GROUP,
+                                    Comp(OpID::ID, "y", s12),
+                                    s11
+                                ),
+                                s11
+                            ),
+                            s9
                         ),
                         Comp(
                             OpID::BLOCK,
                             vec(Comp(
-                                OpID::RETURN, Comp(OpID::ID, "y", s14), s13
+                                OpID::RETURN,
+                                Comp(OpID::ID, "y", s18),
+                                s17
+                            )),
+                            s16
+                        ),
+                        s14
+                    ),
+                    s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case 1 || 2 as y:
+        //     return y
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::PLAIN_INT, "1", s5),
+            Op(OpID::MATCH_OR, s6),
+            Op(OpID::PLAIN_INT, "2", s7),
+            Op(OpID::AS, s8),
+            Op(OpID::ID, "y", s9),
+            Op(OpID::LABEL, s10),
+            Op(OpID::BLOCK, s12),
+            Op(OpID::RETURN, s13),
+            Op(OpID::ID, "y", s14),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(
+                            OpID::AS,
+                            Comp(
+                                OpID::MATCH_OR,
+                                Comp(OpID::PLAIN_INT, "1", s5),
+                                Comp(OpID::PLAIN_INT, "2", s7),
+                                s6
+                            ),
+                            Comp(OpID::ID, "y", s9),
+                            s8
+                        ),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::ID, "y", s14),
+                                s13
                             )),
                             s12
                         ),
                         s10
                     ),
                     s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case (3 as *args):
+        //     return 0
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::GROUP, s5),
+            Op(OpID::PLAIN_INT, "3", s6),
+            Op(OpID::AS, s7),
+            Op(OpID::UNPACK_ARGS, s8),
+            Op(OpID::ID, "args", s9),
+            Op(OpID::END, s10),
+            Op(OpID::LABEL, s11),
+            Op(OpID::BLOCK, s13),
+            Op(OpID::RETURN, s14),
+            Op(OpID::PLAIN_INT, "0", s15),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
                 ),
                 Comp(
                     OpID::CASE,
                     Comp(
                         OpID::LABEL,
-                        Comp(OpID::FALSE, s17),
+                        Comp(
+                            OpID::GROUP,
+                            Comp(
+                                OpID::AS,
+                                Comp(OpID::PLAIN_INT, "3", s6),
+                                Comp(
+                                    OpID::UNPACK_ARGS,
+                                    Comp(OpID::ID, "args", s9),
+                                    s8
+                                ),
+                                s7
+                            ),
+                            s5
+                        ),
                         Comp(
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "0", s22),
-                                s21
+                                Comp(OpID::PLAIN_INT, "0", s15),
+                                s14
                             )),
-                            s20
+                            s13
                         ),
-                        s18
+                        s11
                     ),
-                    s16
+                    s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case (*args: Int):
+        //     return 0
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::GROUP, s5),
+            Op(OpID::UNPACK_ARGS, s6),
+            Op(OpID::ID, "args", s7),
+            Op(OpID::TYPE_LABEL, s8),
+            Op(OpID::ID, "Int", s9),
+            Op(OpID::END, s10),
+            Op(OpID::LABEL, s11),
+            Op(OpID::BLOCK, s13),
+            Op(OpID::RETURN, s14),
+            Op(OpID::PLAIN_INT, "0", s15),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(
+                            OpID::GROUP,
+                            Comp(
+                                OpID::TYPE_LABEL,
+                                Comp(
+                                    OpID::UNPACK_ARGS,
+                                    Comp(OpID::ID, "args", s7),
+                                    s6
+                                ),
+                                Comp(OpID::ID, "Int", s9),
+                                s8
+                            ),
+                            s5
+                        ),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::PLAIN_INT, "0", s15),
+                                s14
+                            )),
+                            s13
+                        ),
+                        s11
+                    ),
+                    s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case {3 as **kwargs}:
+        //     return 0
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ENCLOSURE, s5),
+            Op(OpID::PLAIN_INT, "3", s6),
+            Op(OpID::AS, s7),
+            Op(OpID::UNPACK_KWARGS, s8),
+            Op(OpID::ID, "kwargs", s9),
+            Op(OpID::END, s10),
+            Op(OpID::LABEL, s11),
+            Op(OpID::BLOCK, s13),
+            Op(OpID::RETURN, s14),
+            Op(OpID::PLAIN_INT, "0", s15),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(
+                            OpID::ENCLOSURE,
+                            Comp(
+                                OpID::AS,
+                                Comp(OpID::PLAIN_INT, "3", s6),
+                                Comp(
+                                    OpID::UNPACK_KWARGS,
+                                    Comp(OpID::ID, "kwargs", s9),
+                                    s8
+                                ),
+                                s7
+                            ),
+                            s5
+                        ),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::PLAIN_INT, "0", s15),
+                                s14
+                            )),
+                            s13
+                        ),
+                        s11
+                    ),
+                    s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case {**kwargs: Int}:
+        //     return 0
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ENCLOSURE, s5),
+            Op(OpID::UNPACK_KWARGS, s6),
+            Op(OpID::ID, "kwargs", s7),
+            Op(OpID::TYPE_LABEL, s8),
+            Op(OpID::ID, "Int", s9),
+            Op(OpID::END, s10),
+            Op(OpID::LABEL, s11),
+            Op(OpID::BLOCK, s13),
+            Op(OpID::RETURN, s14),
+            Op(OpID::PLAIN_INT, "0", s15),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(
+                            OpID::ENCLOSURE,
+                            Comp(
+                                OpID::TYPE_LABEL,
+                                Comp(
+                                    OpID::UNPACK_KWARGS,
+                                    Comp(OpID::ID, "kwargs", s7),
+                                    s6
+                                ),
+                                Comp(OpID::ID, "Int", s9),
+                                s8
+                            ),
+                            s5
+                        ),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::PLAIN_INT, "0", s15),
+                                s14
+                            )),
+                            s13
+                        ),
+                        s11
+                    ),
+                    s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case |f(y):
+        //     return y
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::LITERALLY, s5),
+            Op(OpID::ID, "f", s6),
+            Op(OpID::CALL, s7),
+            Op(OpID::GROUP, s7),
+            Op(OpID::ID, "y", s8),
+            Op(OpID::END, s9),
+            Op(OpID::LABEL, s10),
+            Op(OpID::BLOCK, s12),
+            Op(OpID::RETURN, s13),
+            Op(OpID::ID, "y", s14),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(
+                            OpID::LITERALLY,
+                            Comp(
+                                OpID::CALL,
+                                Comp(OpID::ID, "f", s6),
+                                Comp(
+                                    OpID::GROUP,
+                                    Comp(OpID::ID, "y", s8),
+                                    s7
+                                ),
+                                s7
+                            ),
+                            s5
+                        ),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::ID, "y", s14),
+                                s13
+                            )),
+                            s12
+                        ),
+                        s10
+                    ),
+                    s4
                 )
             ),
             s1
@@ -4690,42 +5776,59 @@ TEST_CASE("Composer Input/Output", "[compose]") {
         )) == Comp(
             OpID::CONSTRUCT,
             vec(Comp(
-                OpID::MATCH, Comp(OpID::ID, "x", s2), s1
+                OpID::MATCH,
+                Comp(OpID::ID, "x", s2),
+                s1
             )),
             s1
         ));
 
         // match x
-        // case Int{%y}
+        // case *args:
+        //     return 0
         REQUIRE(feed_all(vec(
             Op(OpID::CONSTRUCT, s1),
             Op(OpID::MATCH, s1),
             Op(OpID::ID, "x", s2),
             Op(OpID::STMT, s3),
             Op(OpID::CASE, s4),
-            Op(OpID::ID, "Int", s5),
-            Op(OpID::CALL, s6),
-            Op(OpID::ENCLOSURE, s6),
-            Op(OpID::LAMBDA, s7),
-            Op(OpID::ID, "y", s8),
-            Op(OpID::END, s9),
+            Op(OpID::UNPACK_ARGS, s5),
+            Op(OpID::ID, "args", s6),
+            Op(OpID::LABEL, s7),
+            Op(OpID::BLOCK, s9),
+            Op(OpID::RETURN, s10),
+            Op(OpID::PLAIN_INT, "0", s11),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end)
         )) == Comp(
             OpID::CONSTRUCT,
             vec(
-                Comp(OpID::MATCH, Comp(OpID::ID, "x", s2), s1),
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
                 Comp(
                     OpID::CASE,
                     Comp(
-                        OpID::CALL,
-                        Comp(OpID::ID, "Int", s5),
+                        OpID::LABEL,
                         Comp(
-                            OpID::ENCLOSURE,
-                            Comp(OpID::LAMBDA, Comp(OpID::ID, "y", s8), s7),
-                            s6
+                            OpID::UNPACK_ARGS,
+                            Comp(OpID::ID, "args", s6),
+                            s5
                         ),
-                        s6
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::PLAIN_INT, "0", s11),
+                                s10
+                            )),
+                            s9
+                        ),
+                        s7
                     ),
                     s4
                 )
@@ -4734,20 +5837,251 @@ TEST_CASE("Composer Input/Output", "[compose]") {
         ));
 
         // match x
-        // elif Int{%y}:
+        // case **kwargs:
+        //     return 0
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::UNPACK_KWARGS, s5),
+            Op(OpID::ID, "kwargs", s6),
+            Op(OpID::LABEL, s7),
+            Op(OpID::BLOCK, s9),
+            Op(OpID::RETURN, s10),
+            Op(OpID::PLAIN_INT, "0", s11),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(
+                            OpID::UNPACK_KWARGS,
+                            Comp(OpID::ID, "kwargs", s6),
+                            s5
+                        ),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::PLAIN_INT, "0", s11),
+                                s10
+                            )),
+                            s9
+                        ),
+                        s7
+                    ),
+                    s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case [**kwargs]:
+        //     return 0
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::LIST, s5),
+            Op(OpID::UNPACK_KWARGS, s6),
+            Op(OpID::ID, "kwargs", s7),
+            Op(OpID::END, s8),
+            Op(OpID::LABEL, s9),
+            Op(OpID::BLOCK, s11),
+            Op(OpID::RETURN, s12),
+            Op(OpID::PLAIN_INT, "0", s13),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(
+                            OpID::LIST,
+                            Comp(
+                                OpID::UNPACK_KWARGS,
+                                Comp(OpID::ID, "kwargs", s7),
+                                s6
+                            ),
+                            s5
+                        ),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::PLAIN_INT, "0", s13),
+                                s12
+                            )),
+                            s11
+                        ),
+                        s9
+                    ),
+                    s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case {*args}:
+        //     return 0
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ENCLOSURE, s5),
+            Op(OpID::UNPACK_ARGS, s6),
+            Op(OpID::ID, "args", s7),
+            Op(OpID::END, s8),
+            Op(OpID::LABEL, s9),
+            Op(OpID::BLOCK, s11),
+            Op(OpID::RETURN, s12),
+            Op(OpID::PLAIN_INT, "0", s13),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(
+                            OpID::ENCLOSURE,
+                            Comp(
+                                OpID::UNPACK_ARGS,
+                                Comp(OpID::ID, "args", s7),
+                                s6
+                            ),
+                            s5
+                        ),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::PLAIN_INT, "0", s13),
+                                s12
+                            )),
+                            s11
+                        ),
+                        s9
+                    ),
+                    s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case [y=2]:
+        //     return 0
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::LIST, s5),
+            Op(OpID::ID, "y", s6),
+            Op(OpID::BIND, s7),
+            Op(OpID::PLAIN_INT, "2", s8),
+            Op(OpID::END, s9),
+            Op(OpID::LABEL, s10),
+            Op(OpID::BLOCK, s12),
+            Op(OpID::RETURN, s13),
+            Op(OpID::PLAIN_INT, "0", s14),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(
+                            OpID::LIST,
+                            Comp(
+                                OpID::BIND,
+                                Comp(OpID::ID, "y", s6),
+                                Comp(OpID::PLAIN_INT, "2", s8),
+                                s7
+                            ),
+                            s5
+                        ),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::PLAIN_INT, "0", s14),
+                                s13
+                            )),
+                            s12
+                        ),
+                        s10
+                    ),
+                    s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case y as z as w:
         //     return y
         REQUIRE(feed_all(vec(
             Op(OpID::CONSTRUCT, s1),
             Op(OpID::MATCH, s1),
             Op(OpID::ID, "x", s2),
             Op(OpID::STMT, s3),
-            Op(OpID::ELIF, s4),
-            Op(OpID::ID, "Int", s5),
-            Op(OpID::CALL, s6),
-            Op(OpID::ENCLOSURE, s6),
-            Op(OpID::LAMBDA, s7),
-            Op(OpID::ID, "y", s8),
-            Op(OpID::END, s9),
+            Op(OpID::CASE, s4),
+            Op(OpID::ID, "y", s5),
+            Op(OpID::AS, s6),
+            Op(OpID::ID, "z", s7),
+            Op(OpID::AS, s8),
+            Op(OpID::ID, "w", s9),
             Op(OpID::LABEL, s10),
             Op(OpID::BLOCK, s12),
             Op(OpID::RETURN, s13),
@@ -4759,17 +6093,223 @@ TEST_CASE("Composer Input/Output", "[compose]") {
         )) == Comp(
             OpID::CONSTRUCT,
             vec(
-                Comp(OpID::MATCH, Comp(OpID::ID, "x", s2), s1),
                 Comp(
-                    OpID::ELIF,
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(
+                            OpID::AS,
+                            Comp(
+                                OpID::AS,
+                                Comp(OpID::ID, "y", s5),
+                                Comp(OpID::ID, "z", s7),
+                                s6
+                            ),
+                            Comp(OpID::ID, "w", s9),
+                            s8
+                        ),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::ID, "y", s14),
+                                s13
+                            )),
+                            s12
+                        ),
+                        s10
+                    ),
+                    s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case y: Int as z:
+        //     return y
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ID, "y", s5),
+            Op(OpID::TYPE_LABEL, s6),
+            Op(OpID::ID, "Int", s7),
+            Op(OpID::AS, s8),
+            Op(OpID::ID, "z", s9),
+            Op(OpID::LABEL, s10),
+            Op(OpID::BLOCK, s12),
+            Op(OpID::RETURN, s13),
+            Op(OpID::ID, "y", s14),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(
+                            OpID::AS,
+                            Comp(
+                                OpID::TYPE_LABEL,
+                                Comp(OpID::ID, "y", s5),
+                                Comp(OpID::ID, "Int", s7),
+                                s6
+                            ),
+                            Comp(OpID::ID, "z", s9),
+                            s8
+                        ),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::ID, "y", s14),
+                                s13
+                            )),
+                            s12
+                        ),
+                        s10
+                    ),
+                    s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case [*args as y]:
+        //     return 0
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::LIST, s5),
+            Op(OpID::UNPACK_ARGS, s6),
+            Op(OpID::ID, "args", s7),
+            Op(OpID::AS, s8),
+            Op(OpID::ID, "y", s9),
+            Op(OpID::END, s10),
+            Op(OpID::LABEL, s11),
+            Op(OpID::BLOCK, s13),
+            Op(OpID::RETURN, s14),
+            Op(OpID::PLAIN_INT, "0", s15),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(
+                            OpID::LIST,
+                            Comp(
+                                OpID::AS,
+                                Comp(
+                                    OpID::UNPACK_ARGS,
+                                    Comp(OpID::ID, "args", s7),
+                                    s6
+                                ),
+                                Comp(OpID::ID, "y", s9),
+                                s8
+                            ),
+                            s5
+                        ),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::PLAIN_INT, "0", s15),
+                                s14
+                            )),
+                            s13
+                        ),
+                        s11
+                    ),
+                    s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case T(**kwargs as y):
+        //     return 0
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ID, "T", s5),
+            Op(OpID::CALL, s6),
+            Op(OpID::GROUP, s6),
+            Op(OpID::UNPACK_KWARGS, s7),
+            Op(OpID::ID, "kwargs", s8),
+            Op(OpID::AS, s9),
+            Op(OpID::ID, "y", s10),
+            Op(OpID::END, s11),
+            Op(OpID::LABEL, s12),
+            Op(OpID::BLOCK, s14),
+            Op(OpID::RETURN, s15),
+            Op(OpID::PLAIN_INT, "0", s16),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
                     Comp(
                         OpID::LABEL,
                         Comp(
                             OpID::CALL,
-                            Comp(OpID::ID, "Int", s5),
+                            Comp(OpID::ID, "T", s5),
                             Comp(
-                                OpID::ENCLOSURE,
-                                Comp(OpID::LAMBDA, Comp(OpID::ID, "y", s8), s7),
+                                OpID::GROUP,
+                                Comp(
+                                    OpID::AS,
+                                    Comp(
+                                        OpID::UNPACK_KWARGS,
+                                        Comp(OpID::ID, "kwargs", s8),
+                                        s7
+                                    ),
+                                    Comp(OpID::ID, "y", s10),
+                                    s9
+                                ),
                                 s6
                             ),
                             s6
@@ -4777,11 +6317,597 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                         Comp(
                             OpID::BLOCK,
                             vec(Comp(
-                                OpID::RETURN, Comp(OpID::ID, "y", s14), s13
+                                OpID::RETURN,
+                                Comp(OpID::PLAIN_INT, "0", s16),
+                                s15
+                            )),
+                            s14
+                        ),
+                        s12
+                    ),
+                    s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case (y: Int):
+        //     return 0
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::GROUP, s5),
+            Op(OpID::ID, "y", s6),
+            Op(OpID::TYPE_LABEL, s7),
+            Op(OpID::ID, "Int", s8),
+            Op(OpID::END, s9),
+            Op(OpID::LABEL, s10),
+            Op(OpID::BLOCK, s12),
+            Op(OpID::RETURN, s13),
+            Op(OpID::PLAIN_INT, "0", s14),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(
+                            OpID::GROUP,
+                            Comp(
+                                OpID::TYPE_LABEL,
+                                Comp(OpID::ID, "y", s6),
+                                Comp(OpID::ID, "Int", s8),
+                                s7
+                            ),
+                            s5
+                        ),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::PLAIN_INT, "0", s14),
+                                s13
                             )),
                             s12
                         ),
                         s10
+                    ),
+                    s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case (3 as y):
+        //     return 0
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::GROUP, s5),
+            Op(OpID::PLAIN_INT, "3", s6),
+            Op(OpID::AS, s7),
+            Op(OpID::ID, "y", s8),
+            Op(OpID::END, s9),
+            Op(OpID::LABEL, s10),
+            Op(OpID::BLOCK, s12),
+            Op(OpID::RETURN, s13),
+            Op(OpID::PLAIN_INT, "0", s14),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(
+                            OpID::GROUP,
+                            Comp(
+                                OpID::AS,
+                                Comp(OpID::PLAIN_INT, "3", s6),
+                                Comp(OpID::ID, "y", s8),
+                                s7
+                            ),
+                            s5
+                        ),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::PLAIN_INT, "0", s14),
+                                s13
+                            )),
+                            s12
+                        ),
+                        s10
+                    ),
+                    s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case {y: Int}:
+        //     return 0
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ENCLOSURE, s5),
+            Op(OpID::ID, "y", s6),
+            Op(OpID::TYPE_LABEL, s7),
+            Op(OpID::ID, "Int", s8),
+            Op(OpID::END, s9),
+            Op(OpID::LABEL, s10),
+            Op(OpID::BLOCK, s12),
+            Op(OpID::RETURN, s13),
+            Op(OpID::PLAIN_INT, "0", s14),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(
+                            OpID::ENCLOSURE,
+                            Comp(
+                                OpID::TYPE_LABEL,
+                                Comp(OpID::ID, "y", s6),
+                                Comp(OpID::ID, "Int", s8),
+                                s7
+                            ),
+                            s5
+                        ),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::PLAIN_INT, "0", s14),
+                                s13
+                            )),
+                            s12
+                        ),
+                        s10
+                    ),
+                    s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case {3 as y}:
+        //     return 0
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ENCLOSURE, s5),
+            Op(OpID::PLAIN_INT, "3", s6),
+            Op(OpID::AS, s7),
+            Op(OpID::ID, "y", s8),
+            Op(OpID::END, s9),
+            Op(OpID::LABEL, s10),
+            Op(OpID::BLOCK, s12),
+            Op(OpID::RETURN, s13),
+            Op(OpID::PLAIN_INT, "0", s14),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(
+                            OpID::ENCLOSURE,
+                            Comp(
+                                OpID::AS,
+                                Comp(OpID::PLAIN_INT, "3", s6),
+                                Comp(OpID::ID, "y", s8),
+                                s7
+                            ),
+                            s5
+                        ),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::PLAIN_INT, "0", s14),
+                                s13
+                            )),
+                            s12
+                        ),
+                        s10
+                    ),
+                    s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case [*3: Int]
+        //     return 0
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::LIST, s5),
+            Op(OpID::UNPACK_ARGS, s6),
+            Op(OpID::PLAIN_INT, "3", s7),
+            Op(OpID::TYPE_LABEL, s8),
+            Op(OpID::ID, "Int", s9),
+            Op(OpID::END, s10),
+            Op(OpID::LABEL, s11),
+            Op(OpID::BLOCK, s13),
+            Op(OpID::RETURN, s14),
+            Op(OpID::PLAIN_INT, "0", s15),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(
+                            OpID::LIST,
+                            Comp(
+                                OpID::TYPE_LABEL,
+                                Comp(
+                                    OpID::UNPACK_ARGS,
+                                    Comp(OpID::PLAIN_INT, "3", s7),
+                                    s6
+                                ),
+                                Comp(OpID::ID, "Int", s9),
+                                s8
+                            ),
+                            s5
+                        ),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::PLAIN_INT, "0", s15),
+                                s14
+                            )),
+                            s13
+                        ),
+                        s11
+                    ),
+                    s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case {**3: Int}
+        //     return 0
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ENCLOSURE, s5),
+            Op(OpID::UNPACK_KWARGS, s6),
+            Op(OpID::PLAIN_INT, "3", s7),
+            Op(OpID::TYPE_LABEL, s8),
+            Op(OpID::ID, "Int", s9),
+            Op(OpID::END, s10),
+            Op(OpID::LABEL, s11),
+            Op(OpID::BLOCK, s13),
+            Op(OpID::RETURN, s14),
+            Op(OpID::PLAIN_INT, "0", s15),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(
+                            OpID::ENCLOSURE,
+                            Comp(
+                                OpID::TYPE_LABEL,
+                                Comp(
+                                    OpID::UNPACK_KWARGS,
+                                    Comp(OpID::PLAIN_INT, "3", s7),
+                                    s6
+                                ),
+                                Comp(OpID::ID, "Int", s9),
+                                s8
+                            ),
+                            s5
+                        ),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::PLAIN_INT, "0", s15),
+                                s14
+                            )),
+                            s13
+                        ),
+                        s11
+                    ),
+                    s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case [y as *3]:
+        //     return 0
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::LIST, s5),
+            Op(OpID::ID, "y", s6),
+            Op(OpID::AS, s7),
+            Op(OpID::UNPACK_ARGS, s8),
+            Op(OpID::PLAIN_INT, "3", s9),
+            Op(OpID::END, s10),
+            Op(OpID::LABEL, s11),
+            Op(OpID::BLOCK, s13),
+            Op(OpID::RETURN, s14),
+            Op(OpID::PLAIN_INT, "0", s15),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(
+                            OpID::LIST,
+                            Comp(
+                                OpID::AS,
+                                Comp(OpID::ID, "y", s6),
+                                Comp(
+                                    OpID::UNPACK_ARGS,
+                                    Comp(OpID::PLAIN_INT, "3", s9),
+                                    s8
+                                ),
+                                s7
+                            ),
+                            s5
+                        ),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::PLAIN_INT, "0", s15),
+                                s14
+                            )),
+                            s13
+                        ),
+                        s11
+                    ),
+                    s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case {y as **3}:
+        //     return 0
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ENCLOSURE, s5),
+            Op(OpID::ID, "y", s6),
+            Op(OpID::AS, s7),
+            Op(OpID::UNPACK_KWARGS, s8),
+            Op(OpID::PLAIN_INT, "3", s9),
+            Op(OpID::END, s10),
+            Op(OpID::LABEL, s11),
+            Op(OpID::BLOCK, s13),
+            Op(OpID::RETURN, s14),
+            Op(OpID::PLAIN_INT, "0", s15),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(
+                            OpID::ENCLOSURE,
+                            Comp(
+                                OpID::AS,
+                                Comp(OpID::ID, "y", s6),
+                                Comp(
+                                    OpID::UNPACK_KWARGS,
+                                    Comp(OpID::PLAIN_INT, "3", s9),
+                                    s8
+                                ),
+                                s7
+                            ),
+                            s5
+                        ),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::PLAIN_INT, "0", s15),
+                                s14
+                            )),
+                            s13
+                        ),
+                        s11
+                    ),
+                    s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // case y
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ID, "y", s5),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::CASE,
+                    Comp(OpID::ID, "y", s5),
+                    s4
+                )
+            ),
+            s1
+        ));
+
+        // match x
+        // elif y:
+        //     return y
+        REQUIRE(feed_all(vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::ELIF, s4),
+            Op(OpID::ID, "y", s5),
+            Op(OpID::LABEL, s6),
+            Op(OpID::BLOCK, s8),
+            Op(OpID::RETURN, s9),
+            Op(OpID::ID, "y", s10),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        )) == Comp(
+            OpID::CONSTRUCT,
+            vec(
+                Comp(
+                    OpID::MATCH,
+                    Comp(OpID::ID, "x", s2),
+                    s1
+                ),
+                Comp(
+                    OpID::ELIF,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(OpID::ID, "y", s5),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::ID, "y", s10),
+                                s9
+                            )),
+                            s8
+                        ),
+                        s6
                     ),
                     s4
                 )
@@ -5080,85 +7206,9 @@ TEST_CASE("Composer Input/Output", "[compose]") {
     }
 
     SECTION("Try") {
-        // try: f()
-        // except E{%e}: g()
-        REQUIRE(feed_all(vec(
-            Op(OpID::CONSTRUCT, s1),
-            Op(OpID::TRY, s1),
-            Op(OpID::BODY, s2),
-            Op(OpID::ID, "f", s3),
-            Op(OpID::CALL, s4),
-            Op(OpID::GROUP, s4),
-            Op(OpID::NOTHING, s5),
-            Op(OpID::END, s5),
-            Op(OpID::STMT, s6),
-            Op(OpID::EXCEPT, s7),
-            Op(OpID::ID, "E", s8),
-            Op(OpID::CALL, s9),
-            Op(OpID::ENCLOSURE, s9),
-            Op(OpID::LAMBDA, s10),
-            Op(OpID::ID, "e", s11),
-            Op(OpID::END, s12),
-            Op(OpID::LABEL, s13),
-            Op(OpID::ID, "g", s14),
-            Op(OpID::CALL, s15),
-            Op(OpID::GROUP, s15),
-            Op(OpID::NOTHING, s16),
-            Op(OpID::END, s16),
-            Op(OpID::STMT, s_end),
-            Op(OpID::END, s_end)
-        )) == Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::TRY,
-                    Comp(
-                        OpID::BODY,
-                        Comp(
-                            OpID::CALL,
-                            Comp(OpID::ID, "f", s3),
-                            Comp(OpID::GROUP, Comp(OpID::NOTHING, s5), s4),
-                            s4
-                        ),
-                        s2
-                    ),
-                    s1
-                ),
-                Comp(
-                    OpID::EXCEPT,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::CALL,
-                            Comp(OpID::ID, "E", s8),
-                            Comp(
-                                OpID::ENCLOSURE,
-                                Comp(
-                                    OpID::LAMBDA,
-                                    Comp(OpID::ID, "e", s11),
-                                    s10
-                                ),
-                                s9
-                            ),
-                            s9
-                        ),
-                        Comp(
-                            OpID::CALL,
-                            Comp(OpID::ID, "g", s14),
-                            Comp(OpID::GROUP, Comp(OpID::NOTHING, s16), s15),
-                            s15
-                        ),
-                        s13
-                    ),
-                    s7
-                )
-            ),
-            s1
-        ));
-
         // try:
         //     f()
-        // except E{%e}:
+        // except e: E:
         //     g()
         REQUIRE(feed_all(vec(
             Op(OpID::CONSTRUCT, s1),
@@ -5174,19 +7224,16 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::END, s9),
             Op(OpID::STMT, s9),
             Op(OpID::EXCEPT, s9),
-            Op(OpID::ID, "E", s10),
-            Op(OpID::CALL, s11),
-            Op(OpID::ENCLOSURE, s11),
-            Op(OpID::LAMBDA, s12),
-            Op(OpID::ID, "e", s13),
-            Op(OpID::END, s14),
-            Op(OpID::LABEL, s15),
-            Op(OpID::BLOCK, s17),
-            Op(OpID::ID, "g", s18),
-            Op(OpID::CALL, s19),
-            Op(OpID::GROUP, s19),
-            Op(OpID::NOTHING, s20),
-            Op(OpID::END, s20),
+            Op(OpID::ID, "e", s10),
+            Op(OpID::TYPE_LABEL, s11),
+            Op(OpID::ID, "E", s12),
+            Op(OpID::LABEL, s13),
+            Op(OpID::BLOCK, s15),
+            Op(OpID::ID, "g", s16),
+            Op(OpID::CALL, s17),
+            Op(OpID::GROUP, s17),
+            Op(OpID::NOTHING, s18),
+            Op(OpID::END, s18),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -5203,7 +7250,11 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                             vec(Comp(
                                 OpID::CALL,
                                 Comp(OpID::ID, "f", s5),
-                                Comp(OpID::GROUP, Comp(OpID::NOTHING, s7), s6),
+                                Comp(
+                                    OpID::GROUP,
+                                    Comp(OpID::NOTHING, s7),
+                                    s6
+                                ),
                                 s6
                             )),
                             s4
@@ -5217,30 +7268,26 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                     Comp(
                         OpID::LABEL,
                         Comp(
-                            OpID::CALL,
-                            Comp(OpID::ID, "E", s10),
-                            Comp(
-                                OpID::ENCLOSURE,
-                                Comp(
-                                    OpID::LAMBDA, Comp(OpID::ID, "e", s13), s12
-                                ),
-                                s11
-                            ),
+                            OpID::TYPE_LABEL,
+                            Comp(OpID::ID, "e", s10),
+                            Comp(OpID::ID, "E", s12),
                             s11
                         ),
                         Comp(
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::CALL,
-                                Comp(OpID::ID, "g", s18),
+                                Comp(OpID::ID, "g", s16),
                                 Comp(
-                                    OpID::GROUP, Comp(OpID::NOTHING, s20), s19
+                                    OpID::GROUP,
+                                    Comp(OpID::NOTHING, s18),
+                                    s17
                                 ),
-                                s19
+                                s17
                             )),
-                            s17
+                            s15
                         ),
-                        s15
+                        s13
                     ),
                     s9
                 )
@@ -5250,7 +7297,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
 
         // try:
         //     f()
-        // except E{%e}:
+        // except e: E:
         //     g()
         // finally:
         //     h()
@@ -5268,30 +7315,27 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::END, s9),
             Op(OpID::STMT, s9),
             Op(OpID::EXCEPT, s9),
-            Op(OpID::ID, "E", s10),
-            Op(OpID::CALL, s11),
-            Op(OpID::ENCLOSURE, s11),
-            Op(OpID::LAMBDA, s12),
-            Op(OpID::ID, "e", s13),
-            Op(OpID::END, s14),
-            Op(OpID::LABEL, s15),
-            Op(OpID::BLOCK, s17),
-            Op(OpID::ID, "g", s18),
-            Op(OpID::CALL, s19),
-            Op(OpID::GROUP, s19),
-            Op(OpID::NOTHING, s20),
+            Op(OpID::ID, "e", s10),
+            Op(OpID::TYPE_LABEL, s11),
+            Op(OpID::ID, "E", s12),
+            Op(OpID::LABEL, s13),
+            Op(OpID::BLOCK, s15),
+            Op(OpID::ID, "g", s16),
+            Op(OpID::CALL, s17),
+            Op(OpID::GROUP, s17),
+            Op(OpID::NOTHING, s18),
+            Op(OpID::END, s18),
+            Op(OpID::STMT, s19),
             Op(OpID::END, s20),
-            Op(OpID::STMT, s21),
-            Op(OpID::END, s22),
-            Op(OpID::STMT, s22),
-            Op(OpID::FINALLY, s22),
-            Op(OpID::BODY, s23),
-            Op(OpID::BLOCK, s25),
-            Op(OpID::ID, "h", s26),
-            Op(OpID::CALL, s27),
-            Op(OpID::GROUP, s27),
-            Op(OpID::NOTHING, s28),
-            Op(OpID::END, s28),
+            Op(OpID::STMT, s20),
+            Op(OpID::FINALLY, s20),
+            Op(OpID::BODY, s21),
+            Op(OpID::BLOCK, s23),
+            Op(OpID::ID, "h", s24),
+            Op(OpID::CALL, s25),
+            Op(OpID::GROUP, s25),
+            Op(OpID::NOTHING, s26),
+            Op(OpID::END, s26),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -5308,7 +7352,11 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                             vec(Comp(
                                 OpID::CALL,
                                 Comp(OpID::ID, "f", s5),
-                                Comp(OpID::GROUP, Comp(OpID::NOTHING, s7), s6),
+                                Comp(
+                                    OpID::GROUP,
+                                    Comp(OpID::NOTHING, s7),
+                                    s6
+                                ),
                                 s6
                             )),
                             s4
@@ -5322,30 +7370,26 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                     Comp(
                         OpID::LABEL,
                         Comp(
-                            OpID::CALL,
-                            Comp(OpID::ID, "E", s10),
-                            Comp(
-                                OpID::ENCLOSURE,
-                                Comp(
-                                    OpID::LAMBDA, Comp(OpID::ID, "e", s13), s12
-                                ),
-                                s11
-                            ),
+                            OpID::TYPE_LABEL,
+                            Comp(OpID::ID, "e", s10),
+                            Comp(OpID::ID, "E", s12),
                             s11
                         ),
                         Comp(
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::CALL,
-                                Comp(OpID::ID, "g", s18),
+                                Comp(OpID::ID, "g", s16),
                                 Comp(
-                                    OpID::GROUP, Comp(OpID::NOTHING, s20), s19
+                                    OpID::GROUP,
+                                    Comp(OpID::NOTHING, s18),
+                                    s17
                                 ),
-                                s19
+                                s17
                             )),
-                            s17
+                            s15
                         ),
-                        s15
+                        s13
                     ),
                     s9
                 ),
@@ -5357,16 +7401,19 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::CALL,
-                                Comp(OpID::ID, "h", s26),
+                                Comp(OpID::ID, "h", s24),
                                 Comp(
-                                    OpID::GROUP, Comp(OpID::NOTHING, s28), s27                                ),
-                                s27
+                                    OpID::GROUP,
+                                    Comp(OpID::NOTHING, s26),
+                                    s25
+                                ),
+                                s25
                             )),
-                            s25
+                            s23
                         ),
-                        s23
+                        s21
                     ),
-                    s22
+                    s20
                 )
             ),
             s1
@@ -5448,9 +7495,9 @@ TEST_CASE("Composer Input/Output", "[compose]") {
 
         // try:
         //     f()
-        // except E1{%e}:
+        // except e: E1:
         //     g()
-        // except E2{%e}:
+        // except e: E2:
         //     h()
         REQUIRE(feed_all(vec(
             Op(OpID::CONSTRUCT, s1),
@@ -5466,36 +7513,30 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::END, s9),
             Op(OpID::STMT, s9),
             Op(OpID::EXCEPT, s9),
-            Op(OpID::ID, "E1", s10),
-            Op(OpID::CALL, s11),
-            Op(OpID::ENCLOSURE, s11),
-            Op(OpID::LAMBDA, s12),
-            Op(OpID::ID, "e", s13),
-            Op(OpID::END, s14),
-            Op(OpID::LABEL, s15),
-            Op(OpID::BLOCK, s17),
-            Op(OpID::ID, "g", s18),
-            Op(OpID::CALL, s19),
-            Op(OpID::GROUP, s19),
-            Op(OpID::NOTHING, s20),
+            Op(OpID::ID, "e", s10),
+            Op(OpID::TYPE_LABEL, s11),
+            Op(OpID::ID, "E1", s12),
+            Op(OpID::LABEL, s13),
+            Op(OpID::BLOCK, s15),
+            Op(OpID::ID, "g", s16),
+            Op(OpID::CALL, s17),
+            Op(OpID::GROUP, s17),
+            Op(OpID::NOTHING, s18),
+            Op(OpID::END, s18),
+            Op(OpID::STMT, s19),
             Op(OpID::END, s20),
-            Op(OpID::STMT, s21),
-            Op(OpID::END, s22),
-            Op(OpID::STMT, s22),
-            Op(OpID::EXCEPT, s22),
+            Op(OpID::STMT, s20),
+            Op(OpID::EXCEPT, s20),
+            Op(OpID::ID, "e", s21),
+            Op(OpID::TYPE_LABEL, s22),
             Op(OpID::ID, "E2", s23),
-            Op(OpID::CALL, s24),
-            Op(OpID::ENCLOSURE, s24),
-            Op(OpID::LAMBDA, s25),
-            Op(OpID::ID, "e", s26),
-            Op(OpID::END, s27),
-            Op(OpID::LABEL, s28),
-            Op(OpID::BLOCK, s30),
-            Op(OpID::ID, "h", s31),
-            Op(OpID::CALL, s32),
-            Op(OpID::GROUP, s32),
-            Op(OpID::NOTHING, s33),
-            Op(OpID::END, s33),
+            Op(OpID::LABEL, s24),
+            Op(OpID::BLOCK, s26),
+            Op(OpID::ID, "h", s27),
+            Op(OpID::CALL, s28),
+            Op(OpID::GROUP, s28),
+            Op(OpID::NOTHING, s29),
+            Op(OpID::END, s29),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -5512,7 +7553,11 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                             vec(Comp(
                                 OpID::CALL,
                                 Comp(OpID::ID, "f", s5),
-                                Comp(OpID::GROUP, Comp(OpID::NOTHING, s7), s6),
+                                Comp(
+                                    OpID::GROUP,
+                                    Comp(OpID::NOTHING, s7),
+                                    s6
+                                ),
                                 s6
                             )),
                             s4
@@ -5526,30 +7571,26 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                     Comp(
                         OpID::LABEL,
                         Comp(
-                            OpID::CALL,
-                            Comp(OpID::ID, "E1", s10),
-                            Comp(
-                                OpID::ENCLOSURE,
-                                Comp(
-                                    OpID::LAMBDA, Comp(OpID::ID, "e", s13), s12
-                                ),
-                                s11
-                            ),
+                            OpID::TYPE_LABEL,
+                            Comp(OpID::ID, "e", s10),
+                            Comp(OpID::ID, "E1", s12),
                             s11
                         ),
                         Comp(
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::CALL,
-                                Comp(OpID::ID, "g", s18),
+                                Comp(OpID::ID, "g", s16),
                                 Comp(
-                                    OpID::GROUP, Comp(OpID::NOTHING, s20), s19
+                                    OpID::GROUP,
+                                    Comp(OpID::NOTHING, s18),
+                                    s17
                                 ),
-                                s19
+                                s17
                             )),
-                            s17
+                            s15
                         ),
-                        s15
+                        s13
                     ),
                     s9
                 ),
@@ -5558,32 +7599,28 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                     Comp(
                         OpID::LABEL,
                         Comp(
-                            OpID::CALL,
+                            OpID::TYPE_LABEL,
+                            Comp(OpID::ID, "e", s21),
                             Comp(OpID::ID, "E2", s23),
-                            Comp(
-                                OpID::ENCLOSURE,
-                                Comp(
-                                    OpID::LAMBDA, Comp(OpID::ID, "e", s26), s25
-                                ),
-                                s24
-                            ),
-                            s24
+                            s22
                         ),
                         Comp(
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::CALL,
-                                Comp(OpID::ID, "h", s31),
+                                Comp(OpID::ID, "h", s27),
                                 Comp(
-                                    OpID::GROUP, Comp(OpID::NOTHING, s33), s32
+                                    OpID::GROUP,
+                                    Comp(OpID::NOTHING, s29),
+                                    s28
                                 ),
-                                s32
+                                s28
                             )),
-                            s30
+                            s26
                         ),
-                        s28
+                        s24
                     ),
-                    s22
+                    s20
                 )
             ),
             s1
@@ -5630,7 +7667,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
 
         // try a:
         //     f()
-        // except E{%e}:
+        // except e: E:
         //     g()
         REQUIRE(feed_all(vec(
             Op(OpID::CONSTRUCT, s1),
@@ -5647,19 +7684,16 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::END, s10),
             Op(OpID::STMT, s10),
             Op(OpID::EXCEPT, s10),
-            Op(OpID::ID, "E", s11),
-            Op(OpID::CALL, s12),
-            Op(OpID::ENCLOSURE, s12),
-            Op(OpID::LAMBDA, s13),
-            Op(OpID::ID, "e", s14),
-            Op(OpID::END, s15),
-            Op(OpID::LABEL, s16),
-            Op(OpID::BLOCK, s18),
-            Op(OpID::ID, "g", s19),
-            Op(OpID::CALL, s20),
-            Op(OpID::GROUP, s20),
-            Op(OpID::NOTHING, s21),
-            Op(OpID::END, s21),
+            Op(OpID::ID, "e", s11),
+            Op(OpID::TYPE_LABEL, s12),
+            Op(OpID::ID, "E", s13),
+            Op(OpID::LABEL, s14),
+            Op(OpID::BLOCK, s16),
+            Op(OpID::ID, "g", s17),
+            Op(OpID::CALL, s18),
+            Op(OpID::GROUP, s18),
+            Op(OpID::NOTHING, s19),
+            Op(OpID::END, s19),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -5677,7 +7711,11 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                             vec(Comp(
                                 OpID::CALL,
                                 Comp(OpID::ID, "f", s6),
-                                Comp(OpID::GROUP, Comp(OpID::NOTHING, s8), s7),
+                                Comp(
+                                    OpID::GROUP,
+                                    Comp(OpID::NOTHING, s8),
+                                    s7
+                                ),
                                 s7
                             )),
                             s5
@@ -5691,30 +7729,26 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                     Comp(
                         OpID::LABEL,
                         Comp(
-                            OpID::CALL,
-                            Comp(OpID::ID, "E", s11),
-                            Comp(
-                                OpID::ENCLOSURE,
-                                Comp(
-                                    OpID::LAMBDA, Comp(OpID::ID, "e", s14), s13
-                                ),
-                                s12
-                            ),
+                            OpID::TYPE_LABEL,
+                            Comp(OpID::ID, "e", s11),
+                            Comp(OpID::ID, "E", s13),
                             s12
                         ),
                         Comp(
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::CALL,
-                                Comp(OpID::ID, "g", s19),
+                                Comp(OpID::ID, "g", s17),
                                 Comp(
-                                    OpID::GROUP, Comp(OpID::NOTHING, s21), s20
+                                    OpID::GROUP,
+                                    Comp(OpID::NOTHING, s19),
+                                    s18
                                 ),
-                                s20
+                                s18
                             )),
-                            s18
+                            s16
                         ),
-                        s16
+                        s14
                     ),
                     s10
                 )
@@ -5800,7 +7834,7 @@ TEST_CASE("Composer Input/Output", "[compose]") {
 
         // try:
         //     f()
-        // except E{%e}
+        // except e: E
         REQUIRE(feed_all(vec(
             Op(OpID::CONSTRUCT, s1),
             Op(OpID::TRY, s1),
@@ -5815,12 +7849,9 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Op(OpID::END, s9),
             Op(OpID::STMT, s9),
             Op(OpID::EXCEPT, s9),
-            Op(OpID::ID, "E", s10),
-            Op(OpID::CALL, s11),
-            Op(OpID::ENCLOSURE, s11),
-            Op(OpID::LAMBDA, s12),
-            Op(OpID::ID, "e", s13),
-            Op(OpID::END, s14),
+            Op(OpID::ID, "e", s10),
+            Op(OpID::TYPE_LABEL, s11),
+            Op(OpID::ID, "E", s12),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end)
         )) == Comp(
@@ -5835,7 +7866,11 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                             vec(Comp(
                                 OpID::CALL,
                                 Comp(OpID::ID, "f", s5),
-                                Comp(OpID::GROUP, Comp(OpID::NOTHING, s7), s6),
+                                Comp(
+                                    OpID::GROUP,
+                                    Comp(OpID::NOTHING, s7),
+                                    s6
+                                ),
                                 s6
                             )),
                             s4
@@ -5847,15 +7882,9 @@ TEST_CASE("Composer Input/Output", "[compose]") {
                 Comp(
                     OpID::EXCEPT,
                     Comp(
-                        OpID::CALL,
-                        Comp(OpID::ID, "E", s10),
-                        Comp(
-                            OpID::ENCLOSURE,
-                            Comp(
-                                OpID::LAMBDA, Comp(OpID::ID, "e", s13), s12
-                            ),
-                            s11
-                        ),
+                        OpID::TYPE_LABEL,
+                        Comp(OpID::ID, "e", s10),
+                        Comp(OpID::ID, "E", s12),
                         s11
                     ),
                     s9
@@ -5939,6 +7968,22 @@ TEST_CASE("Composer Input/Output", "[compose]") {
             Comp(OpID::ID, "a", s1),
             Comp(OpID::UNPACK_ARGS, Comp(OpID::ID, "args", s4), s3),
             Comp(OpID::ID, "b", s6)
+        ));
+
+        // (*args)
+        REQUIRE(feed_all(vec(
+            Op(OpID::GROUP, s1),
+            Op(OpID::UNPACK_ARGS, s2),
+            Op(OpID::ID, "args", s3),
+            Op(OpID::END, s4)
+        )) == Comp(
+            OpID::GROUP,
+            Comp(
+                OpID::UNPACK_ARGS,
+                Comp(OpID::ID, "args", s3),
+                s2
+            ),
+            s1
         ));
     }
 
@@ -6104,39 +8149,6 @@ TEST_CASE("Composer Input/Output", "[compose]") {
     }
 
     SECTION("While") {
-        // while a: f()
-        REQUIRE(feed_all(vec(
-            Op(OpID::CONSTRUCT, s1),
-            Op(OpID::WHILE, s1),
-            Op(OpID::ID, "a", s2),
-            Op(OpID::LABEL, s3),
-            Op(OpID::ID, "f", s4),
-            Op(OpID::CALL, s5),
-            Op(OpID::GROUP, s5),
-            Op(OpID::NOTHING, s6),
-            Op(OpID::END, s6),
-            Op(OpID::STMT, s_end),
-            Op(OpID::END, s_end)
-        )) == Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::WHILE,
-                Comp(
-                    OpID::LABEL,
-                    Comp(OpID::ID, "a", s2),
-                    Comp(
-                        OpID::CALL,
-                        Comp(OpID::ID, "f", s4),
-                        Comp(OpID::GROUP, Comp(OpID::NOTHING, s6), s5),
-                        s5
-                    ),
-                    s3
-                ),
-                s1
-            )),
-            s1
-        ));
-
         // while a:
         //     f()
         REQUIRE(feed_all(vec(

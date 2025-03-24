@@ -32,6 +32,10 @@ struct Seq final: Node {
 
 using List = Seq<NodeKind::LIST>;
 using Map = Seq<NodeKind::MAP>;
+using MatchList = Seq<NodeKind::MATCH_LIST>;
+using MatchMap = Seq<NodeKind::MATCH_MAP>;
+using MatchOptions = Seq<NodeKind::MATCH_OPTIONS>;
+using MatchTuple = Seq<NodeKind::MATCH_TUPLE>;
 using Set = Seq<NodeKind::SET>;
 using Tuple = Seq<NodeKind::TUPLE>;
 

@@ -72,10 +72,6 @@ TEST_CASE("Parser Core", "[parse]") {
         return on_orientation(token, Orientation::START, src);
     };
 
-    auto on_stmt = [&](auto token, Pos src) {
-        return on_orientation(token, Orientation::STMT, src);
-    };
-
     auto on_before = [&](auto token, Pos src) {
         return on_orientation(token, Orientation::BEFORE, src);
     };
@@ -92,16 +88,16 @@ TEST_CASE("Parser Core", "[parse]") {
         return on_orientation(token, Orientation::OPTIONAL, src);
     };
 
+    auto on_indenting = [&](auto token, Pos src) {
+        return on_orientation(token, Orientation::INDENTING, src);
+    };
+
     auto on_end = [&](auto token, Pos src) {
         return on_orientation(token, Orientation::END, src);
     };
 
     auto on_start_op = [&](auto token, Pos src) {
         return on_orientation_op(token, Orientation::START, src);
-    };
-
-    auto on_stmt_op = [&](auto token, Pos src) {
-        return on_orientation_op(token, Orientation::STMT, src);
     };
 
     auto on_before_op = [&](auto token, Pos src) {
@@ -120,16 +116,16 @@ TEST_CASE("Parser Core", "[parse]") {
         return on_orientation_op(token, Orientation::OPTIONAL, src);
     };
 
+    auto on_indenting_op = [&](auto token, Pos src) {
+        return on_orientation_op(token, Orientation::INDENTING, src);
+    };
+
     auto on_end_op = [&](auto token, Pos src) {
         return on_orientation_op(token, Orientation::END, src);
     };
 
     auto on_start_ops = [&](auto token, Pos src) {
         return on_orientation_ops(token, Orientation::START, src);
-    };
-
-    auto on_stmt_ops = [&](auto token, Pos src) {
-        return on_orientation_ops(token, Orientation::STMT, src);
     };
 
     auto on_before_ops = [&](auto token, Pos src) {
@@ -148,6 +144,10 @@ TEST_CASE("Parser Core", "[parse]") {
         return on_orientation_ops(token, Orientation::OPTIONAL, src);
     };
 
+    auto on_indenting_ops = [&](auto token, Pos src) {
+        return on_orientation_ops(token, Orientation::INDENTING, src);
+    };
+
     auto on_end_ops = [&](auto token, Pos src) {
         return on_orientation_ops(token, Orientation::END, src);
     };
@@ -158,14 +158,11 @@ TEST_CASE("Parser Core", "[parse]") {
         REQUIRE(parser.orientation == Orientation::START);
         REQUIRE(parser.queue.empty());
         REQUIRE(parser.contexts.empty());
-        REQUIRE_FALSE(parser.parsing_pred);
-        REQUIRE_FALSE(parser.prev_was_no_pred_construct);
         REQUIRE_FALSE(parser.parsing_loop_vars);
     }
 
     SECTION("Hash") {
         REQUIRE(on_start(TokenID::HASH, s1) == nullptr);
-        REQUIRE(on_stmt(TokenID::HASH, s1) == nullptr);
         REQUIRE(on_before(TokenID::HASH, s1) == nullptr);
         REQUIRE(on_after(TokenID::HASH, s1) == nullptr);
         REQUIRE(on_after_star(TokenID::HASH, s1) == nullptr);
@@ -195,10 +192,6 @@ TEST_CASE("Parser Core", "[parse]") {
         parser.line_start = false;
         REQUIRE(on_start_ops(TokenID::NEWLINE, s1) == std::deque<Op>{});
         REQUIRE(parser.orientation == Orientation::START);
-        REQUIRE(parser.line_start);
-
-        REQUIRE(on_stmt_ops(TokenID::NEWLINE, s1) == std::deque<Op>{});
-        REQUIRE(parser.orientation == Orientation::STMT);
         REQUIRE(parser.line_start);
 
         ErrPtr err = on_before(TokenID::NEWLINE, s1);
@@ -289,9 +282,6 @@ TEST_CASE("Parser Core", "[parse]") {
             parser.line_start = false;
             REQUIRE(
                 on_start(Token(TokenID::SPACE, std::uint32_t(1)), s1) == nullptr
-            );
-            REQUIRE(
-                on_stmt(Token(TokenID::SPACE, std::uint32_t(2)), s1) == nullptr
             );
             REQUIRE(
                 on_before(
@@ -435,13 +425,13 @@ TEST_CASE("Parser Core", "[parse]") {
             REQUIRE(parser.contexts.empty());
         }
 
-        SECTION("Leading, Statement Orientation") {
-            // When encountering leading space in the STMT orientation, the
+        SECTION("Leading, Indenting Orientation") {
+            // When encountering leading space in the INDENTING orientation, the
             // parser expects an indent to occur.
 
             parser.line_start = true;
             REQUIRE(
-                on_stmt_op(Token(TokenID::SPACE, std::uint32_t(4)), s1)
+                on_indenting_op(Token(TokenID::SPACE, std::uint32_t(4)), s1)
                 == Op(OpID::BLOCK, s1)
             );
             REQUIRE(parser.depth == 1);
@@ -454,7 +444,7 @@ TEST_CASE("Parser Core", "[parse]") {
             // Try indenting again.
             parser.line_start = true;
             REQUIRE(
-                on_stmt_op(Token(TokenID::SPACE, std::uint32_t(8)), s1)
+                on_indenting_op(Token(TokenID::SPACE, std::uint32_t(8)), s1)
                 == Op(OpID::BLOCK, s1)
             );
             REQUIRE(parser.depth == 2);
@@ -464,29 +454,30 @@ TEST_CASE("Parser Core", "[parse]") {
             );
             REQUIRE_FALSE(parser.line_start);
 
-            // Now try to dedent once, which is an err in this situation.
+            // Now try to dedent once, which is an err in INDENTING orientation.
             parser.line_start = true;
-            parser.line_start = true;
-            ErrPtr err = on_stmt(Token(TokenID::SPACE, std::uint32_t(4)), s1);
+            ErrPtr err = on_indenting(
+                Token(TokenID::SPACE, std::uint32_t(4)), s1
+            );
             REQUIRE(err != nullptr);
             REQUIRE(*err == UnderIndentErr(s1));
 
             // Now try with exact space (note that an indent is expected, not
             // a continuation of the same indentation).
             parser.line_start = true;
-            err = on_stmt(Token(TokenID::SPACE, std::uint32_t(8)), s1);
+            err = on_indenting(Token(TokenID::SPACE, std::uint32_t(8)), s1);
             REQUIRE(err != nullptr);
             REQUIRE(*err == ExpectedIndentErr(s1));
 
             // Now try with less space than another indent.
             parser.line_start = true;
-            err = on_stmt(Token(TokenID::SPACE, std::uint32_t(10)), s1);
+            err = on_indenting(Token(TokenID::SPACE, std::uint32_t(10)), s1);
             REQUIRE(err != nullptr);
             REQUIRE(*err == IncompleteIndentErr(s1));
 
             // Now try to indent twice, which is an error.
             parser.line_start = true;
-            err = on_stmt(Token(TokenID::SPACE, std::uint32_t(16)), s1);
+            err = on_indenting(Token(TokenID::SPACE, std::uint32_t(16)), s1);
             REQUIRE(err != nullptr);
             REQUIRE(*err == OverIndentErr(s1));
         }
@@ -650,7 +641,6 @@ TEST_CASE("Parser Core", "[parse]") {
             REQUIRE(parser.prev == t);
             REQUIRE(parser.prev_src == s1);
 
-            REQUIRE(on_stmt_op(t, s1) == Op(tokeninfo(t).op1, s1));
             REQUIRE(parser.orientation == Orientation::END);
 
             ErrPtr err = on_before(t, s1);
@@ -683,7 +673,6 @@ TEST_CASE("Parser Core", "[parse]") {
             REQUIRE(parser.prev == t);
             REQUIRE(parser.prev_src == s1);
 
-            REQUIRE(on_stmt_op(t, s1) == op);
             REQUIRE(parser.orientation == Orientation::BEFORE);
 
             REQUIRE(on_before_op(t, s1) == op);
@@ -715,14 +704,15 @@ TEST_CASE("Parser Core", "[parse]") {
             TokenID::AMPERSAND,
             TokenID::AMPERSAND_EQUALS,
             TokenID::AND,
+            TokenID::AS,
             TokenID::BANG_EQUALS,
             TokenID::CAROT,
             TokenID::CAROT_EQUALS,
             TokenID::COMMA,
-            TokenID::DOUBLE_COLON,
             TokenID::DOUBLE_EQUALS,
             TokenID::DOUBLE_LEFT_ANGLE,
             TokenID::DOUBLE_LEFT_ANGLE_EQUALS,
+            TokenID::DOUBLE_PIPE,
             TokenID::DOUBLE_RIGHT_ANGLE,
             TokenID::DOUBLE_RIGHT_ANGLE_EQUALS,
             TokenID::DOUBLE_STAR_EQUALS,
@@ -734,7 +724,6 @@ TEST_CASE("Parser Core", "[parse]") {
             TokenID::MINUS_RIGHT_ANGLE,
             TokenID::OR,
             TokenID::PERCENT_EQUALS,
-            TokenID::PIPE,
             TokenID::PIPE_EQUALS,
             TokenID::PLUS,
             TokenID::PLUS_EQUALS,
@@ -747,10 +736,6 @@ TEST_CASE("Parser Core", "[parse]") {
             Op op = Op(tokeninfo(t).op2, s1);
 
             ErrPtr err = on_start(t, s1);
-            REQUIRE(err != nullptr);
-            REQUIRE(*err == UnexpectedTokenErr(t, s1));
-
-            err = on_stmt(t, s1);
             REQUIRE(err != nullptr);
             REQUIRE(*err == UnexpectedTokenErr(t, s1));
 
@@ -796,11 +781,11 @@ TEST_CASE("Parser Core", "[parse]") {
 
     SECTION("Multiary Tokens") {
         for (TokenID t: std::vector{
-            TokenID::COLON,
             TokenID::DOUBLE_STAR,
             TokenID::DOT,
             TokenID::MINUS,
             TokenID::PERCENT,
+            TokenID::PIPE,
             TokenID::STAR
         }) {
             Op unary_op = Op(tokeninfo(t).op1, s1);
@@ -810,9 +795,6 @@ TEST_CASE("Parser Core", "[parse]") {
             REQUIRE(parser.orientation == Orientation::BEFORE);
             REQUIRE(parser.prev == t);
             REQUIRE(parser.prev_src == s1);
-
-            REQUIRE(on_stmt_op(t, s1) == unary_op);
-            REQUIRE(parser.orientation == Orientation::BEFORE);
 
             REQUIRE(on_before_op(t, s1) == unary_op);
             REQUIRE(parser.orientation == Orientation::BEFORE);
@@ -881,10 +863,6 @@ TEST_CASE("Parser Core", "[parse]") {
             REQUIRE(parser.prev_src == s1);
 
             d = t.data;
-            REQUIRE(on_stmt_op(Token(t.id, std::move(d)), s1) == op1);
-            REQUIRE(parser.orientation == Orientation::AFTER);
-
-            d = t.data;
             REQUIRE(on_before_op(Token(t.id, std::move(d)), s1) == op1);
             REQUIRE(parser.orientation == Orientation::AFTER);
 
@@ -935,11 +913,6 @@ TEST_CASE("Parser Core", "[parse]") {
             REQUIRE(parser.contexts == std::vector{ctx});
             parser.contexts.clear();
 
-            REQUIRE(on_stmt_op(t, s1) == op1);
-            REQUIRE(parser.orientation == Orientation::BEFORE);
-            REQUIRE(parser.contexts == std::vector{ctx});
-            parser.contexts.clear();
-
             REQUIRE(on_before_op(t, s1) == op1);
             REQUIRE(parser.orientation == Orientation::BEFORE);
             REQUIRE(parser.contexts == std::vector{ctx});
@@ -985,10 +958,6 @@ TEST_CASE("Parser Core", "[parse]") {
             Context ctx = tokeninfo(t).match;
 
             ErrPtr err = on_start(t, s1);
-            REQUIRE(err != nullptr);
-            REQUIRE(*err == UnexpectedTokenErr(t, s1));
-
-            err = on_stmt(t, s1);
             REQUIRE(err != nullptr);
             REQUIRE(*err == UnexpectedTokenErr(t, s1));
 
@@ -1072,9 +1041,6 @@ TEST_CASE("Parser Core", "[parse]") {
                 TokenID::WHILE
             }
         ) {
-            parser.parsing_pred = false;
-            parser.prev_was_no_pred_construct = false;
-
             // op is the "unary" operator corresponding to the construct.
             Op op = Op(tokeninfo(t).op1, s1);
 
@@ -1083,18 +1049,12 @@ TEST_CASE("Parser Core", "[parse]") {
             );
             REQUIRE(parser.orientation == Orientation::BEFORE);
             REQUIRE(parser.contexts == std::vector{Context::CONSTRUCT});
-            REQUIRE(parser.prev_was_no_pred_construct == (t == TokenID::TRY));
-            REQUIRE(parser.parsing_pred);
             REQUIRE(parser.prev == t);
             REQUIRE(parser.prev_src == s1);
             parser.contexts.clear();
 
             // START is the only valid orientation for CONSTRUCT_FIRST.
-            ErrPtr err = on_stmt(t, s1);
-            REQUIRE(err != nullptr);
-            REQUIRE(*err == UnexpectedTokenErr(t, s1));
-
-            err = on_before(t, s1);
+            ErrPtr err = on_before(t, s1);
             REQUIRE(err != nullptr);
             REQUIRE(*err == UnexpectedTokenErr(t, s1));
 
@@ -1134,7 +1094,6 @@ TEST_CASE("Parser Core", "[parse]") {
             }
         ) {
             parser.contexts.clear();
-            parser.parsing_pred = false;
 
             // op is the "unary" operator corresponding to the construct middle.
             Op op = Op(tokeninfo(t).op1, s1);
@@ -1148,15 +1107,10 @@ TEST_CASE("Parser Core", "[parse]") {
             parser.contexts.push_back(Context::CONSTRUCT);
             REQUIRE(on_start_op(t, s1) == op);
             REQUIRE(parser.orientation == Orientation::BEFORE);
-            REQUIRE(parser.parsing_pred);
             REQUIRE(parser.prev == t);
             REQUIRE(parser.prev_src == s1);
 
             // START is the only valid orientation for CONSTRUCT_MIDDLE.
-            err = on_stmt(t, s1);
-            REQUIRE(err != nullptr);
-            REQUIRE(*err == UnexpectedTokenErr(t, s1));
-
             err = on_before(t, s1);
             REQUIRE(err != nullptr);
             REQUIRE(*err == UnexpectedTokenErr(t, s1));
@@ -1182,8 +1136,6 @@ TEST_CASE("Parser Core", "[parse]") {
     SECTION("Construct Last Tokens") {
         for(TokenID t: std::vector{TokenID::FINALLY}) {
             parser.contexts.clear();
-            parser.parsing_pred = false;
-            parser.prev_was_no_pred_construct = false;
 
             // op is the "unary" operator corresponding to the construct last.
             Op op = Op(tokeninfo(t).op1, s1);
@@ -1197,19 +1149,11 @@ TEST_CASE("Parser Core", "[parse]") {
             parser.contexts.push_back(Context::CONSTRUCT);
             REQUIRE(on_start_op(t, s1) == op);
             REQUIRE(parser.orientation == Orientation::BEFORE);
-            REQUIRE(
-                parser.prev_was_no_pred_construct == (t == TokenID::FINALLY)
-            );
-            REQUIRE(parser.parsing_pred);
             REQUIRE(parser.prev == t);
             REQUIRE(parser.prev_src == s1);
             REQUIRE(parser.contexts == std::vector{Context::CONSTRUCT_END});
 
             // START is the only valid orientation for CONSTRUCT_LAST.
-            err = on_stmt(t, s1);
-            REQUIRE(err != nullptr);
-            REQUIRE(*err == UnexpectedTokenErr(t, s1));
-
             err = on_before(t, s1);
             REQUIRE(err != nullptr);
             REQUIRE(*err == UnexpectedTokenErr(t, s1));
@@ -1239,9 +1183,6 @@ TEST_CASE("Parser Core", "[parse]") {
             REQUIRE(parser.orientation == Orientation::OPTIONAL);
             REQUIRE(parser.prev == t);
             REQUIRE(parser.prev_src == s1);
-
-            REQUIRE(on_stmt_op(t, s1) == op);
-            REQUIRE(parser.orientation == Orientation::OPTIONAL);
 
             ErrPtr err = on_before(t, s1);
             REQUIRE(err != nullptr);
@@ -1328,30 +1269,74 @@ TEST_CASE("Parser Core", "[parse]") {
         REQUIRE(*err == UnexpectedTokenErr(TokenID::AT, s1));
     }
 
-    SECTION("Colon Special Cases") {
-        // When parser.prev_was_no_pred_construct, colon should move from BEFORE
-        // to STMT and emit the BODY operator.
-        parser.prev_was_no_pred_construct = true;
-        parser.parsing_pred = true;
+    SECTION("Colon Token") {
+        // No ops pushed immediately when colon is outside brackets.
+        REQUIRE(on_before_ops(TokenID::COLON, s1) == std::deque<Op>{});
 
-        REQUIRE(on_before_op(TokenID::COLON, s1) == Op(OpID::BODY, s1));
-        REQUIRE(parser.orientation == Orientation::STMT);
-        REQUIRE_FALSE(parser.prev_was_no_pred_construct);
-        REQUIRE_FALSE(parser.parsing_pred);
+        // Orientation doesn't change yet either.
+        REQUIRE(parser.orientation == Orientation::BEFORE);
+        REQUIRE(parser.prev == TokenID::COLON);
+        REQUIRE(parser.prev_src == s1);
 
-        // When parser.parsing_pred, colon should move from AFTER to STMT and
-        // emit the LABEL operator.
-        parser.parsing_pred = true;
-        REQUIRE(on_after_op(TokenID::COLON, s1) == Op(OpID::LABEL, s1));
-        REQUIRE(parser.orientation == Orientation::STMT);
-        REQUIRE_FALSE(parser.parsing_pred);
+        // After another token is fed, we know we're not indenting, so the colon
+        // operator is pushed as well as the new operator.
+        REQUIRE(
+            on_before_ops(Token(TokenID::ID, "x"), s2) ==
+            std::deque<Op>{Op(OpID::SYMBOL, s1), Op(OpID::ID, "x", s2)}
+        );
+        // Now orientation has changed.
+        REQUIRE(parser.orientation == Orientation::AFTER);
 
-        // However, when in brackets, the colon operator should work as usual.
-        parser.parsing_pred = true;
+        // Set colon to prev and repeat, this time with another colon.
+        // Now we should only get one operator emitted at first.
+        parser.prev = TokenID::COLON;
+        parser.prev_src = s1;
+        REQUIRE(on_before_op(TokenID::COLON, s2) == Op(OpID::SYMBOL, s1));
+        REQUIRE(parser.orientation == Orientation::BEFORE);
+
+        // Now repeat the tests in after orientation.
+        parser.prev = TokenID::SPACE;
+        parser.prev_src = s0;
+        REQUIRE(on_after_ops(TokenID::COLON, s1) == std::deque<Op>{});
+        REQUIRE(parser.orientation == Orientation::AFTER);
+        REQUIRE(parser.prev == TokenID::COLON);
+        REQUIRE(parser.prev_src == s1);
+
+        REQUIRE(
+            on_after_ops(Token(TokenID::ID, "Int"), s2) ==
+            std::deque<Op>{Op(OpID::TYPE_LABEL, s1), Op(OpID::ID, "Int", s2)}
+        );
+
+        parser.prev = TokenID::COLON;
+        parser.prev_src = s1;
+        REQUIRE(on_after_op(TokenID::COLON, s2) == Op(OpID::TYPE_LABEL, s1));
+        REQUIRE(parser.orientation == Orientation::BEFORE);
+
+        // Now try inside brackets.
+        parser.prev = TokenID::SPACE;
+        parser.prev_src = s0;
         parser.contexts.push_back(Context::CURVED);
+        REQUIRE(on_before_op(TokenID::COLON, s1) == Op(OpID::SYMBOL, s1));
+        REQUIRE(parser.orientation == Orientation::BEFORE);
+
+        parser.prev = TokenID::SPACE;
+        parser.prev_src = s0;
         REQUIRE(on_after_op(TokenID::COLON, s1) == Op(OpID::TYPE_LABEL, s1));
         REQUIRE(parser.orientation == Orientation::BEFORE);
-        REQUIRE(parser.parsing_pred);
+
+        parser.contexts.clear();
+
+        // Now try with a newline following the colon.
+        REQUIRE(parser.prev == TokenID::COLON);
+        REQUIRE(parser.prev_src == s1);
+        REQUIRE(on_before_op(TokenID::NEWLINE, s2) == Op(OpID::BODY, s1));
+        REQUIRE(parser.orientation == Orientation::INDENTING);
+
+        // Now try with after orientation.
+        REQUIRE(parser.prev == TokenID::COLON);
+        REQUIRE(parser.prev_src == s1);
+        REQUIRE(on_after_op(TokenID::NEWLINE, s3) == Op(OpID::LABEL, s1));
+        REQUIRE(parser.orientation == Orientation::INDENTING);
     }
 
     SECTION("Else Token") {
@@ -1365,16 +1350,10 @@ TEST_CASE("Parser Core", "[parse]") {
         parser.contexts.push_back(Context::CONSTRUCT);
         REQUIRE(on_start_op(TokenID::ELSE, s1) == Op(OpID::ELSE, s1));
         REQUIRE(parser.orientation == Orientation::BEFORE);
-        REQUIRE(parser.prev_was_no_pred_construct);
-        REQUIRE(parser.parsing_pred);
         REQUIRE(parser.prev == TokenID::ELSE);
         REQUIRE(parser.prev_src == s1);
         REQUIRE(parser.contexts == std::vector{Context::CONSTRUCT_END});
         parser.contexts.clear();
-
-        err = on_stmt(TokenID::ELSE, s1);
-        REQUIRE(err != nullptr);
-        REQUIRE(*err == UnexpectedTokenErr(TokenID::ELSE, s1));
 
         err = on_before(TokenID::ELSE, s1);
         REQUIRE(err != nullptr);
@@ -1405,16 +1384,11 @@ TEST_CASE("Parser Core", "[parse]") {
         );
         REQUIRE(parser.orientation == Orientation::BEFORE);
         REQUIRE(parser.contexts == std::vector{Context::CONSTRUCT});
-        REQUIRE(parser.parsing_pred);
         REQUIRE(parser.prev == TokenID::IF);
         REQUIRE(parser.prev_src == s1);
         parser.contexts.clear();
 
-        ErrPtr err = on_stmt(TokenID::IF, s1);
-        REQUIRE(err != nullptr);
-        REQUIRE(*err == UnexpectedTokenErr(TokenID::IF, s1));
-
-        err = on_before(TokenID::IF, s1);
+        ErrPtr err = on_before(TokenID::IF, s1);
         REQUIRE(err != nullptr);
         REQUIRE(*err == UnexpectedTokenErr(TokenID::IF, s1));
 
@@ -1824,36 +1798,6 @@ TEST_CASE("Parser Input/Output", "[parse]") {
             Op(OpID::PLAIN_INT, "2", s9),
             Op(OpID::END, s10)
         ));
-
-        // fn(1, kw1="yes", kw1=true)
-        REQUIRE(feed_all(vec(
-            ST{Token(TokenID::ID, "fn"), s1},
-            ST{Token(TokenID::LEFT_CURVED), s2},
-            ST{Token(TokenID::PLAIN_INT, "1"), s3},
-            ST{Token(TokenID::COMMA), s4},
-            ST{Token(TokenID::ID, "kw1"), s5},
-            ST{Token(TokenID::EQUALS), s6},
-            ST{Token(TokenID::STRING, "yes"), s7},
-            ST{Token(TokenID::COMMA), s8},
-            ST{Token(TokenID::ID, "kw1"), s9},
-            ST{Token(TokenID::EQUALS), s10},
-            ST{Token(TokenID::TRUE), s11},
-            ST{Token(TokenID::RIGHT_CURVED), s12}
-        )) == vec(
-            Op(OpID::ID, "fn", s1),
-            Op(OpID::CALL, s2),
-            Op(OpID::GROUP, s2),
-            Op(OpID::PLAIN_INT, "1", s3),
-            Op(OpID::SEP, s4),
-            Op(OpID::ID, "kw1", s5),
-            Op(OpID::BIND, s6),
-            Op(OpID::STRING, "yes", s7),
-            Op(OpID::SEP, s8),
-            Op(OpID::ID, "kw1", s9),
-            Op(OpID::BIND, s10),
-            Op(OpID::TRUE, s11),
-            Op(OpID::END, s12)
-        ));
     }
 
     SECTION("CallAttr") {
@@ -1967,30 +1911,6 @@ TEST_CASE("Parser Input/Output", "[parse]") {
     }
 
     SECTION("Def") {
-        // def f(): return 0
-        REQUIRE(feed_all(vec(
-            ST{Token(TokenID::DEF), s1},
-            ST{Token(TokenID::ID, "f"), s2},
-            ST{Token(TokenID::LEFT_CURVED), s3},
-            ST{Token(TokenID::RIGHT_CURVED), s4},
-            ST{Token(TokenID::COLON), s5},
-            ST{Token(TokenID::RETURN), s6},
-            ST{Token(TokenID::PLAIN_INT, "0"), s7}
-        )) == vec(
-            Op(OpID::CONSTRUCT, s1),
-            Op(OpID::DEF, s1),
-            Op(OpID::ID, "f", s2),
-            Op(OpID::CALL, s3),
-            Op(OpID::GROUP, s3),
-            Op(OpID::NOTHING, s4),
-            Op(OpID::END, s4),
-            Op(OpID::LABEL, s5),
-            Op(OpID::RETURN, s6),
-            Op(OpID::PLAIN_INT, "0", s7),
-            Op(OpID::STMT, s_end),
-            Op(OpID::END, s_end)
-        ));
-
         // def f():
         //     return 0
         REQUIRE(feed_all(vec(
@@ -2182,7 +2102,7 @@ TEST_CASE("Parser Input/Output", "[parse]") {
             Op(OpID::END, s_end)
         ));
 
-        // def f(arg1, arg2: Int, *args, kw1=1, kw2: Bool) -> Int:
+        // def f(arg1, arg2: Int, *args, *, kw1=1, kw2: Bool) -> Int:
         //     return 0
         REQUIRE(feed_all(vec(
             ST{Token(TokenID::DEF), s1},
@@ -2197,21 +2117,23 @@ TEST_CASE("Parser Input/Output", "[parse]") {
             ST{Token(TokenID::STAR), s10},
             ST{Token(TokenID::ID, "args"), s11},
             ST{Token(TokenID::COMMA), s12},
-            ST{Token(TokenID::ID, "kw1"), s13},
-            ST{Token(TokenID::EQUALS), s14},
-            ST{Token(TokenID::PLAIN_INT, "1"), s15},
-            ST{Token(TokenID::COMMA), s16},
-            ST{Token(TokenID::ID, "kw2"), s17},
-            ST{Token(TokenID::COLON), s18},
-            ST{Token(TokenID::ID, "Bool"), s19},
-            ST{Token(TokenID::RIGHT_CURVED), s20},
-            ST{Token(TokenID::MINUS_RIGHT_ANGLE), s21},
-            ST{Token(TokenID::ID, "Int"), s22},
-            ST{Token(TokenID::COLON), s23},
-            ST{Token(TokenID::NEWLINE), s24},
-            ST{Token(TokenID::SPACE, std::uint32_t(4)), s25},
-            ST{Token(TokenID::RETURN), s26},
-            ST{Token(TokenID::PLAIN_INT, "0"), s27}
+            ST{Token(TokenID::STAR), s13},
+            ST{Token(TokenID::COMMA), s14},
+            ST{Token(TokenID::ID, "kw1"), s15},
+            ST{Token(TokenID::EQUALS), s16},
+            ST{Token(TokenID::PLAIN_INT, "1"), s17},
+            ST{Token(TokenID::COMMA), s18},
+            ST{Token(TokenID::ID, "kw2"), s19},
+            ST{Token(TokenID::COLON), s20},
+            ST{Token(TokenID::ID, "Bool"), s21},
+            ST{Token(TokenID::RIGHT_CURVED), s22},
+            ST{Token(TokenID::MINUS_RIGHT_ANGLE), s23},
+            ST{Token(TokenID::ID, "Int"), s24},
+            ST{Token(TokenID::COLON), s25},
+            ST{Token(TokenID::NEWLINE), s26},
+            ST{Token(TokenID::SPACE, std::uint32_t(4)), s27},
+            ST{Token(TokenID::RETURN), s28},
+            ST{Token(TokenID::PLAIN_INT, "0"), s29}
         )) == vec(
             Op(OpID::CONSTRUCT, s1),
             Op(OpID::DEF, s1),
@@ -2227,20 +2149,22 @@ TEST_CASE("Parser Input/Output", "[parse]") {
             Op(OpID::UNPACK_ARGS, s10),
             Op(OpID::ID, "args", s11),
             Op(OpID::SEP, s12),
-            Op(OpID::ID, "kw1", s13),
-            Op(OpID::BIND, s14),
-            Op(OpID::PLAIN_INT, "1", s15),
-            Op(OpID::SEP, s16),
-            Op(OpID::ID, "kw2", s17),
-            Op(OpID::TYPE_LABEL, s18),
-            Op(OpID::ID, "Bool", s19),
-            Op(OpID::END, s20),
-            Op(OpID::RETURNS, s21),
-            Op(OpID::ID, "Int", s22),
-            Op(OpID::LABEL, s23),
-            Op(OpID::BLOCK, s25),
-            Op(OpID::RETURN, s26),
-            Op(OpID::PLAIN_INT, "0", s27),
+            Op(OpID::POS_KW_SEP, s13),
+            Op(OpID::SEP, s14),
+            Op(OpID::ID, "kw1", s15),
+            Op(OpID::BIND, s16),
+            Op(OpID::PLAIN_INT, "1", s17),
+            Op(OpID::SEP, s18),
+            Op(OpID::ID, "kw2", s19),
+            Op(OpID::TYPE_LABEL, s20),
+            Op(OpID::ID, "Bool", s21),
+            Op(OpID::END, s22),
+            Op(OpID::RETURNS, s23),
+            Op(OpID::ID, "Int", s24),
+            Op(OpID::LABEL, s25),
+            Op(OpID::BLOCK, s27),
+            Op(OpID::RETURN, s28),
+            Op(OpID::PLAIN_INT, "0", s29),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -2248,7 +2172,7 @@ TEST_CASE("Parser Input/Output", "[parse]") {
         ));
 
         // def f(
-        //     arg1, arg2: Int, *args, kw1=1, kw2: Bool, **kwargs
+        //     arg1, arg2: Int, *args, *, kw1=1, kw2: Bool, **kwargs
         // ) -> Int:
         //     return 0
         REQUIRE(feed_all(vec(
@@ -2264,24 +2188,26 @@ TEST_CASE("Parser Input/Output", "[parse]") {
             ST{Token(TokenID::STAR), s10},
             ST{Token(TokenID::ID, "args"), s11},
             ST{Token(TokenID::COMMA), s12},
-            ST{Token(TokenID::ID, "kw1"), s13},
-            ST{Token(TokenID::EQUALS), s14},
-            ST{Token(TokenID::PLAIN_INT, "1"), s15},
-            ST{Token(TokenID::COMMA), s16},
-            ST{Token(TokenID::ID, "kw2"), s17},
-            ST{Token(TokenID::COLON), s18},
-            ST{Token(TokenID::ID, "Bool"), s19},
-            ST{Token(TokenID::COMMA), s20},
-            ST{Token(TokenID::DOUBLE_STAR), s21},
-            ST{Token(TokenID::ID, "kwargs"), s22},
-            ST{Token(TokenID::RIGHT_CURVED), s23},
-            ST{Token(TokenID::MINUS_RIGHT_ANGLE), s24},
-            ST{Token(TokenID::ID, "Int"), s25},
-            ST{Token(TokenID::COLON), s26},
-            ST{Token(TokenID::NEWLINE), s27},
-            ST{Token(TokenID::SPACE, std::uint32_t(4)), s28},
-            ST{Token(TokenID::RETURN), s29},
-            ST{Token(TokenID::PLAIN_INT, "0"), s30}
+            ST{Token(TokenID::STAR), s13},
+            ST{Token(TokenID::COMMA), s14},
+            ST{Token(TokenID::ID, "kw1"), s15},
+            ST{Token(TokenID::EQUALS), s16},
+            ST{Token(TokenID::PLAIN_INT, "1"), s17},
+            ST{Token(TokenID::COMMA), s18},
+            ST{Token(TokenID::ID, "kw2"), s19},
+            ST{Token(TokenID::COLON), s20},
+            ST{Token(TokenID::ID, "Bool"), s21},
+            ST{Token(TokenID::COMMA), s22},
+            ST{Token(TokenID::DOUBLE_STAR), s23},
+            ST{Token(TokenID::ID, "kwargs"), s24},
+            ST{Token(TokenID::RIGHT_CURVED), s25},
+            ST{Token(TokenID::MINUS_RIGHT_ANGLE), s26},
+            ST{Token(TokenID::ID, "Int"), s27},
+            ST{Token(TokenID::COLON), s28},
+            ST{Token(TokenID::NEWLINE), s29},
+            ST{Token(TokenID::SPACE, std::uint32_t(4)), s30},
+            ST{Token(TokenID::RETURN), s31},
+            ST{Token(TokenID::PLAIN_INT, "0"), s32}
         )) == vec(
             Op(OpID::CONSTRUCT, s1),
             Op(OpID::DEF, s1),
@@ -2297,23 +2223,25 @@ TEST_CASE("Parser Input/Output", "[parse]") {
             Op(OpID::UNPACK_ARGS, s10),
             Op(OpID::ID, "args", s11),
             Op(OpID::SEP, s12),
-            Op(OpID::ID, "kw1", s13),
-            Op(OpID::BIND, s14),
-            Op(OpID::PLAIN_INT, "1", s15),
-            Op(OpID::SEP, s16),
-            Op(OpID::ID, "kw2", s17),
-            Op(OpID::TYPE_LABEL, s18),
-            Op(OpID::ID, "Bool", s19),
-            Op(OpID::SEP, s20),
-            Op(OpID::UNPACK_KWARGS, s21),
-            Op(OpID::ID, "kwargs", s22),
-            Op(OpID::END, s23),
-            Op(OpID::RETURNS, s24),
-            Op(OpID::ID, "Int", s25),
-            Op(OpID::LABEL, s26),
-            Op(OpID::BLOCK, s28),
-            Op(OpID::RETURN, s29),
-            Op(OpID::PLAIN_INT, "0", s30),
+            Op(OpID::POS_KW_SEP, s13),
+            Op(OpID::SEP, s14),
+            Op(OpID::ID, "kw1", s15),
+            Op(OpID::BIND, s16),
+            Op(OpID::PLAIN_INT, "1", s17),
+            Op(OpID::SEP, s18),
+            Op(OpID::ID, "kw2", s19),
+            Op(OpID::TYPE_LABEL, s20),
+            Op(OpID::ID, "Bool", s21),
+            Op(OpID::SEP, s22),
+            Op(OpID::UNPACK_KWARGS, s23),
+            Op(OpID::ID, "kwargs", s24),
+            Op(OpID::END, s25),
+            Op(OpID::RETURNS, s26),
+            Op(OpID::ID, "Int", s27),
+            Op(OpID::LABEL, s28),
+            Op(OpID::BLOCK, s30),
+            Op(OpID::RETURN, s31),
+            Op(OpID::PLAIN_INT, "0", s32),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -2324,7 +2252,7 @@ TEST_CASE("Parser Input/Output", "[parse]") {
         //     return 0
         // case (c: Float32, true) -> Int64:
         //     return 3s64
-        // case (1, *, kw:: 2):
+        // case (1, *, 2 as kw):
         //     return 0
         REQUIRE(feed_all(vec(
             ST{Token(TokenID::DEF), s1},
@@ -2366,9 +2294,9 @@ TEST_CASE("Parser Input/Output", "[parse]") {
             ST{Token(TokenID::COMMA), s37},
             ST{Token(TokenID::STAR), s38},
             ST{Token(TokenID::COMMA), s39},
-            ST{Token(TokenID::ID, "kw"), s40},
-            ST{Token(TokenID::DOUBLE_COLON), s41},
-            ST{Token(TokenID::PLAIN_INT, "2"), s42},
+            ST{Token(TokenID::PLAIN_INT, "2"), s40},
+            ST{Token(TokenID::AS), s41},
+            ST{Token(TokenID::ID, "kw"), s42},
             ST{Token(TokenID::RIGHT_CURVED), s43},
             ST{Token(TokenID::COLON), s44},
             ST{Token(TokenID::NEWLINE), s45},
@@ -2419,9 +2347,9 @@ TEST_CASE("Parser Input/Output", "[parse]") {
             Op(OpID::SEP, s37),
             Op(OpID::POS_KW_SEP, s38),
             Op(OpID::SEP, s39),
-            Op(OpID::ID, "kw", s40),
-            Op(OpID::MATCHING, s41),
-            Op(OpID::PLAIN_INT, "2", s42),
+            Op(OpID::PLAIN_INT, "2", s40),
+            Op(OpID::AS, s41),
+            Op(OpID::ID, "kw", s42),
             Op(OpID::END, s43),
             Op(OpID::LABEL, s44),
             Op(OpID::BLOCK, s46),
@@ -2457,6 +2385,147 @@ TEST_CASE("Parser Input/Output", "[parse]") {
             Op(OpID::BLOCK, s7),
             Op(OpID::RETURN, s8),
             Op(OpID::PLAIN_INT, "0", s9),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // def f(x: Int = 1):
+        //     return 0
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::DEF}, s1},
+            ST{{TokenID::ID, "f"}, s2},
+            ST{{TokenID::LEFT_CURVED}, s3},
+            ST{{TokenID::ID, "x"}, s4},
+            ST{{TokenID::COLON}, s5},
+            ST{{TokenID::ID, "Int"}, s6},
+            ST{{TokenID::EQUALS}, s7},
+            ST{{TokenID::PLAIN_INT, "1"}, s8},
+            ST{{TokenID::RIGHT_CURVED}, s9},
+            ST{{TokenID::COLON}, s10},
+            ST{{TokenID::NEWLINE}, s11},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s12},
+            ST{{TokenID::RETURN}, s13},
+            ST{{TokenID::PLAIN_INT, "0"}, s14}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::DEF, s1),
+            Op(OpID::ID, "f", s2),
+            Op(OpID::CALL, s3),
+            Op(OpID::GROUP, s3),
+            Op(OpID::ID, "x", s4),
+            Op(OpID::TYPE_LABEL, s5),
+            Op(OpID::ID, "Int", s6),
+            Op(OpID::BIND, s7),
+            Op(OpID::PLAIN_INT, "1", s8),
+            Op(OpID::END, s9),
+            Op(OpID::LABEL, s10),
+            Op(OpID::BLOCK, s12),
+            Op(OpID::RETURN, s13),
+            Op(OpID::PLAIN_INT, "0", s14),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // def f(x: Int) if x > 2 -> Int:
+        //     return 0
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::DEF}, s1},
+            ST{{TokenID::ID, "f"}, s2},
+            ST{{TokenID::LEFT_CURVED}, s3},
+            ST{{TokenID::ID, "x"}, s4},
+            ST{{TokenID::COLON}, s5},
+            ST{{TokenID::ID, "Int"}, s6},
+            ST{{TokenID::RIGHT_CURVED}, s7},
+            ST{{TokenID::IF}, s8},
+            ST{{TokenID::ID, "x"}, s9},
+            ST{{TokenID::RIGHT_ANGLE}, s10},
+            ST{{TokenID::PLAIN_INT, "2"}, s11},
+            ST{{TokenID::MINUS_RIGHT_ANGLE}, s12},
+            ST{{TokenID::ID, "Int"}, s13},
+            ST{{TokenID::COLON}, s14},
+            ST{{TokenID::NEWLINE}, s15},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s16},
+            ST{{TokenID::RETURN}, s17},
+            ST{{TokenID::PLAIN_INT, "0"}, s18}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::DEF, s1),
+            Op(OpID::ID, "f", s2),
+            Op(OpID::CALL, s3),
+            Op(OpID::GROUP, s3),
+            Op(OpID::ID, "x", s4),
+            Op(OpID::TYPE_LABEL, s5),
+            Op(OpID::ID, "Int", s6),
+            Op(OpID::END, s7),
+            Op(OpID::TERNARY_IF, s8),
+            Op(OpID::ID, "x", s9),
+            Op(OpID::GT, s10),
+            Op(OpID::PLAIN_INT, "2", s11),
+            Op(OpID::RETURNS, s12),
+            Op(OpID::ID, "Int", s13),
+            Op(OpID::LABEL, s14),
+            Op(OpID::BLOCK, s16),
+            Op(OpID::RETURN, s17),
+            Op(OpID::PLAIN_INT, "0", s18),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // def f((3, x) as y = (3, 4)):
+        //     return 0
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::DEF}, s1},
+            ST{{TokenID::ID, "f"}, s2},
+            ST{{TokenID::LEFT_CURVED}, s3},
+            ST{{TokenID::LEFT_CURVED}, s4},
+            ST{{TokenID::PLAIN_INT, "3"}, s5},
+            ST{{TokenID::COMMA}, s6},
+            ST{{TokenID::ID, "x"}, s7},
+            ST{{TokenID::RIGHT_CURVED}, s8},
+            ST{{TokenID::AS}, s9},
+            ST{{TokenID::ID, "y"}, s10},
+            ST{{TokenID::EQUALS}, s11},
+            ST{{TokenID::LEFT_CURVED}, s12},
+            ST{{TokenID::PLAIN_INT, "3"}, s13},
+            ST{{TokenID::COMMA}, s14},
+            ST{{TokenID::PLAIN_INT, "4"}, s15},
+            ST{{TokenID::RIGHT_CURVED}, s16},
+            ST{{TokenID::RIGHT_CURVED}, s17},
+            ST{{TokenID::COLON}, s18},
+            ST{{TokenID::NEWLINE}, s19},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s20},
+            ST{{TokenID::RETURN}, s21},
+            ST{{TokenID::PLAIN_INT, "0"}, s22}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::DEF, s1),
+            Op(OpID::ID, "f", s2),
+            Op(OpID::CALL, s3),
+            Op(OpID::GROUP, s3),
+            Op(OpID::GROUP, s4),
+            Op(OpID::PLAIN_INT, "3", s5),
+            Op(OpID::SEP, s6),
+            Op(OpID::ID, "x", s7),
+            Op(OpID::END, s8),
+            Op(OpID::AS, s9),
+            Op(OpID::ID, "y", s10),
+            Op(OpID::BIND, s11),
+            Op(OpID::GROUP, s12),
+            Op(OpID::PLAIN_INT, "3", s13),
+            Op(OpID::SEP, s14),
+            Op(OpID::PLAIN_INT, "4", s15),
+            Op(OpID::END, s16),
+            Op(OpID::END, s17),
+            Op(OpID::LABEL, s18),
+            Op(OpID::BLOCK, s20),
+            Op(OpID::RETURN, s21),
+            Op(OpID::PLAIN_INT, "0", s22),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -2566,39 +2635,43 @@ TEST_CASE("Parser Input/Output", "[parse]") {
             Op(OpID::END, s_end)
         ));
 
-        // def f(a=1, b):
+        // def f(x, *, *, y):
         //     return 0
         REQUIRE(feed_all(vec(
-            ST{Token(TokenID::DEF), s1},
-            ST{Token(TokenID::ID, "f"), s2},
-            ST{Token(TokenID::LEFT_CURVED), s3},
-            ST{Token(TokenID::ID, "a"), s4},
-            ST{Token(TokenID::EQUALS), s5},
-            ST{Token(TokenID::PLAIN_INT, "1"), s6},
-            ST{Token(TokenID::COMMA), s7},
-            ST{Token(TokenID::ID, "b"), s8},
-            ST{Token(TokenID::RIGHT_CURVED), s9},
-            ST{Token(TokenID::COLON), s10},
-            ST{Token(TokenID::NEWLINE), s11},
-            ST{Token(TokenID::SPACE, std::uint32_t(4)), s12},
-            ST{Token(TokenID::RETURN), s13},
-            ST{Token(TokenID::PLAIN_INT, "0"), s14}
+            ST{{TokenID::DEF}, s1},
+            ST{{TokenID::ID, "f"}, s2},
+            ST{{TokenID::LEFT_CURVED}, s3},
+            ST{{TokenID::ID, "x"}, s4},
+            ST{{TokenID::COMMA}, s5},
+            ST{{TokenID::STAR}, s6},
+            ST{{TokenID::COMMA}, s7},
+            ST{{TokenID::STAR}, s8},
+            ST{{TokenID::COMMA}, s9},
+            ST{{TokenID::ID, "y"}, s10},
+            ST{{TokenID::RIGHT_CURVED}, s11},
+            ST{{TokenID::COLON}, s12},
+            ST{{TokenID::NEWLINE}, s13},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s14},
+            ST{{TokenID::RETURN}, s15},
+            ST{{TokenID::PLAIN_INT, "0"}, s16}
         )) == vec(
             Op(OpID::CONSTRUCT, s1),
             Op(OpID::DEF, s1),
             Op(OpID::ID, "f", s2),
             Op(OpID::CALL, s3),
             Op(OpID::GROUP, s3),
-            Op(OpID::ID, "a", s4),
-            Op(OpID::BIND, s5),
-            Op(OpID::PLAIN_INT, "1", s6),
+            Op(OpID::ID, "x", s4),
+            Op(OpID::SEP, s5),
+            Op(OpID::POS_KW_SEP, s6),
             Op(OpID::SEP, s7),
-            Op(OpID::ID, "b", s8),
-            Op(OpID::END, s9),
-            Op(OpID::LABEL, s10),
-            Op(OpID::BLOCK, s12),
-            Op(OpID::RETURN, s13),
-            Op(OpID::PLAIN_INT, "0", s14),
+            Op(OpID::POS_KW_SEP, s8),
+            Op(OpID::SEP, s9),
+            Op(OpID::ID, "y", s10),
+            Op(OpID::END, s11),
+            Op(OpID::LABEL, s12),
+            Op(OpID::BLOCK, s14),
+            Op(OpID::RETURN, s15),
+            Op(OpID::PLAIN_INT, "0", s16),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -2636,47 +2709,6 @@ TEST_CASE("Parser Input/Output", "[parse]") {
             Op(OpID::BLOCK, s11),
             Op(OpID::RETURN, s12),
             Op(OpID::PLAIN_INT, "0", s13),
-            Op(OpID::STMT, s_end),
-            Op(OpID::END, s_end),
-            Op(OpID::STMT, s_end),
-            Op(OpID::END, s_end)
-        ));
-
-        // def f(a=1, *args):
-        //     return 0
-        REQUIRE(feed_all(vec(
-            ST{Token(TokenID::DEF), s1},
-            ST{Token(TokenID::ID, "f"), s2},
-            ST{Token(TokenID::LEFT_CURVED), s3},
-            ST{Token(TokenID::ID, "a"), s4},
-            ST{Token(TokenID::EQUALS), s5},
-            ST{Token(TokenID::PLAIN_INT, "1"), s6},
-            ST{Token(TokenID::COMMA), s7},
-            ST{Token(TokenID::STAR), s8},
-            ST{Token(TokenID::ID, "args"), s9},
-            ST{Token(TokenID::RIGHT_CURVED), s10},
-            ST{Token(TokenID::COLON), s11},
-            ST{Token(TokenID::NEWLINE), s12},
-            ST{Token(TokenID::SPACE, std::uint32_t(4)), s13},
-            ST{Token(TokenID::RETURN), s14},
-            ST{Token(TokenID::PLAIN_INT, "0"), s15}
-        )) == vec(
-            Op(OpID::CONSTRUCT, s1),
-            Op(OpID::DEF, s1),
-            Op(OpID::ID, "f", s2),
-            Op(OpID::CALL, s3),
-            Op(OpID::GROUP, s3),
-            Op(OpID::ID, "a", s4),
-            Op(OpID::BIND, s5),
-            Op(OpID::PLAIN_INT, "1", s6),
-            Op(OpID::SEP, s7),
-            Op(OpID::UNPACK_ARGS, s8),
-            Op(OpID::ID, "args", s9),
-            Op(OpID::END, s10),
-            Op(OpID::LABEL, s11),
-            Op(OpID::BLOCK, s13),
-            Op(OpID::RETURN, s14),
-            Op(OpID::PLAIN_INT, "0", s15),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -2796,72 +2828,6 @@ TEST_CASE("Parser Input/Output", "[parse]") {
             Op(OpID::END, s_end)
         ));
 
-        // def f(*3):
-        //     return 0
-        REQUIRE(feed_all(vec(
-            ST{Token(TokenID::DEF), s1},
-            ST{Token(TokenID::ID, "f"), s2},
-            ST{Token(TokenID::LEFT_CURVED), s3},
-            ST{Token(TokenID::STAR), s4},
-            ST{Token(TokenID::PLAIN_INT, "3"), s5},
-            ST{Token(TokenID::RIGHT_CURVED), s6},
-            ST{Token(TokenID::COLON), s7},
-            ST{Token(TokenID::NEWLINE), s8},
-            ST{Token(TokenID::SPACE, std::uint32_t(4)), s9},
-            ST{Token(TokenID::RETURN), s10},
-            ST{Token(TokenID::PLAIN_INT, "0"), s11}
-        )) == vec(
-            Op(OpID::CONSTRUCT, s1),
-            Op(OpID::DEF, s1),
-            Op(OpID::ID, "f", s2),
-            Op(OpID::CALL, s3),
-            Op(OpID::GROUP, s3),
-            Op(OpID::UNPACK_ARGS, s4),
-            Op(OpID::PLAIN_INT, "3", s5),
-            Op(OpID::END, s6),
-            Op(OpID::LABEL, s7),
-            Op(OpID::BLOCK, s9),
-            Op(OpID::RETURN, s10),
-            Op(OpID::PLAIN_INT, "0", s11),
-            Op(OpID::STMT, s_end),
-            Op(OpID::END, s_end),
-            Op(OpID::STMT, s_end),
-            Op(OpID::END, s_end)
-        ));
-
-        // def f(**3):
-        //     return 0
-        REQUIRE(feed_all(vec(
-            ST{Token(TokenID::DEF), s1},
-            ST{Token(TokenID::ID, "f"), s2},
-            ST{Token(TokenID::LEFT_CURVED), s3},
-            ST{Token(TokenID::DOUBLE_STAR), s4},
-            ST{Token(TokenID::PLAIN_INT, "3"), s5},
-            ST{Token(TokenID::RIGHT_CURVED), s6},
-            ST{Token(TokenID::COLON), s7},
-            ST{Token(TokenID::NEWLINE), s8},
-            ST{Token(TokenID::SPACE, std::uint32_t(4)), s9},
-            ST{Token(TokenID::RETURN), s10},
-            ST{Token(TokenID::PLAIN_INT, "0"), s11}
-        )) == vec(
-            Op(OpID::CONSTRUCT, s1),
-            Op(OpID::DEF, s1),
-            Op(OpID::ID, "f", s2),
-            Op(OpID::CALL, s3),
-            Op(OpID::GROUP, s3),
-            Op(OpID::UNPACK_KWARGS, s4),
-            Op(OpID::PLAIN_INT, "3", s5),
-            Op(OpID::END, s6),
-            Op(OpID::LABEL, s7),
-            Op(OpID::BLOCK, s9),
-            Op(OpID::RETURN, s10),
-            Op(OpID::PLAIN_INT, "0", s11),
-            Op(OpID::STMT, s_end),
-            Op(OpID::END, s_end),
-            Op(OpID::STMT, s_end),
-            Op(OpID::END, s_end)
-        ));
-
         // def f(3: Int):
         //     return 0
         REQUIRE(feed_all(vec(
@@ -2891,49 +2857,6 @@ TEST_CASE("Parser Input/Output", "[parse]") {
             Op(OpID::BLOCK, s10),
             Op(OpID::RETURN, s11),
             Op(OpID::PLAIN_INT, "0", s12),
-            Op(OpID::STMT, s_end),
-            Op(OpID::END, s_end),
-            Op(OpID::STMT, s_end),
-            Op(OpID::END, s_end)
-        ));
-
-        // def f(a: Int, a: Float64):
-        //     return 0
-        REQUIRE(feed_all(vec(
-            ST{Token(TokenID::DEF), s1},
-            ST{Token(TokenID::ID, "f"), s2},
-            ST{Token(TokenID::LEFT_CURVED), s3},
-            ST{Token(TokenID::ID, "a"), s4},
-            ST{Token(TokenID::COLON), s5},
-            ST{Token(TokenID::ID, "Int"), s6},
-            ST{Token(TokenID::COMMA), s7},
-            ST{Token(TokenID::ID, "a"), s8},
-            ST{Token(TokenID::COLON), s9},
-            ST{Token(TokenID::ID, "Float64"), s10},
-            ST{Token(TokenID::RIGHT_CURVED), s11},
-            ST{Token(TokenID::COLON), s12},
-            ST{Token(TokenID::NEWLINE), s13},
-            ST{Token(TokenID::SPACE, std::uint32_t(4)), s14},
-            ST{Token(TokenID::RETURN), s15},
-            ST{Token(TokenID::PLAIN_INT, "0"), s16}
-        )) == vec(
-            Op(OpID::CONSTRUCT, s1),
-            Op(OpID::DEF, s1),
-            Op(OpID::ID, "f", s2),
-            Op(OpID::CALL, s3),
-            Op(OpID::GROUP, s3),
-            Op(OpID::ID, "a", s4),
-            Op(OpID::TYPE_LABEL, s5),
-            Op(OpID::ID, "Int", s6),
-            Op(OpID::SEP, s7),
-            Op(OpID::ID, "a", s8),
-            Op(OpID::TYPE_LABEL, s9),
-            Op(OpID::ID, "Float64", s10),
-            Op(OpID::END, s11),
-            Op(OpID::LABEL, s12),
-            Op(OpID::BLOCK, s14),
-            Op(OpID::RETURN, s15),
-            Op(OpID::PLAIN_INT, "0", s16),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -3005,30 +2928,6 @@ TEST_CASE("Parser Input/Output", "[parse]") {
     }
 
     SECTION("For") {
-        // for x in c: a += x
-        REQUIRE(feed_all(vec(
-            ST{Token(TokenID::FOR), s1},
-            ST{Token(TokenID::ID, "x"), s2},
-            ST{Token(TokenID::IN), s3},
-            ST{Token(TokenID::ID, "c"), s4},
-            ST{Token(TokenID::COLON), s5},
-            ST{Token(TokenID::ID, "a"), s6},
-            ST{Token(TokenID::PLUS_EQUALS), s7},
-            ST{Token(TokenID::ID, "x"), s8}
-        )) == vec(
-            Op(OpID::CONSTRUCT, s1),
-            Op(OpID::FOR, s1),
-            Op(OpID::ID, "x", s2),
-            Op(OpID::IN, s3),
-            Op(OpID::ID, "c", s4),
-            Op(OpID::LABEL, s5),
-            Op(OpID::ID, "a", s6),
-            Op(OpID::IADD, s7),
-            Op(OpID::ID, "x", s8),
-            Op(OpID::STMT, s_end),
-            Op(OpID::END, s_end)
-        ));
-
         // for x in c:
         //     a += x
         REQUIRE(feed_all(vec(
@@ -3136,6 +3035,39 @@ TEST_CASE("Parser Input/Output", "[parse]") {
             Op(OpID::ID, "a", s14),
             Op(OpID::IADD, s15),
             Op(OpID::PLAIN_INT, "1", s16),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // for _ in c:
+        //     print("hi")
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::FOR}, s1},
+            ST{{TokenID::PLACEHOLDER}, s2},
+            ST{{TokenID::IN}, s3},
+            ST{{TokenID::ID, "c"}, s4},
+            ST{{TokenID::COLON}, s5},
+            ST{{TokenID::NEWLINE}, s6},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s7},
+            ST{{TokenID::ID, "print"}, s8},
+            ST{{TokenID::LEFT_CURVED}, s9},
+            ST{{TokenID::STRING, "hi"}, s10},
+            ST{{TokenID::RIGHT_CURVED}, s11}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::FOR, s1),
+            Op(OpID::PLACEHOLDER, s2),
+            Op(OpID::IN, s3),
+            Op(OpID::ID, "c", s4),
+            Op(OpID::LABEL, s5),
+            Op(OpID::BLOCK, s7),
+            Op(OpID::ID, "print", s8),
+            Op(OpID::CALL, s9),
+            Op(OpID::GROUP, s9),
+            Op(OpID::STRING, "hi", s10),
+            Op(OpID::END, s11),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -3452,24 +3384,6 @@ TEST_CASE("Parser Input/Output", "[parse]") {
     }
 
     SECTION("If") {
-        // if x: return 0
-        REQUIRE(feed_all(vec(
-            ST{Token(TokenID::IF), s1},
-            ST{Token(TokenID::ID, "x"), s2},
-            ST{Token(TokenID::COLON), s3},
-            ST{Token(TokenID::RETURN), s4},
-            ST{Token(TokenID::PLAIN_INT, "0"), s5}
-        )) == vec(
-            Op(OpID::CONSTRUCT, s1),
-            Op(OpID::IF, s1),
-            Op(OpID::ID, "x", s2),
-            Op(OpID::LABEL, s3),
-            Op(OpID::RETURN, s4),
-            Op(OpID::PLAIN_INT, "0", s5),
-            Op(OpID::STMT, s_end),
-            Op(OpID::END, s_end)
-        ));
-
         // if x:
         //     return 0
         REQUIRE(feed_all(vec(
@@ -4310,77 +4224,77 @@ TEST_CASE("Parser Input/Output", "[parse]") {
             Op(OpID::END, s2)
         ));
 
-        // {a: 1}
+        // {a = 1}
         REQUIRE(feed_all(vec(
             ST{Token(TokenID::LEFT_CURLY), s1},
             ST{Token(TokenID::ID, "a"), s2},
-            ST{Token(TokenID::COLON), s3},
+            ST{Token(TokenID::EQUALS), s3},
             ST{Token(TokenID::PLAIN_INT, "1"), s4},
             ST{Token(TokenID::RIGHT_CURLY), s5}
         )) == vec(
             Op(OpID::ENCLOSURE, s1),
             Op(OpID::ID, "a", s2),
-            Op(OpID::TYPE_LABEL, s3),
+            Op(OpID::BIND, s3),
             Op(OpID::PLAIN_INT, "1", s4),
             Op(OpID::END, s5)
         ));
 
-        // {a: 1, b: 2, c: 3}
+        // {a = 1, b = 2, c = 3}
         REQUIRE(feed_all(vec(
             ST{Token(TokenID::LEFT_CURLY), s1},
             ST{Token(TokenID::ID, "a"), s2},
-            ST{Token(TokenID::COLON), s3},
+            ST{Token(TokenID::EQUALS), s3},
             ST{Token(TokenID::PLAIN_INT, "1"), s4},
             ST{Token(TokenID::COMMA), s5},
             ST{Token(TokenID::ID, "b"), s6},
-            ST{Token(TokenID::COLON), s7},
+            ST{Token(TokenID::EQUALS), s7},
             ST{Token(TokenID::PLAIN_INT, "2"), s8},
             ST{Token(TokenID::COMMA), s9},
             ST{Token(TokenID::ID, "c"), s10},
-            ST{Token(TokenID::COLON), s11},
+            ST{Token(TokenID::EQUALS), s11},
             ST{Token(TokenID::PLAIN_INT, "3"), s12},
             ST{Token(TokenID::RIGHT_CURLY), s13}
         )) == vec(
             Op(OpID::ENCLOSURE, s1),
             Op(OpID::ID, "a", s2),
-            Op(OpID::TYPE_LABEL, s3),
+            Op(OpID::BIND, s3),
             Op(OpID::PLAIN_INT, "1", s4),
             Op(OpID::SEP, s5),
             Op(OpID::ID, "b", s6),
-            Op(OpID::TYPE_LABEL, s7),
+            Op(OpID::BIND, s7),
             Op(OpID::PLAIN_INT, "2", s8),
             Op(OpID::SEP, s9),
             Op(OpID::ID, "c", s10),
-            Op(OpID::TYPE_LABEL, s11),
+            Op(OpID::BIND, s11),
             Op(OpID::PLAIN_INT, "3", s12),
             Op(OpID::END, s13)
         ));
 
-        // {a: 1, **kwargs, b: 2}
+        // {a = 1, **kwargs, b = 2}
         REQUIRE(feed_all(vec(
             ST{Token(TokenID::LEFT_CURLY), s1},
             ST{Token(TokenID::ID, "a"), s2},
-            ST{Token(TokenID::COLON), s3},
+            ST{Token(TokenID::EQUALS), s3},
             ST{Token(TokenID::PLAIN_INT, "1"), s4},
             ST{Token(TokenID::COMMA), s5},
             ST{Token(TokenID::DOUBLE_STAR), s6},
             ST{Token(TokenID::ID, "kwargs"), s7},
             ST{Token(TokenID::COMMA), s8},
             ST{Token(TokenID::ID, "b"), s9},
-            ST{Token(TokenID::COLON), s10},
+            ST{Token(TokenID::EQUALS), s10},
             ST{Token(TokenID::PLAIN_INT, "2"), s11},
             ST{Token(TokenID::RIGHT_CURLY), s12}
         )) == vec(
             Op(OpID::ENCLOSURE, s1),
             Op(OpID::ID, "a", s2),
-            Op(OpID::TYPE_LABEL, s3),
+            Op(OpID::BIND, s3),
             Op(OpID::PLAIN_INT, "1", s4),
             Op(OpID::SEP, s5),
             Op(OpID::UNPACK_KWARGS, s6),
             Op(OpID::ID, "kwargs", s7),
             Op(OpID::SEP, s8),
             Op(OpID::ID, "b", s9),
-            Op(OpID::TYPE_LABEL, s10),
+            Op(OpID::BIND, s10),
             Op(OpID::PLAIN_INT, "2", s11),
             Op(OpID::END, s12)
         ));
@@ -4388,68 +4302,227 @@ TEST_CASE("Parser Input/Output", "[parse]") {
 
     SECTION("Match") {
         // match x
-        // case Int{%y}: return y
+        // case y:
+        //     return y
         REQUIRE(feed_all(vec(
-            ST{Token(TokenID::MATCH), s1},
-            ST{Token(TokenID::ID, "x"), s2},
-            ST{Token(TokenID::NEWLINE), s3},
-            ST{Token(TokenID::CASE), s4},
-            ST{Token(TokenID::ID, "Int"), s5},
-            ST{Token(TokenID::LEFT_CURLY), s6},
-            ST{Token(TokenID::PERCENT), s7},
-            ST{Token(TokenID::ID, "y"), s8},
-            ST{Token(TokenID::RIGHT_CURLY), s9},
-            ST{Token(TokenID::COLON), s10},
-            ST{Token{TokenID::RETURN}, s11},
-            ST{Token(TokenID::ID, "y"), s12}
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::ID, "y"}, s5},
+            ST{{TokenID::COLON}, s6},
+            ST{{TokenID::NEWLINE}, s7},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s8},
+            ST{{TokenID::RETURN}, s9},
+            ST{{TokenID::ID, "y"}, s10}
         )) == vec(
             Op(OpID::CONSTRUCT, s1),
             Op(OpID::MATCH, s1),
             Op(OpID::ID, "x", s2),
             Op(OpID::STMT, s3),
             Op(OpID::CASE, s4),
-            Op(OpID::ID, "Int", s5),
-            Op(OpID::CALL, s6),
-            Op(OpID::ENCLOSURE, s6),
-            Op(OpID::LAMBDA, s7),
-            Op(OpID::ID, "y", s8),
-            Op(OpID::END, s9),
-            Op(OpID::LABEL, s10),
+            Op(OpID::ID, "y", s5),
+            Op(OpID::LABEL, s6),
+            Op(OpID::BLOCK, s8),
+            Op(OpID::RETURN, s9),
+            Op(OpID::ID, "y", s10),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // case y: Int:
+        //     return y
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::ID, "y"}, s5},
+            ST{{TokenID::COLON}, s6},
+            ST{{TokenID::ID, "Int"}, s7},
+            ST{{TokenID::COLON}, s8},
+            ST{{TokenID::NEWLINE}, s9},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s10},
+            ST{{TokenID::RETURN}, s11},
+            ST{{TokenID::ID, "y"}, s12}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ID, "y", s5),
+            Op(OpID::TYPE_LABEL, s6),
+            Op(OpID::ID, "Int", s7),
+            Op(OpID::LABEL, s8),
+            Op(OpID::BLOCK, s10),
             Op(OpID::RETURN, s11),
             Op(OpID::ID, "y", s12),
             Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
             Op(OpID::END, s_end)
         ));
 
         // match x
-        // case Int{%y}:
+        // case y if y > 0:
         //     return y
         REQUIRE(feed_all(vec(
-            ST{Token(TokenID::MATCH), s1},
-            ST{Token(TokenID::ID, "x"), s2},
-            ST{Token(TokenID::NEWLINE), s3},
-            ST{Token(TokenID::CASE), s4},
-            ST{Token(TokenID::ID, "Int"), s5},
-            ST{Token(TokenID::LEFT_CURLY), s6},
-            ST{Token(TokenID::PERCENT), s7},
-            ST{Token(TokenID::ID, "y"), s8},
-            ST{Token(TokenID::RIGHT_CURLY), s9},
-            ST{Token(TokenID::COLON), s10},
-            ST{Token(TokenID::NEWLINE), s11},
-            ST{Token(TokenID::SPACE, std::uint32_t(4)), s12},
-            ST{Token{TokenID::RETURN}, s13},
-            ST{Token(TokenID::ID, "y"), s14}
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::ID, "y"}, s5},
+            ST{{TokenID::IF}, s6},
+            ST{{TokenID::ID, "y"}, s7},
+            ST{{TokenID::RIGHT_ANGLE}, s8},
+            ST{{TokenID::PLAIN_INT, "0"}, s9},
+            ST{{TokenID::COLON}, s10},
+            ST{{TokenID::NEWLINE}, s11},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s12},
+            ST{{TokenID::RETURN}, s13},
+            ST{{TokenID::ID, "y"}, s14}
         )) == vec(
             Op(OpID::CONSTRUCT, s1),
             Op(OpID::MATCH, s1),
             Op(OpID::ID, "x", s2),
             Op(OpID::STMT, s3),
             Op(OpID::CASE, s4),
-            Op(OpID::ID, "Int", s5),
-            Op(OpID::CALL, s6),
-            Op(OpID::ENCLOSURE, s6),
-            Op(OpID::LAMBDA, s7),
-            Op(OpID::ID, "y", s8),
+            Op(OpID::ID, "y", s5),
+            Op(OpID::TERNARY_IF, s6),
+            Op(OpID::ID, "y", s7),
+            Op(OpID::GT, s8),
+            Op(OpID::PLAIN_INT, "0", s9),
+            Op(OpID::LABEL, s10),
+            Op(OpID::BLOCK, s12),
+            Op(OpID::RETURN, s13),
+            Op(OpID::ID, "y", s14),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // case y: Int:
+        //     return y
+        // case _:
+        //     return 0
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::ID, "y"}, s5},
+            ST{{TokenID::COLON}, s6},
+            ST{{TokenID::ID, "Int"}, s7},
+            ST{{TokenID::COLON}, s8},
+            ST{{TokenID::NEWLINE}, s9},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s10},
+            ST{{TokenID::RETURN}, s11},
+            ST{{TokenID::ID, "y"}, s12},
+            ST{{TokenID::NEWLINE}, s13},
+            ST{{TokenID::CASE}, s14},
+            ST{{TokenID::PLACEHOLDER}, s15},
+            ST{{TokenID::COLON}, s16},
+            ST{{TokenID::NEWLINE}, s17},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s18},
+            ST{{TokenID::RETURN}, s19},
+            ST{{TokenID::PLAIN_INT, "0"}, s20}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ID, "y", s5),
+            Op(OpID::TYPE_LABEL, s6),
+            Op(OpID::ID, "Int", s7),
+            Op(OpID::LABEL, s8),
+            Op(OpID::BLOCK, s10),
+            Op(OpID::RETURN, s11),
+            Op(OpID::ID, "y", s12),
+            Op(OpID::STMT, s13),
+            Op(OpID::END, s14),
+            Op(OpID::STMT, s14),
+            Op(OpID::CASE, s14),
+            Op(OpID::PLACEHOLDER, s15),
+            Op(OpID::LABEL, s16),
+            Op(OpID::BLOCK, s18),
+            Op(OpID::RETURN, s19),
+            Op(OpID::PLAIN_INT, "0", s20),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // case (y):
+        //     return y
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::LEFT_CURVED}, s5},
+            ST{{TokenID::ID, "y"}, s6},
+            ST{{TokenID::RIGHT_CURVED}, s7},
+            ST{{TokenID::COLON}, s8},
+            ST{{TokenID::NEWLINE}, s9},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s10},
+            ST{{TokenID::RETURN}, s11},
+            ST{{TokenID::ID, "y"}, s12}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::GROUP, s5),
+            Op(OpID::ID, "y", s6),
+            Op(OpID::END, s7),
+            Op(OpID::LABEL, s8),
+            Op(OpID::BLOCK, s10),
+            Op(OpID::RETURN, s11),
+            Op(OpID::ID, "y", s12),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // case (y, z):
+        //     return y
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::LEFT_CURVED}, s5},
+            ST{{TokenID::ID, "y"}, s6},
+            ST{{TokenID::COMMA}, s7},
+            ST{{TokenID::ID, "z"}, s8},
+            ST{{TokenID::RIGHT_CURVED}, s9},
+            ST{{TokenID::COLON}, s10},
+            ST{{TokenID::NEWLINE}, s11},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s12},
+            ST{{TokenID::RETURN}, s13},
+            ST{{TokenID::ID, "y"}, s14}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::GROUP, s5),
+            Op(OpID::ID, "y", s6),
+            Op(OpID::SEP, s7),
+            Op(OpID::ID, "z", s8),
             Op(OpID::END, s9),
             Op(OpID::LABEL, s10),
             Op(OpID::BLOCK, s12),
@@ -4462,56 +4535,308 @@ TEST_CASE("Parser Input/Output", "[parse]") {
         ));
 
         // match x
-        // case Int{%y}:
+        // case (y, *args, z):
         //     return y
-        // else:
-        //     return 0
         REQUIRE(feed_all(vec(
-            ST{Token(TokenID::MATCH), s1},
-            ST{Token(TokenID::ID, "x"), s2},
-            ST{Token(TokenID::NEWLINE), s3},
-            ST{Token(TokenID::CASE), s4},
-            ST{Token(TokenID::ID, "Int"), s5},
-            ST{Token(TokenID::LEFT_CURLY), s6},
-            ST{Token(TokenID::PERCENT), s7},
-            ST{Token(TokenID::ID, "y"), s8},
-            ST{Token(TokenID::RIGHT_CURLY), s9},
-            ST{Token(TokenID::COLON), s10},
-            ST{Token(TokenID::NEWLINE), s11},
-            ST{Token(TokenID::SPACE, std::uint32_t(4)), s12},
-            ST{Token{TokenID::RETURN}, s13},
-            ST{Token(TokenID::ID, "y"), s14},
-            ST{Token(TokenID::NEWLINE), s15},
-            ST{Token(TokenID::ELSE), s16},
-            ST{Token(TokenID::COLON), s17},
-            ST{Token(TokenID::NEWLINE), s18},
-            ST{Token(TokenID::SPACE, std::uint32_t(4)), s19},
-            ST{Token(TokenID::RETURN), s20},
-            ST{Token(TokenID::PLAIN_INT, "0"), s21}
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::LEFT_CURVED}, s5},
+            ST{{TokenID::ID, "y"}, s6},
+            ST{{TokenID::COMMA}, s7},
+            ST{{TokenID::STAR}, s8},
+            ST{{TokenID::ID, "args"}, s9},
+            ST{{TokenID::COMMA}, s10},
+            ST{{TokenID::ID, "z"}, s11},
+            ST{{TokenID::RIGHT_CURVED}, s12},
+            ST{{TokenID::COLON}, s13},
+            ST{{TokenID::NEWLINE}, s14},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s15},
+            ST{{TokenID::RETURN}, s16},
+            ST{{TokenID::ID, "y"}, s17}
         )) == vec(
             Op(OpID::CONSTRUCT, s1),
             Op(OpID::MATCH, s1),
             Op(OpID::ID, "x", s2),
             Op(OpID::STMT, s3),
             Op(OpID::CASE, s4),
-            Op(OpID::ID, "Int", s5),
-            Op(OpID::CALL, s6),
-            Op(OpID::ENCLOSURE, s6),
-            Op(OpID::LAMBDA, s7),
-            Op(OpID::ID, "y", s8),
+            Op(OpID::GROUP, s5),
+            Op(OpID::ID, "y", s6),
+            Op(OpID::SEP, s7),
+            Op(OpID::UNPACK_ARGS, s8),
+            Op(OpID::ID, "args", s9),
+            Op(OpID::SEP, s10),
+            Op(OpID::ID, "z", s11),
+            Op(OpID::END, s12),
+            Op(OpID::LABEL, s13),
+            Op(OpID::BLOCK, s15),
+            Op(OpID::RETURN, s16),
+            Op(OpID::ID, "y", s17),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // case (*args):
+        //     return 0
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::LEFT_CURVED}, s5},
+            ST{{TokenID::STAR}, s6},
+            ST{{TokenID::ID, "args"}, s7},
+            ST{{TokenID::RIGHT_CURVED}, s8},
+            ST{{TokenID::COLON}, s9},
+            ST{{TokenID::NEWLINE}, s10},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s11},
+            ST{{TokenID::RETURN}, s12},
+            ST{{TokenID::PLAIN_INT, "0"}, s13}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::GROUP, s5),
+            Op(OpID::UNPACK_ARGS, s6),
+            Op(OpID::ID, "args", s7),
+            Op(OpID::END, s8),
+            Op(OpID::LABEL, s9),
+            Op(OpID::BLOCK, s11),
+            Op(OpID::RETURN, s12),
+            Op(OpID::PLAIN_INT, "0", s13),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // case [y, z]:
+        //     return y
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::LEFT_SQUARE}, s5},
+            ST{{TokenID::ID, "y"}, s6},
+            ST{{TokenID::COMMA}, s7},
+            ST{{TokenID::ID, "z"}, s8},
+            ST{{TokenID::RIGHT_SQUARE}, s9},
+            ST{{TokenID::COLON}, s10},
+            ST{{TokenID::NEWLINE}, s11},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s12},
+            ST{{TokenID::RETURN}, s13},
+            ST{{TokenID::ID, "y"}, s14}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::LIST, s5),
+            Op(OpID::ID, "y", s6),
+            Op(OpID::SEP, s7),
+            Op(OpID::ID, "z", s8),
             Op(OpID::END, s9),
             Op(OpID::LABEL, s10),
             Op(OpID::BLOCK, s12),
             Op(OpID::RETURN, s13),
             Op(OpID::ID, "y", s14),
-            Op(OpID::STMT, s15),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // case [y, *args, z]:
+        //     return y
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::LEFT_SQUARE}, s5},
+            ST{{TokenID::ID, "y"}, s6},
+            ST{{TokenID::COMMA}, s7},
+            ST{{TokenID::STAR}, s8},
+            ST{{TokenID::ID, "args"}, s9},
+            ST{{TokenID::COMMA}, s10},
+            ST{{TokenID::ID, "z"}, s11},
+            ST{{TokenID::RIGHT_SQUARE}, s12},
+            ST{{TokenID::COLON}, s13},
+            ST{{TokenID::NEWLINE}, s14},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s15},
+            ST{{TokenID::RETURN}, s16},
+            ST{{TokenID::ID, "y"}, s17}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::LIST, s5),
+            Op(OpID::ID, "y", s6),
+            Op(OpID::SEP, s7),
+            Op(OpID::UNPACK_ARGS, s8),
+            Op(OpID::ID, "args", s9),
+            Op(OpID::SEP, s10),
+            Op(OpID::ID, "z", s11),
+            Op(OpID::END, s12),
+            Op(OpID::LABEL, s13),
+            Op(OpID::BLOCK, s15),
+            Op(OpID::RETURN, s16),
+            Op(OpID::ID, "y", s17),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // case {3 = y, 4 = z}:
+        //     return y
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::LEFT_CURLY}, s5},
+            ST{{TokenID::PLAIN_INT, "3"}, s6},
+            ST{{TokenID::EQUALS}, s7},
+            ST{{TokenID::ID, "y"}, s8},
+            ST{{TokenID::COMMA}, s9},
+            ST{{TokenID::PLAIN_INT, "4"}, s10},
+            ST{{TokenID::EQUALS}, s11},
+            ST{{TokenID::ID, "z"}, s12},
+            ST{{TokenID::RIGHT_CURLY}, s13},
+            ST{{TokenID::COLON}, s14},
+            ST{{TokenID::NEWLINE}, s15},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s16},
+            ST{{TokenID::RETURN}, s17},
+            ST{{TokenID::ID, "y"}, s18}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ENCLOSURE, s5),
+            Op(OpID::PLAIN_INT, "3", s6),
+            Op(OpID::BIND, s7),
+            Op(OpID::ID, "y", s8),
+            Op(OpID::SEP, s9),
+            Op(OpID::PLAIN_INT, "4", s10),
+            Op(OpID::BIND, s11),
+            Op(OpID::ID, "z", s12),
+            Op(OpID::END, s13),
+            Op(OpID::LABEL, s14),
+            Op(OpID::BLOCK, s16),
+            Op(OpID::RETURN, s17),
+            Op(OpID::ID, "y", s18),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x:
+        // case {3 = y: Int}:
+        //     return y
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::LEFT_CURLY}, s5},
+            ST{{TokenID::PLAIN_INT, "3"}, s6},
+            ST{{TokenID::EQUALS}, s7},
+            ST{{TokenID::ID, "y"}, s8},
+            ST{{TokenID::COLON}, s9},
+            ST{{TokenID::ID, "Int"}, s10},
+            ST{{TokenID::RIGHT_CURLY}, s11},
+            ST{{TokenID::COLON}, s12},
+            ST{{TokenID::NEWLINE}, s13},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s14},
+            ST{{TokenID::RETURN}, s15},
+            ST{{TokenID::ID, "y"}, s16}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ENCLOSURE, s5),
+            Op(OpID::PLAIN_INT, "3", s6),
+            Op(OpID::BIND, s7),
+            Op(OpID::ID, "y", s8),
+            Op(OpID::TYPE_LABEL, s9),
+            Op(OpID::ID, "Int", s10),
+            Op(OpID::END, s11),
+            Op(OpID::LABEL, s12),
+            Op(OpID::BLOCK, s14),
+            Op(OpID::RETURN, s15),
+            Op(OpID::ID, "y", s16),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // case {3 = y, 4 = z, **kwargs}:
+        //     return y
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::LEFT_CURLY}, s5},
+            ST{{TokenID::PLAIN_INT, "3"}, s6},
+            ST{{TokenID::EQUALS}, s7},
+            ST{{TokenID::ID, "y"}, s8},
+            ST{{TokenID::COMMA}, s9},
+            ST{{TokenID::PLAIN_INT, "4"}, s10},
+            ST{{TokenID::EQUALS}, s11},
+            ST{{TokenID::ID, "z"}, s12},
+            ST{{TokenID::COMMA}, s13},
+            ST{{TokenID::DOUBLE_STAR}, s14},
+            ST{{TokenID::ID, "kwargs"}, s15},
+            ST{{TokenID::RIGHT_CURLY}, s16},
+            ST{{TokenID::COLON}, s17},
+            ST{{TokenID::NEWLINE}, s18},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s19},
+            ST{{TokenID::RETURN}, s20},
+            ST{{TokenID::ID, "y"}, s21}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ENCLOSURE, s5),
+            Op(OpID::PLAIN_INT, "3", s6),
+            Op(OpID::BIND, s7),
+            Op(OpID::ID, "y", s8),
+            Op(OpID::SEP, s9),
+            Op(OpID::PLAIN_INT, "4", s10),
+            Op(OpID::BIND, s11),
+            Op(OpID::ID, "z", s12),
+            Op(OpID::SEP, s13),
+            Op(OpID::UNPACK_KWARGS, s14),
+            Op(OpID::ID, "kwargs", s15),
             Op(OpID::END, s16),
-            Op(OpID::STMT, s16),
-            Op(OpID::ELSE, s16),
-            Op(OpID::BODY, s17),
+            Op(OpID::LABEL, s17),
             Op(OpID::BLOCK, s19),
             Op(OpID::RETURN, s20),
-            Op(OpID::PLAIN_INT, "0", s21),
+            Op(OpID::ID, "y", s21),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -4519,33 +4844,157 @@ TEST_CASE("Parser Input/Output", "[parse]") {
         ));
 
         // match x
-        // case Int{%y}:
+        // case T(y, w=z):
         //     return y
-        // case false:
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::ID, "T"}, s5},
+            ST{{TokenID::LEFT_CURVED}, s6},
+            ST{{TokenID::ID, "y"}, s7},
+            ST{{TokenID::COMMA}, s8},
+            ST{{TokenID::ID, "w"}, s9},
+            ST{{TokenID::EQUALS}, s10},
+            ST{{TokenID::ID, "z"}, s11},
+            ST{{TokenID::RIGHT_CURVED}, s12},
+            ST{{TokenID::COLON}, s13},
+            ST{{TokenID::NEWLINE}, s14},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s15},
+            ST{{TokenID::RETURN}, s16},
+            ST{{TokenID::ID, "y"}, s17}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ID, "T", s5),
+            Op(OpID::CALL, s6),
+            Op(OpID::GROUP, s6),
+            Op(OpID::ID, "y", s7),
+            Op(OpID::SEP, s8),
+            Op(OpID::ID, "w", s9),
+            Op(OpID::BIND, s10),
+            Op(OpID::ID, "z", s11),
+            Op(OpID::END, s12),
+            Op(OpID::LABEL, s13),
+            Op(OpID::BLOCK, s15),
+            Op(OpID::RETURN, s16),
+            Op(OpID::ID, "y", s17),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // case T(y, *args, **kwargs):
+        //     return y
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::ID, "T"}, s5},
+            ST{{TokenID::LEFT_CURVED}, s6},
+            ST{{TokenID::ID, "y"}, s7},
+            ST{{TokenID::COMMA}, s8},
+            ST{{TokenID::STAR}, s9},
+            ST{{TokenID::ID, "args"}, s10},
+            ST{{TokenID::COMMA}, s11},
+            ST{{TokenID::DOUBLE_STAR}, s12},
+            ST{{TokenID::ID, "kwargs"}, s13},
+            ST{{TokenID::RIGHT_CURVED}, s14},
+            ST{{TokenID::COLON}, s15},
+            ST{{TokenID::NEWLINE}, s16},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s17},
+            ST{{TokenID::RETURN}, s18},
+            ST{{TokenID::ID, "y"}, s19}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ID, "T", s5),
+            Op(OpID::CALL, s6),
+            Op(OpID::GROUP, s6),
+            Op(OpID::ID, "y", s7),
+            Op(OpID::SEP, s8),
+            Op(OpID::UNPACK_ARGS, s9),
+            Op(OpID::ID, "args", s10),
+            Op(OpID::SEP, s11),
+            Op(OpID::UNPACK_KWARGS, s12),
+            Op(OpID::ID, "kwargs", s13),
+            Op(OpID::END, s14),
+            Op(OpID::LABEL, s15),
+            Op(OpID::BLOCK, s17),
+            Op(OpID::RETURN, s18),
+            Op(OpID::ID, "y", s19),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+        // match x
+        // case 1 || 2:
         //     return 0
         REQUIRE(feed_all(vec(
-            ST{Token(TokenID::MATCH), s1},
-            ST{Token(TokenID::ID, "x"), s2},
-            ST{Token(TokenID::NEWLINE), s3},
-            ST{Token(TokenID::CASE), s4},
-            ST{Token(TokenID::ID, "Int"), s5},
-            ST{Token(TokenID::LEFT_CURLY), s6},
-            ST{Token(TokenID::PERCENT), s7},
-            ST{Token(TokenID::ID, "y"), s8},
-            ST{Token(TokenID::RIGHT_CURLY), s9},
-            ST{Token(TokenID::COLON), s10},
-            ST{Token(TokenID::NEWLINE), s11},
-            ST{Token(TokenID::SPACE, std::uint32_t(4)), s12},
-            ST{Token{TokenID::RETURN}, s13},
-            ST{Token(TokenID::ID, "y"), s14},
-            ST{Token(TokenID::NEWLINE), s15},
-            ST{Token(TokenID::CASE), s16},
-            ST{Token(TokenID::FALSE), s17},
-            ST{Token(TokenID::COLON), s18},
-            ST{Token(TokenID::NEWLINE), s19},
-            ST{Token(TokenID::SPACE, std::uint32_t(4)), s20},
-            ST{Token(TokenID::RETURN), s21},
-            ST{Token(TokenID::PLAIN_INT, "0"), s22}
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::PLAIN_INT, "1"}, s5},
+            ST{{TokenID::DOUBLE_PIPE}, s6},
+            ST{{TokenID::PLAIN_INT, "2"}, s7},
+            ST{{TokenID::COLON}, s8},
+            ST{{TokenID::NEWLINE}, s9},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s10},
+            ST{{TokenID::RETURN}, s11},
+            ST{{TokenID::PLAIN_INT, "0"}, s12}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::PLAIN_INT, "1", s5),
+            Op(OpID::MATCH_OR, s6),
+            Op(OpID::PLAIN_INT, "2", s7),
+            Op(OpID::LABEL, s8),
+            Op(OpID::BLOCK, s10),
+            Op(OpID::RETURN, s11),
+            Op(OpID::PLAIN_INT, "0", s12),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // case Int(y) || String(y):
+        //     return y
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::ID, "Int"}, s5},
+            ST{{TokenID::LEFT_CURVED}, s6},
+            ST{{TokenID::ID, "y"}, s7},
+            ST{{TokenID::RIGHT_CURVED}, s8},
+            ST{{TokenID::DOUBLE_PIPE}, s9},
+            ST{{TokenID::ID, "String"}, s10},
+            ST{{TokenID::LEFT_CURVED}, s11},
+            ST{{TokenID::ID, "y"}, s12},
+            ST{{TokenID::RIGHT_CURVED}, s13},
+            ST{{TokenID::COLON}, s14},
+            ST{{TokenID::NEWLINE}, s15},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s16},
+            ST{{TokenID::RETURN}, s17},
+            ST{{TokenID::ID, "y"}, s18}
         )) == vec(
             Op(OpID::CONSTRUCT, s1),
             Op(OpID::MATCH, s1),
@@ -4554,23 +5003,262 @@ TEST_CASE("Parser Input/Output", "[parse]") {
             Op(OpID::CASE, s4),
             Op(OpID::ID, "Int", s5),
             Op(OpID::CALL, s6),
-            Op(OpID::ENCLOSURE, s6),
-            Op(OpID::LAMBDA, s7),
+            Op(OpID::GROUP, s6),
+            Op(OpID::ID, "y", s7),
+            Op(OpID::END, s8),
+            Op(OpID::MATCH_OR, s9),
+            Op(OpID::ID, "String", s10),
+            Op(OpID::CALL, s11),
+            Op(OpID::GROUP, s11),
+            Op(OpID::ID, "y", s12),
+            Op(OpID::END, s13),
+            Op(OpID::LABEL, s14),
+            Op(OpID::BLOCK, s16),
+            Op(OpID::RETURN, s17),
+            Op(OpID::ID, "y", s18),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // case 1 || 2 as y:
+        //     return y
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::PLAIN_INT, "1"}, s5},
+            ST{{TokenID::DOUBLE_PIPE}, s6},
+            ST{{TokenID::PLAIN_INT, "2"}, s7},
+            ST{{TokenID::AS}, s8},
+            ST{{TokenID::ID, "y"}, s9},
+            ST{{TokenID::COLON}, s10},
+            ST{{TokenID::NEWLINE}, s11},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s12},
+            ST{{TokenID::RETURN}, s13},
+            ST{{TokenID::ID, "y"}, s14}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::PLAIN_INT, "1", s5),
+            Op(OpID::MATCH_OR, s6),
+            Op(OpID::PLAIN_INT, "2", s7),
+            Op(OpID::AS, s8),
+            Op(OpID::ID, "y", s9),
+            Op(OpID::LABEL, s10),
+            Op(OpID::BLOCK, s12),
+            Op(OpID::RETURN, s13),
+            Op(OpID::ID, "y", s14),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // case (3 as *args):
+        //     return 0
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::LEFT_CURVED}, s5},
+            ST{{TokenID::PLAIN_INT, "3"}, s6},
+            ST{{TokenID::AS}, s7},
+            ST{{TokenID::STAR}, s8},
+            ST{{TokenID::ID, "args"}, s9},
+            ST{{TokenID::RIGHT_CURVED}, s10},
+            ST{{TokenID::COLON}, s11},
+            ST{{TokenID::NEWLINE}, s12},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s13},
+            ST{{TokenID::RETURN}, s14},
+            ST{{TokenID::PLAIN_INT, "0"}, s15}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::GROUP, s5),
+            Op(OpID::PLAIN_INT, "3", s6),
+            Op(OpID::AS, s7),
+            Op(OpID::UNPACK_ARGS, s8),
+            Op(OpID::ID, "args", s9),
+            Op(OpID::END, s10),
+            Op(OpID::LABEL, s11),
+            Op(OpID::BLOCK, s13),
+            Op(OpID::RETURN, s14),
+            Op(OpID::PLAIN_INT, "0", s15),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // case (*args: Int):
+        //     return 0
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::LEFT_CURVED}, s5},
+            ST{{TokenID::STAR}, s6},
+            ST{{TokenID::ID, "args"}, s7},
+            ST{{TokenID::COLON}, s8},
+            ST{{TokenID::ID, "Int"}, s9},
+            ST{{TokenID::RIGHT_CURVED}, s10},
+            ST{{TokenID::COLON}, s11},
+            ST{{TokenID::NEWLINE}, s12},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s13},
+            ST{{TokenID::RETURN}, s14},
+            ST{{TokenID::PLAIN_INT, "0"}, s15}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::GROUP, s5),
+            Op(OpID::UNPACK_ARGS, s6),
+            Op(OpID::ID, "args", s7),
+            Op(OpID::TYPE_LABEL, s8),
+            Op(OpID::ID, "Int", s9),
+            Op(OpID::END, s10),
+            Op(OpID::LABEL, s11),
+            Op(OpID::BLOCK, s13),
+            Op(OpID::RETURN, s14),
+            Op(OpID::PLAIN_INT, "0", s15),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // case {3 as **kwargs}:
+        //     return 0
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::LEFT_CURLY}, s5},
+            ST{{TokenID::PLAIN_INT, "3"}, s6},
+            ST{{TokenID::AS}, s7},
+            ST{{TokenID::DOUBLE_STAR}, s8},
+            ST{{TokenID::ID, "kwargs"}, s9},
+            ST{{TokenID::RIGHT_CURLY}, s10},
+            ST{{TokenID::COLON}, s11},
+            ST{{TokenID::NEWLINE}, s12},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s13},
+            ST{{TokenID::RETURN}, s14},
+            ST{{TokenID::PLAIN_INT, "0"}, s15}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ENCLOSURE, s5),
+            Op(OpID::PLAIN_INT, "3", s6),
+            Op(OpID::AS, s7),
+            Op(OpID::UNPACK_KWARGS, s8),
+            Op(OpID::ID, "kwargs", s9),
+            Op(OpID::END, s10),
+            Op(OpID::LABEL, s11),
+            Op(OpID::BLOCK, s13),
+            Op(OpID::RETURN, s14),
+            Op(OpID::PLAIN_INT, "0", s15),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // case {**kwargs: Int}:
+        //     return 0
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::LEFT_CURLY}, s5},
+            ST{{TokenID::DOUBLE_STAR}, s6},
+            ST{{TokenID::ID, "kwargs"}, s7},
+            ST{{TokenID::COLON}, s8},
+            ST{{TokenID::ID, "Int"}, s9},
+            ST{{TokenID::RIGHT_CURLY}, s10},
+            ST{{TokenID::COLON}, s11},
+            ST{{TokenID::NEWLINE}, s12},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s13},
+            ST{{TokenID::RETURN}, s14},
+            ST{{TokenID::PLAIN_INT, "0"}, s15}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ENCLOSURE, s5),
+            Op(OpID::UNPACK_KWARGS, s6),
+            Op(OpID::ID, "kwargs", s7),
+            Op(OpID::TYPE_LABEL, s8),
+            Op(OpID::ID, "Int", s9),
+            Op(OpID::END, s10),
+            Op(OpID::LABEL, s11),
+            Op(OpID::BLOCK, s13),
+            Op(OpID::RETURN, s14),
+            Op(OpID::PLAIN_INT, "0", s15),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // case |f(y):
+        //     return y
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::PIPE}, s5},
+            ST{{TokenID::ID, "f"}, s6},
+            ST{{TokenID::LEFT_CURVED}, s7},
+            ST{{TokenID::ID, "y"}, s8},
+            ST{{TokenID::RIGHT_CURVED}, s9},
+            ST{{TokenID::COLON}, s10},
+            ST{{TokenID::NEWLINE}, s11},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s12},
+            ST{{TokenID::RETURN}, s13},
+            ST{{TokenID::ID, "y"}, s14}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::LITERALLY, s5),
+            Op(OpID::ID, "f", s6),
+            Op(OpID::CALL, s7),
+            Op(OpID::GROUP, s7),
             Op(OpID::ID, "y", s8),
             Op(OpID::END, s9),
             Op(OpID::LABEL, s10),
             Op(OpID::BLOCK, s12),
             Op(OpID::RETURN, s13),
             Op(OpID::ID, "y", s14),
-            Op(OpID::STMT, s15),
-            Op(OpID::END, s16),
-            Op(OpID::STMT, s16),
-            Op(OpID::CASE, s16),
-            Op(OpID::FALSE, s17),
-            Op(OpID::LABEL, s18),
-            Op(OpID::BLOCK, s20),
-            Op(OpID::RETURN, s21),
-            Op(OpID::PLAIN_INT, "0", s22),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -4590,67 +5278,711 @@ TEST_CASE("Parser Input/Output", "[parse]") {
         ));
 
         // match x
-        // case Int{%y}
+        // case *args:
+        //     return 0
         REQUIRE(feed_all(vec(
-            ST{Token(TokenID::MATCH), s1},
-            ST{Token(TokenID::ID, "x"), s2},
-            ST{Token(TokenID::NEWLINE), s3},
-            ST{Token(TokenID::CASE), s4},
-            ST{Token(TokenID::ID, "Int"), s5},
-            ST{Token(TokenID::LEFT_CURLY), s6},
-            ST{Token(TokenID::PERCENT), s7},
-            ST{Token(TokenID::ID, "y"), s8},
-            ST{Token(TokenID::RIGHT_CURLY), s9}
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::STAR}, s5},
+            ST{{TokenID::ID, "args"}, s6},
+            ST{{TokenID::COLON}, s7},
+            ST{{TokenID::NEWLINE}, s8},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s9},
+            ST{{TokenID::RETURN}, s10},
+            ST{{TokenID::PLAIN_INT, "0"}, s11}
         )) == vec(
             Op(OpID::CONSTRUCT, s1),
             Op(OpID::MATCH, s1),
             Op(OpID::ID, "x", s2),
             Op(OpID::STMT, s3),
             Op(OpID::CASE, s4),
-            Op(OpID::ID, "Int", s5),
-            Op(OpID::CALL, s6),
-            Op(OpID::ENCLOSURE, s6),
-            Op(OpID::LAMBDA, s7),
-            Op(OpID::ID, "y", s8),
-            Op(OpID::END, s9),
+            Op(OpID::UNPACK_ARGS, s5),
+            Op(OpID::ID, "args", s6),
+            Op(OpID::LABEL, s7),
+            Op(OpID::BLOCK, s9),
+            Op(OpID::RETURN, s10),
+            Op(OpID::PLAIN_INT, "0", s11),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end)
         ));
 
         // match x
-        // elif Int{%y}:
+        // case **kwargs:
+        //     return 0
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::DOUBLE_STAR}, s5},
+            ST{{TokenID::ID, "kwargs"}, s6},
+            ST{{TokenID::COLON}, s7},
+            ST{{TokenID::NEWLINE}, s8},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s9},
+            ST{{TokenID::RETURN}, s10},
+            ST{{TokenID::PLAIN_INT, "0"}, s11}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::UNPACK_KWARGS, s5),
+            Op(OpID::ID, "kwargs", s6),
+            Op(OpID::LABEL, s7),
+            Op(OpID::BLOCK, s9),
+            Op(OpID::RETURN, s10),
+            Op(OpID::PLAIN_INT, "0", s11),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // case [**kwargs]:
+        //     return 0
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::LEFT_SQUARE}, s5},
+            ST{{TokenID::DOUBLE_STAR}, s6},
+            ST{{TokenID::ID, "kwargs"}, s7},
+            ST{{TokenID::RIGHT_SQUARE}, s8},
+            ST{{TokenID::COLON}, s9},
+            ST{{TokenID::NEWLINE}, s10},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s11},
+            ST{{TokenID::RETURN}, s12},
+            ST{{TokenID::PLAIN_INT, "0"}, s13}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::LIST, s5),
+            Op(OpID::UNPACK_KWARGS, s6),
+            Op(OpID::ID, "kwargs", s7),
+            Op(OpID::END, s8),
+            Op(OpID::LABEL, s9),
+            Op(OpID::BLOCK, s11),
+            Op(OpID::RETURN, s12),
+            Op(OpID::PLAIN_INT, "0", s13),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // case {*args}:
+        //     return 0
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::LEFT_CURLY}, s5},
+            ST{{TokenID::STAR}, s6},
+            ST{{TokenID::ID, "args"}, s7},
+            ST{{TokenID::RIGHT_CURLY}, s8},
+            ST{{TokenID::COLON}, s9},
+            ST{{TokenID::NEWLINE}, s10},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s11},
+            ST{{TokenID::RETURN}, s12},
+            ST{{TokenID::PLAIN_INT, "0"}, s13}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ENCLOSURE, s5),
+            Op(OpID::UNPACK_ARGS, s6),
+            Op(OpID::ID, "args", s7),
+            Op(OpID::END, s8),
+            Op(OpID::LABEL, s9),
+            Op(OpID::BLOCK, s11),
+            Op(OpID::RETURN, s12),
+            Op(OpID::PLAIN_INT, "0", s13),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // case [y=2]:
+        //     return 0
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::LEFT_SQUARE}, s5},
+            ST{{TokenID::ID, "y"}, s6},
+            ST{{TokenID::EQUALS}, s7},
+            ST{{TokenID::PLAIN_INT, "2"}, s8},
+            ST{{TokenID::RIGHT_SQUARE}, s9},
+            ST{{TokenID::COLON}, s10},
+            ST{{TokenID::NEWLINE}, s11},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s12},
+            ST{{TokenID::RETURN}, s13},
+            ST{{TokenID::PLAIN_INT, "0"}, s14}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::LIST, s5),
+            Op(OpID::ID, "y", s6),
+            Op(OpID::BIND, s7),
+            Op(OpID::PLAIN_INT, "2", s8),
+            Op(OpID::END, s9),
+            Op(OpID::LABEL, s10),
+            Op(OpID::BLOCK, s12),
+            Op(OpID::RETURN, s13),
+            Op(OpID::PLAIN_INT, "0", s14),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // case y as z as w:
         //     return y
         REQUIRE(feed_all(vec(
-            ST{Token(TokenID::MATCH), s1},
-            ST{Token(TokenID::ID, "x"), s2},
-            ST{Token(TokenID::NEWLINE), s3},
-            ST{Token(TokenID::ELIF), s4},
-            ST{Token(TokenID::ID, "Int"), s5},
-            ST{Token(TokenID::LEFT_CURLY), s6},
-            ST{Token(TokenID::PERCENT), s7},
-            ST{Token(TokenID::ID, "y"), s8},
-            ST{Token(TokenID::RIGHT_CURLY), s9},
-            ST{Token(TokenID::COLON), s10},
-            ST{Token(TokenID::NEWLINE), s11},
-            ST{Token(TokenID::SPACE, std::uint32_t(4)), s12},
-            ST{Token{TokenID::RETURN}, s13},
-            ST{Token(TokenID::ID, "y"), s14}
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::ID, "y"}, s5},
+            ST{{TokenID::AS}, s6},
+            ST{{TokenID::ID, "z"}, s7},
+            ST{{TokenID::AS}, s8},
+            ST{{TokenID::ID, "w"}, s9},
+            ST{{TokenID::COLON}, s10},
+            ST{{TokenID::NEWLINE}, s11},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s12},
+            ST{{TokenID::RETURN}, s13},
+            ST{{TokenID::ID, "y"}, s14}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ID, "y", s5),
+            Op(OpID::AS, s6),
+            Op(OpID::ID, "z", s7),
+            Op(OpID::AS, s8),
+            Op(OpID::ID, "w", s9),
+            Op(OpID::LABEL, s10),
+            Op(OpID::BLOCK, s12),
+            Op(OpID::RETURN, s13),
+            Op(OpID::ID, "y", s14),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // case y: Int as z:
+        //     return y
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::ID, "y"}, s5},
+            ST{{TokenID::COLON}, s6},
+            ST{{TokenID::ID, "Int"}, s7},
+            ST{{TokenID::AS}, s8},
+            ST{{TokenID::ID, "z"}, s9},
+            ST{{TokenID::COLON}, s10},
+            ST{{TokenID::NEWLINE}, s11},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s12},
+            ST{{TokenID::RETURN}, s13},
+            ST{{TokenID::ID, "y"}, s14}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ID, "y", s5),
+            Op(OpID::TYPE_LABEL, s6),
+            Op(OpID::ID, "Int", s7),
+            Op(OpID::AS, s8),
+            Op(OpID::ID, "z", s9),
+            Op(OpID::LABEL, s10),
+            Op(OpID::BLOCK, s12),
+            Op(OpID::RETURN, s13),
+            Op(OpID::ID, "y", s14),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // case [*args as y]:
+        //     return 0
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::LEFT_SQUARE}, s5},
+            ST{{TokenID::STAR}, s6},
+            ST{{TokenID::ID, "args"}, s7},
+            ST{{TokenID::AS}, s8},
+            ST{{TokenID::ID, "y"}, s9},
+            ST{{TokenID::RIGHT_SQUARE}, s10},
+            ST{{TokenID::COLON}, s11},
+            ST{{TokenID::NEWLINE}, s12},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s13},
+            ST{{TokenID::RETURN}, s14},
+            ST{{TokenID::PLAIN_INT, "0"}, s15}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::LIST, s5),
+            Op(OpID::UNPACK_ARGS, s6),
+            Op(OpID::ID, "args", s7),
+            Op(OpID::AS, s8),
+            Op(OpID::ID, "y", s9),
+            Op(OpID::END, s10),
+            Op(OpID::LABEL, s11),
+            Op(OpID::BLOCK, s13),
+            Op(OpID::RETURN, s14),
+            Op(OpID::PLAIN_INT, "0", s15),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // case T(**kwargs as y):
+        //     return 0
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::ID, "T"}, s5},
+            ST{{TokenID::LEFT_CURVED}, s6},
+            ST{{TokenID::DOUBLE_STAR}, s7},
+            ST{{TokenID::ID, "kwargs"}, s8},
+            ST{{TokenID::AS}, s9},
+            ST{{TokenID::ID, "y"}, s10},
+            ST{{TokenID::RIGHT_CURVED}, s11},
+            ST{{TokenID::COLON}, s12},
+            ST{{TokenID::NEWLINE}, s13},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s14},
+            ST{{TokenID::RETURN}, s15},
+            ST{{TokenID::PLAIN_INT, "0"}, s16}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ID, "T", s5),
+            Op(OpID::CALL, s6),
+            Op(OpID::GROUP, s6),
+            Op(OpID::UNPACK_KWARGS, s7),
+            Op(OpID::ID, "kwargs", s8),
+            Op(OpID::AS, s9),
+            Op(OpID::ID, "y", s10),
+            Op(OpID::END, s11),
+            Op(OpID::LABEL, s12),
+            Op(OpID::BLOCK, s14),
+            Op(OpID::RETURN, s15),
+            Op(OpID::PLAIN_INT, "0", s16),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // case (y: Int):
+        //     return 0
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::LEFT_CURVED}, s5},
+            ST{{TokenID::ID, "y"}, s6},
+            ST{{TokenID::COLON}, s7},
+            ST{{TokenID::ID, "Int"}, s8},
+            ST{{TokenID::RIGHT_CURVED}, s9},
+            ST{{TokenID::COLON}, s10},
+            ST{{TokenID::NEWLINE}, s11},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s12},
+            ST{{TokenID::RETURN}, s13},
+            ST{{TokenID::PLAIN_INT, "0"}, s14}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::GROUP, s5),
+            Op(OpID::ID, "y", s6),
+            Op(OpID::TYPE_LABEL, s7),
+            Op(OpID::ID, "Int", s8),
+            Op(OpID::END, s9),
+            Op(OpID::LABEL, s10),
+            Op(OpID::BLOCK, s12),
+            Op(OpID::RETURN, s13),
+            Op(OpID::PLAIN_INT, "0", s14),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // case (3 as y):
+        //     return 0
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::LEFT_CURVED}, s5},
+            ST{{TokenID::PLAIN_INT, "3"}, s6},
+            ST{{TokenID::AS}, s7},
+            ST{{TokenID::ID, "y"}, s8},
+            ST{{TokenID::RIGHT_CURVED}, s9},
+            ST{{TokenID::COLON}, s10},
+            ST{{TokenID::NEWLINE}, s11},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s12},
+            ST{{TokenID::RETURN}, s13},
+            ST{{TokenID::PLAIN_INT, "0"}, s14}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::GROUP, s5),
+            Op(OpID::PLAIN_INT, "3", s6),
+            Op(OpID::AS, s7),
+            Op(OpID::ID, "y", s8),
+            Op(OpID::END, s9),
+            Op(OpID::LABEL, s10),
+            Op(OpID::BLOCK, s12),
+            Op(OpID::RETURN, s13),
+            Op(OpID::PLAIN_INT, "0", s14),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // case {y: Int}:
+        //     return 0
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::LEFT_CURLY}, s5},
+            ST{{TokenID::ID, "y"}, s6},
+            ST{{TokenID::COLON}, s7},
+            ST{{TokenID::ID, "Int"}, s8},
+            ST{{TokenID::RIGHT_CURLY}, s9},
+            ST{{TokenID::COLON}, s10},
+            ST{{TokenID::NEWLINE}, s11},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s12},
+            ST{{TokenID::RETURN}, s13},
+            ST{{TokenID::PLAIN_INT, "0"}, s14}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ENCLOSURE, s5),
+            Op(OpID::ID, "y", s6),
+            Op(OpID::TYPE_LABEL, s7),
+            Op(OpID::ID, "Int", s8),
+            Op(OpID::END, s9),
+            Op(OpID::LABEL, s10),
+            Op(OpID::BLOCK, s12),
+            Op(OpID::RETURN, s13),
+            Op(OpID::PLAIN_INT, "0", s14),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // case {3 as y}:
+        //     return 0
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::LEFT_CURLY}, s5},
+            ST{{TokenID::PLAIN_INT, "3"}, s6},
+            ST{{TokenID::AS}, s7},
+            ST{{TokenID::ID, "y"}, s8},
+            ST{{TokenID::RIGHT_CURLY}, s9},
+            ST{{TokenID::COLON}, s10},
+            ST{{TokenID::NEWLINE}, s11},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s12},
+            ST{{TokenID::RETURN}, s13},
+            ST{{TokenID::PLAIN_INT, "0"}, s14}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ENCLOSURE, s5),
+            Op(OpID::PLAIN_INT, "3", s6),
+            Op(OpID::AS, s7),
+            Op(OpID::ID, "y", s8),
+            Op(OpID::END, s9),
+            Op(OpID::LABEL, s10),
+            Op(OpID::BLOCK, s12),
+            Op(OpID::RETURN, s13),
+            Op(OpID::PLAIN_INT, "0", s14),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // case [*3: Int]
+        //     return 0
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::LEFT_SQUARE}, s5},
+            ST{{TokenID::STAR}, s6},
+            ST{{TokenID::PLAIN_INT, "3"}, s7},
+            ST{{TokenID::COLON}, s8},
+            ST{{TokenID::ID, "Int"}, s9},
+            ST{{TokenID::RIGHT_SQUARE}, s10},
+            ST{{TokenID::COLON}, s11},
+            ST{{TokenID::NEWLINE}, s12},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s13},
+            ST{{TokenID::RETURN}, s14},
+            ST{{TokenID::PLAIN_INT, "0"}, s15}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::LIST, s5),
+            Op(OpID::UNPACK_ARGS, s6),
+            Op(OpID::PLAIN_INT, "3", s7),
+            Op(OpID::TYPE_LABEL, s8),
+            Op(OpID::ID, "Int", s9),
+            Op(OpID::END, s10),
+            Op(OpID::LABEL, s11),
+            Op(OpID::BLOCK, s13),
+            Op(OpID::RETURN, s14),
+            Op(OpID::PLAIN_INT, "0", s15),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // case {**3: Int}
+        //     return 0
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::LEFT_CURLY}, s5},
+            ST{{TokenID::DOUBLE_STAR}, s6},
+            ST{{TokenID::PLAIN_INT, "3"}, s7},
+            ST{{TokenID::COLON}, s8},
+            ST{{TokenID::ID, "Int"}, s9},
+            ST{{TokenID::RIGHT_CURLY}, s10},
+            ST{{TokenID::COLON}, s11},
+            ST{{TokenID::NEWLINE}, s12},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s13},
+            ST{{TokenID::RETURN}, s14},
+            ST{{TokenID::PLAIN_INT, "0"}, s15}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ENCLOSURE, s5),
+            Op(OpID::UNPACK_KWARGS, s6),
+            Op(OpID::PLAIN_INT, "3", s7),
+            Op(OpID::TYPE_LABEL, s8),
+            Op(OpID::ID, "Int", s9),
+            Op(OpID::END, s10),
+            Op(OpID::LABEL, s11),
+            Op(OpID::BLOCK, s13),
+            Op(OpID::RETURN, s14),
+            Op(OpID::PLAIN_INT, "0", s15),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // case [y as *3]:
+        //     return 0
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::LEFT_SQUARE}, s5},
+            ST{{TokenID::ID, "y"}, s6},
+            ST{{TokenID::AS}, s7},
+            ST{{TokenID::STAR}, s8},
+            ST{{TokenID::PLAIN_INT, "3"}, s9},
+            ST{{TokenID::RIGHT_SQUARE}, s10},
+            ST{{TokenID::COLON}, s11},
+            ST{{TokenID::NEWLINE}, s12},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s13},
+            ST{{TokenID::RETURN}, s14},
+            ST{{TokenID::PLAIN_INT, "0"}, s15}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::LIST, s5),
+            Op(OpID::ID, "y", s6),
+            Op(OpID::AS, s7),
+            Op(OpID::UNPACK_ARGS, s8),
+            Op(OpID::PLAIN_INT, "3", s9),
+            Op(OpID::END, s10),
+            Op(OpID::LABEL, s11),
+            Op(OpID::BLOCK, s13),
+            Op(OpID::RETURN, s14),
+            Op(OpID::PLAIN_INT, "0", s15),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // case {y as **3}:
+        //     return 0
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::LEFT_CURLY}, s5},
+            ST{{TokenID::ID, "y"}, s6},
+            ST{{TokenID::AS}, s7},
+            ST{{TokenID::DOUBLE_STAR}, s8},
+            ST{{TokenID::PLAIN_INT, "3"}, s9},
+            ST{{TokenID::RIGHT_CURLY}, s10},
+            ST{{TokenID::COLON}, s11},
+            ST{{TokenID::NEWLINE}, s12},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s13},
+            ST{{TokenID::RETURN}, s14},
+            ST{{TokenID::PLAIN_INT, "0"}, s15}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ENCLOSURE, s5),
+            Op(OpID::ID, "y", s6),
+            Op(OpID::AS, s7),
+            Op(OpID::UNPACK_KWARGS, s8),
+            Op(OpID::PLAIN_INT, "3", s9),
+            Op(OpID::END, s10),
+            Op(OpID::LABEL, s11),
+            Op(OpID::BLOCK, s13),
+            Op(OpID::RETURN, s14),
+            Op(OpID::PLAIN_INT, "0", s15),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // case y
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::CASE}, s4},
+            ST{{TokenID::ID, "y"}, s5}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::MATCH, s1),
+            Op(OpID::ID, "x", s2),
+            Op(OpID::STMT, s3),
+            Op(OpID::CASE, s4),
+            Op(OpID::ID, "y", s5),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // match x
+        // elif y:
+        //     return y
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::MATCH}, s1},
+            ST{{TokenID::ID, "x"}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::ELIF}, s4},
+            ST{{TokenID::ID, "y"}, s5},
+            ST{{TokenID::COLON}, s6},
+            ST{{TokenID::NEWLINE}, s7},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s8},
+            ST{{TokenID::RETURN}, s9},
+            ST{{TokenID::ID, "y"}, s10}
         )) == vec(
             Op(OpID::CONSTRUCT, s1),
             Op(OpID::MATCH, s1),
             Op(OpID::ID, "x", s2),
             Op(OpID::STMT, s3),
             Op(OpID::ELIF, s4),
-            Op(OpID::ID, "Int", s5),
-            Op(OpID::CALL, s6),
-            Op(OpID::ENCLOSURE, s6),
-            Op(OpID::LAMBDA, s7),
-            Op(OpID::ID, "y", s8),
-            Op(OpID::END, s9),
-            Op(OpID::LABEL, s10),
-            Op(OpID::BLOCK, s12),
-            Op(OpID::RETURN, s13),
-            Op(OpID::ID, "y", s14),
+            Op(OpID::ID, "y", s5),
+            Op(OpID::LABEL, s6),
+            Op(OpID::BLOCK, s8),
+            Op(OpID::RETURN, s9),
+            Op(OpID::ID, "y", s10),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -4929,77 +6261,29 @@ TEST_CASE("Parser Input/Output", "[parse]") {
     }
 
     SECTION("Try") {
-        // try: f()
-        // except E{%e}: g()
-        REQUIRE(feed_all(vec(
-            ST{Token(TokenID::TRY), s1},
-            ST{Token(TokenID::COLON), s2},
-            ST{Token(TokenID::ID, "f"), s3},
-            ST{Token(TokenID::LEFT_CURVED), s4},
-            ST{Token(TokenID::RIGHT_CURVED), s5},
-            ST{Token(TokenID::NEWLINE), s6},
-            ST{Token(TokenID::EXCEPT), s7},
-            ST{Token(TokenID::ID, "E"), s8},
-            ST{Token(TokenID::LEFT_CURLY), s9},
-            ST{Token(TokenID::PERCENT), s10},
-            ST{Token(TokenID::ID, "e"), s11},
-            ST{Token(TokenID::RIGHT_CURLY), s12},
-            ST{Token(TokenID::COLON), s13},
-            ST{Token(TokenID::ID, "g"), s14},
-            ST{Token(TokenID::LEFT_CURVED), s15},
-            ST{Token(TokenID::RIGHT_CURVED), s16}
-        )) == vec(
-            Op(OpID::CONSTRUCT, s1),
-            Op(OpID::TRY, s1),
-            Op(OpID::BODY, s2),
-            Op(OpID::ID, "f", s3),
-            Op(OpID::CALL, s4),
-            Op(OpID::GROUP, s4),
-            Op(OpID::NOTHING, s5),
-            Op(OpID::END, s5),
-            Op(OpID::STMT, s6),
-            Op(OpID::EXCEPT, s7),
-            Op(OpID::ID, "E", s8),
-            Op(OpID::CALL, s9),
-            Op(OpID::ENCLOSURE, s9),
-            Op(OpID::LAMBDA, s10),
-            Op(OpID::ID, "e", s11),
-            Op(OpID::END, s12),
-            Op(OpID::LABEL, s13),
-            Op(OpID::ID, "g", s14),
-            Op(OpID::CALL, s15),
-            Op(OpID::GROUP, s15),
-            Op(OpID::NOTHING, s16),
-            Op(OpID::END, s16),
-            Op(OpID::STMT, s_end),
-            Op(OpID::END, s_end)
-        ));
-
         // try:
         //     f()
-        // except E{%e}:
+        // except e: E:
         //     g()
         REQUIRE(feed_all(vec(
-            ST{Token(TokenID::TRY), s1},
-            ST{Token(TokenID::COLON), s2},
-            ST{Token(TokenID::NEWLINE), s3},
-            ST{Token(TokenID::SPACE, std::uint32_t(4)), s4},
-            ST{Token(TokenID::ID, "f"), s5},
-            ST{Token(TokenID::LEFT_CURVED), s6},
-            ST{Token(TokenID::RIGHT_CURVED), s7},
-            ST{Token(TokenID::NEWLINE), s8},
-            ST{Token(TokenID::EXCEPT), s9},
-            ST{Token(TokenID::ID, "E"), s10},
-            ST{Token(TokenID::LEFT_CURLY), s11},
-            ST{Token(TokenID::PERCENT), s12},
-            ST{Token(TokenID::ID, "e"), s13},
-            ST{Token(TokenID::RIGHT_CURLY), s14},
-            ST{Token(TokenID::COLON), s15},
-            ST{Token(TokenID::NEWLINE), s16},
-            ST{Token(TokenID::SPACE, std::uint32_t(4)), s17},
-            ST{Token(TokenID::ID, "g"), s18},
-            ST{Token(TokenID::LEFT_CURVED), s19},
-            ST{Token(TokenID::RIGHT_CURVED), s20}
+            ST{{TokenID::TRY}, s1},
+            ST{{TokenID::COLON}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s4},
+            ST{{TokenID::ID, "f"}, s5},
+            ST{{TokenID::LEFT_CURVED}, s6},
+            ST{{TokenID::RIGHT_CURVED}, s7},
+            ST{{TokenID::NEWLINE}, s8},
+            ST{{TokenID::EXCEPT}, s9},
+            ST{{TokenID::ID, "e"}, s10},
+            ST{{TokenID::COLON}, s11},
+            ST{{TokenID::ID, "E"}, s12},
+            ST{{TokenID::COLON}, s13},
+            ST{{TokenID::NEWLINE}, s14},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s15},
+            ST{{TokenID::ID, "g"}, s16},
+            ST{{TokenID::LEFT_CURVED}, s17},
+            ST{{TokenID::RIGHT_CURVED}, s18}
         )) == vec(
             Op(OpID::CONSTRUCT, s1),
             Op(OpID::TRY, s1),
@@ -5014,19 +6298,16 @@ TEST_CASE("Parser Input/Output", "[parse]") {
             Op(OpID::END, s9),
             Op(OpID::STMT, s9),
             Op(OpID::EXCEPT, s9),
-            Op(OpID::ID, "E", s10),
-            Op(OpID::CALL, s11),
-            Op(OpID::ENCLOSURE, s11),
-            Op(OpID::LAMBDA, s12),
-            Op(OpID::ID, "e", s13),
-            Op(OpID::END, s14),
-            Op(OpID::LABEL, s15),
-            Op(OpID::BLOCK, s17),
-            Op(OpID::ID, "g", s18),
-            Op(OpID::CALL, s19),
-            Op(OpID::GROUP, s19),
-            Op(OpID::NOTHING, s20),
-            Op(OpID::END, s20),
+            Op(OpID::ID, "e", s10),
+            Op(OpID::TYPE_LABEL, s11),
+            Op(OpID::ID, "E", s12),
+            Op(OpID::LABEL, s13),
+            Op(OpID::BLOCK, s15),
+            Op(OpID::ID, "g", s16),
+            Op(OpID::CALL, s17),
+            Op(OpID::GROUP, s17),
+            Op(OpID::NOTHING, s18),
+            Op(OpID::END, s18),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -5035,39 +6316,37 @@ TEST_CASE("Parser Input/Output", "[parse]") {
 
         // try:
         //     f()
-        // except E{%e}:
+        // except e: E:
         //     g()
         // finally:
         //     h()
         REQUIRE(feed_all(vec(
-            ST{Token(TokenID::TRY), s1},
-            ST{Token(TokenID::COLON), s2},
-            ST{Token(TokenID::NEWLINE), s3},
-            ST{Token(TokenID::SPACE, std::uint32_t(4)), s4},
-            ST{Token(TokenID::ID, "f"), s5},
-            ST{Token(TokenID::LEFT_CURVED), s6},
-            ST{Token(TokenID::RIGHT_CURVED), s7},
-            ST{Token(TokenID::NEWLINE), s8},
-            ST{Token(TokenID::EXCEPT), s9},
-            ST{Token(TokenID::ID, "E"), s10},
-            ST{Token(TokenID::LEFT_CURLY), s11},
-            ST{Token(TokenID::PERCENT), s12},
-            ST{Token(TokenID::ID, "e"), s13},
-            ST{Token(TokenID::RIGHT_CURLY), s14},
-            ST{Token(TokenID::COLON), s15},
-            ST{Token(TokenID::NEWLINE), s16},
-            ST{Token(TokenID::SPACE, std::uint32_t(4)), s17},
-            ST{Token(TokenID::ID, "g"), s18},
-            ST{Token(TokenID::LEFT_CURVED), s19},
-            ST{Token(TokenID::RIGHT_CURVED), s20},
-            ST{Token(TokenID::NEWLINE), s21},
-            ST{Token(TokenID::FINALLY), s22},
-            ST{Token(TokenID::COLON), s23},
-            ST{Token(TokenID::NEWLINE), s24},
-            ST{Token(TokenID::SPACE, std::uint32_t(4)), s25},
-            ST{Token(TokenID::ID, "h"), s26},
-            ST{Token(TokenID::LEFT_CURVED), s27},
-            ST{Token(TokenID::RIGHT_CURVED), s28}
+            ST{{TokenID::TRY}, s1},
+            ST{{TokenID::COLON}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s4},
+            ST{{TokenID::ID, "f"}, s5},
+            ST{{TokenID::LEFT_CURVED}, s6},
+            ST{{TokenID::RIGHT_CURVED}, s7},
+            ST{{TokenID::NEWLINE}, s8},
+            ST{{TokenID::EXCEPT}, s9},
+            ST{{TokenID::ID, "e"}, s10},
+            ST{{TokenID::COLON}, s11},
+            ST{{TokenID::ID, "E"}, s12},
+            ST{{TokenID::COLON}, s13},
+            ST{{TokenID::NEWLINE}, s14},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s15},
+            ST{{TokenID::ID, "g"}, s16},
+            ST{{TokenID::LEFT_CURVED}, s17},
+            ST{{TokenID::RIGHT_CURVED}, s18},
+            ST{{TokenID::NEWLINE}, s19},
+            ST{{TokenID::FINALLY}, s20},
+            ST{{TokenID::COLON}, s21},
+            ST{{TokenID::NEWLINE}, s22},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s23},
+            ST{{TokenID::ID, "h"}, s24},
+            ST{{TokenID::LEFT_CURVED}, s25},
+            ST{{TokenID::RIGHT_CURVED}, s26}
         )) == vec(
             Op(OpID::CONSTRUCT, s1),
             Op(OpID::TRY, s1),
@@ -5082,30 +6361,107 @@ TEST_CASE("Parser Input/Output", "[parse]") {
             Op(OpID::END, s9),
             Op(OpID::STMT, s9),
             Op(OpID::EXCEPT, s9),
-            Op(OpID::ID, "E", s10),
-            Op(OpID::CALL, s11),
-            Op(OpID::ENCLOSURE, s11),
-            Op(OpID::LAMBDA, s12),
-            Op(OpID::ID, "e", s13),
-            Op(OpID::END, s14),
-            Op(OpID::LABEL, s15),
-            Op(OpID::BLOCK, s17),
-            Op(OpID::ID, "g", s18),
-            Op(OpID::CALL, s19),
-            Op(OpID::GROUP, s19),
-            Op(OpID::NOTHING, s20),
+            Op(OpID::ID, "e", s10),
+            Op(OpID::TYPE_LABEL, s11),
+            Op(OpID::ID, "E", s12),
+            Op(OpID::LABEL, s13),
+            Op(OpID::BLOCK, s15),
+            Op(OpID::ID, "g", s16),
+            Op(OpID::CALL, s17),
+            Op(OpID::GROUP, s17),
+            Op(OpID::NOTHING, s18),
+            Op(OpID::END, s18),
+            Op(OpID::STMT, s19),
             Op(OpID::END, s20),
-            Op(OpID::STMT, s21),
-            Op(OpID::END, s22),
-            Op(OpID::STMT, s22),
-            Op(OpID::FINALLY, s22),
-            Op(OpID::BODY, s23),
-            Op(OpID::BLOCK, s25),
-            Op(OpID::ID, "h", s26),
-            Op(OpID::CALL, s27),
-            Op(OpID::GROUP, s27),
-            Op(OpID::NOTHING, s28),
-            Op(OpID::END, s28),
+            Op(OpID::STMT, s20),
+            Op(OpID::FINALLY, s20),
+            Op(OpID::BODY, s21),
+            Op(OpID::BLOCK, s23),
+            Op(OpID::ID, "h", s24),
+            Op(OpID::CALL, s25),
+            Op(OpID::GROUP, s25),
+            Op(OpID::NOTHING, s26),
+            Op(OpID::END, s26),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end),
+            Op(OpID::STMT, s_end),
+            Op(OpID::END, s_end)
+        ));
+
+        // try:
+        //     f()
+        // except e: E1:
+        //     g()
+        // except e: E2:
+        //     h()
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::TRY}, s1},
+            ST{{TokenID::COLON}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s4},
+            ST{{TokenID::ID, "f"}, s5},
+            ST{{TokenID::LEFT_CURVED}, s6},
+            ST{{TokenID::RIGHT_CURVED}, s7},
+            ST{{TokenID::NEWLINE}, s8},
+            ST{{TokenID::EXCEPT}, s9},
+            ST{{TokenID::ID, "e"}, s10},
+            ST{{TokenID::COLON}, s11},
+            ST{{TokenID::ID, "E1"}, s12},
+            ST{{TokenID::COLON}, s13},
+            ST{{TokenID::NEWLINE}, s14},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s15},
+            ST{{TokenID::ID, "g"}, s16},
+            ST{{TokenID::LEFT_CURVED}, s17},
+            ST{{TokenID::RIGHT_CURVED}, s18},
+            ST{{TokenID::NEWLINE}, s19},
+            ST{{TokenID::EXCEPT}, s20},
+            ST{{TokenID::ID, "e"}, s21},
+            ST{{TokenID::COLON}, s22},
+            ST{{TokenID::ID, "E2"}, s23},
+            ST{{TokenID::COLON}, s24},
+            ST{{TokenID::NEWLINE}, s25},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s26},
+            ST{{TokenID::ID, "h"}, s27},
+            ST{{TokenID::LEFT_CURVED}, s28},
+            ST{{TokenID::RIGHT_CURVED}, s29}
+        )) == vec(
+            Op(OpID::CONSTRUCT, s1),
+            Op(OpID::TRY, s1),
+            Op(OpID::BODY, s2),
+            Op(OpID::BLOCK, s4),
+            Op(OpID::ID, "f", s5),
+            Op(OpID::CALL, s6),
+            Op(OpID::GROUP, s6),
+            Op(OpID::NOTHING, s7),
+            Op(OpID::END, s7),
+            Op(OpID::STMT, s8),
+            Op(OpID::END, s9),
+            Op(OpID::STMT, s9),
+            Op(OpID::EXCEPT, s9),
+            Op(OpID::ID, "e", s10),
+            Op(OpID::TYPE_LABEL, s11),
+            Op(OpID::ID, "E1", s12),
+            Op(OpID::LABEL, s13),
+            Op(OpID::BLOCK, s15),
+            Op(OpID::ID, "g", s16),
+            Op(OpID::CALL, s17),
+            Op(OpID::GROUP, s17),
+            Op(OpID::NOTHING, s18),
+            Op(OpID::END, s18),
+            Op(OpID::STMT, s19),
+            Op(OpID::END, s20),
+            Op(OpID::STMT, s20),
+            Op(OpID::EXCEPT, s20),
+            Op(OpID::ID, "e", s21),
+            Op(OpID::TYPE_LABEL, s22),
+            Op(OpID::ID, "E2", s23),
+            Op(OpID::LABEL, s24),
+            Op(OpID::BLOCK, s26),
+            Op(OpID::ID, "h", s27),
+            Op(OpID::CALL, s28),
+            Op(OpID::GROUP, s28),
+            Op(OpID::NOTHING, s29),
+            Op(OpID::END, s29),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -5161,96 +6517,6 @@ TEST_CASE("Parser Input/Output", "[parse]") {
 
         // try:
         //     f()
-        // except E1{%e}:
-        //     g()
-        // except E2{%e}:
-        //     h()
-        REQUIRE(feed_all(vec(
-            ST{Token(TokenID::TRY), s1},
-            ST{Token(TokenID::COLON), s2},
-            ST{Token(TokenID::NEWLINE), s3},
-            ST{Token(TokenID::SPACE, std::uint32_t(4)), s4},
-            ST{Token(TokenID::ID, "f"), s5},
-            ST{Token(TokenID::LEFT_CURVED), s6},
-            ST{Token(TokenID::RIGHT_CURVED), s7},
-            ST{Token(TokenID::NEWLINE), s8},
-            ST{Token(TokenID::EXCEPT), s9},
-            ST{Token(TokenID::ID, "E1"), s10},
-            ST{Token(TokenID::LEFT_CURLY), s11},
-            ST{Token(TokenID::PERCENT), s12},
-            ST{Token(TokenID::ID, "e"), s13},
-            ST{Token(TokenID::RIGHT_CURLY), s14},
-            ST{Token(TokenID::COLON), s15},
-            ST{Token(TokenID::NEWLINE), s16},
-            ST{Token(TokenID::SPACE, std::uint32_t(4)), s17},
-            ST{Token(TokenID::ID, "g"), s18},
-            ST{Token(TokenID::LEFT_CURVED), s19},
-            ST{Token(TokenID::RIGHT_CURVED), s20},
-            ST{Token(TokenID::NEWLINE), s21},
-            ST{Token(TokenID::EXCEPT), s22},
-            ST{Token(TokenID::ID, "E2"), s23},
-            ST{Token(TokenID::LEFT_CURLY), s24},
-            ST{Token(TokenID::PERCENT), s25},
-            ST{Token(TokenID::ID, "e"), s26},
-            ST{Token(TokenID::RIGHT_CURLY), s27},
-            ST{Token(TokenID::COLON), s28},
-            ST{Token(TokenID::NEWLINE), s29},
-            ST{Token(TokenID::SPACE, std::uint32_t(4)), s30},
-            ST{Token(TokenID::ID, "h"), s31},
-            ST{Token(TokenID::LEFT_CURVED), s32},
-            ST{Token(TokenID::RIGHT_CURVED), s33}
-        )) == vec(
-            Op(OpID::CONSTRUCT, s1),
-            Op(OpID::TRY, s1),
-            Op(OpID::BODY, s2),
-            Op(OpID::BLOCK, s4),
-            Op(OpID::ID, "f", s5),
-            Op(OpID::CALL, s6),
-            Op(OpID::GROUP, s6),
-            Op(OpID::NOTHING, s7),
-            Op(OpID::END, s7),
-            Op(OpID::STMT, s8),
-            Op(OpID::END, s9),
-            Op(OpID::STMT, s9),
-            Op(OpID::EXCEPT, s9),
-            Op(OpID::ID, "E1", s10),
-            Op(OpID::CALL, s11),
-            Op(OpID::ENCLOSURE, s11),
-            Op(OpID::LAMBDA, s12),
-            Op(OpID::ID, "e", s13),
-            Op(OpID::END, s14),
-            Op(OpID::LABEL, s15),
-            Op(OpID::BLOCK, s17),
-            Op(OpID::ID, "g", s18),
-            Op(OpID::CALL, s19),
-            Op(OpID::GROUP, s19),
-            Op(OpID::NOTHING, s20),
-            Op(OpID::END, s20),
-            Op(OpID::STMT, s21),
-            Op(OpID::END, s22),
-            Op(OpID::STMT, s22),
-            Op(OpID::EXCEPT, s22),
-            Op(OpID::ID, "E2", s23),
-            Op(OpID::CALL, s24),
-            Op(OpID::ENCLOSURE, s24),
-            Op(OpID::LAMBDA, s25),
-            Op(OpID::ID, "e", s26),
-            Op(OpID::END, s27),
-            Op(OpID::LABEL, s28),
-            Op(OpID::BLOCK, s30),
-            Op(OpID::ID, "h", s31),
-            Op(OpID::CALL, s32),
-            Op(OpID::GROUP, s32),
-            Op(OpID::NOTHING, s33),
-            Op(OpID::END, s33),
-            Op(OpID::STMT, s_end),
-            Op(OpID::END, s_end),
-            Op(OpID::STMT, s_end),
-            Op(OpID::END, s_end)
-        ));
-
-        // try:
-        //     f()
         REQUIRE(feed_all(vec(
             ST{Token(TokenID::TRY), s1},
             ST{Token(TokenID::COLON), s2},
@@ -5277,30 +6543,28 @@ TEST_CASE("Parser Input/Output", "[parse]") {
 
         // try a:
         //     f()
-        // except E{%e}:
+        // except e: E:
         //     g()
         REQUIRE(feed_all(vec(
-            ST{Token(TokenID::TRY), s1},
-            ST{Token(TokenID::ID, "a"), s2},
-            ST{Token(TokenID::COLON), s3},
-            ST{Token(TokenID::NEWLINE), s4},
-            ST{Token(TokenID::SPACE, std::uint32_t(4)), s5},
-            ST{Token(TokenID::ID, "f"), s6},
-            ST{Token(TokenID::LEFT_CURVED), s7},
-            ST{Token(TokenID::RIGHT_CURVED), s8},
-            ST{Token(TokenID::NEWLINE), s9},
-            ST{Token(TokenID::EXCEPT), s10},
-            ST{Token(TokenID::ID, "E"), s11},
-            ST{Token(TokenID::LEFT_CURLY), s12},
-            ST{Token(TokenID::PERCENT), s13},
-            ST{Token(TokenID::ID, "e"), s14},
-            ST{Token(TokenID::RIGHT_CURLY), s15},
-            ST{Token(TokenID::COLON), s16},
-            ST{Token(TokenID::NEWLINE), s17},
-            ST{Token(TokenID::SPACE, std::uint32_t(4)), s18},
-            ST{Token(TokenID::ID, "g"), s19},
-            ST{Token(TokenID::LEFT_CURVED), s20},
-            ST{Token(TokenID::RIGHT_CURVED), s21}
+            ST{{TokenID::TRY}, s1},
+            ST{{TokenID::ID, "a"}, s2},
+            ST{{TokenID::COLON}, s3},
+            ST{{TokenID::NEWLINE}, s4},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s5},
+            ST{{TokenID::ID, "f"}, s6},
+            ST{{TokenID::LEFT_CURVED}, s7},
+            ST{{TokenID::RIGHT_CURVED}, s8},
+            ST{{TokenID::NEWLINE}, s9},
+            ST{{TokenID::EXCEPT}, s10},
+            ST{{TokenID::ID, "e"}, s11},
+            ST{{TokenID::COLON}, s12},
+            ST{{TokenID::ID, "E"}, s13},
+            ST{{TokenID::COLON}, s14},
+            ST{{TokenID::NEWLINE}, s15},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s16},
+            ST{{TokenID::ID, "g"}, s17},
+            ST{{TokenID::LEFT_CURVED}, s18},
+            ST{{TokenID::RIGHT_CURVED}, s19}
         )) == vec(
             Op(OpID::CONSTRUCT, s1),
             Op(OpID::TRY, s1),
@@ -5316,19 +6580,16 @@ TEST_CASE("Parser Input/Output", "[parse]") {
             Op(OpID::END, s10),
             Op(OpID::STMT, s10),
             Op(OpID::EXCEPT, s10),
-            Op(OpID::ID, "E", s11),
-            Op(OpID::CALL, s12),
-            Op(OpID::ENCLOSURE, s12),
-            Op(OpID::LAMBDA, s13),
-            Op(OpID::ID, "e", s14),
-            Op(OpID::END, s15),
-            Op(OpID::LABEL, s16),
-            Op(OpID::BLOCK, s18),
-            Op(OpID::ID, "g", s19),
-            Op(OpID::CALL, s20),
-            Op(OpID::GROUP, s20),
-            Op(OpID::NOTHING, s21),
-            Op(OpID::END, s21),
+            Op(OpID::ID, "e", s11),
+            Op(OpID::TYPE_LABEL, s12),
+            Op(OpID::ID, "E", s13),
+            Op(OpID::LABEL, s14),
+            Op(OpID::BLOCK, s16),
+            Op(OpID::ID, "g", s17),
+            Op(OpID::CALL, s18),
+            Op(OpID::GROUP, s18),
+            Op(OpID::NOTHING, s19),
+            Op(OpID::END, s19),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end),
             Op(OpID::STMT, s_end),
@@ -5386,22 +6647,20 @@ TEST_CASE("Parser Input/Output", "[parse]") {
 
         // try:
         //     f()
-        // except E{%e}
+        // except e: E
         REQUIRE(feed_all(vec(
-            ST{Token(TokenID::TRY), s1},
-            ST{Token(TokenID::COLON), s2},
-            ST{Token(TokenID::NEWLINE), s3},
-            ST{Token(TokenID::SPACE, std::uint32_t(4)), s4},
-            ST{Token(TokenID::ID, "f"), s5},
-            ST{Token(TokenID::LEFT_CURVED), s6},
-            ST{Token(TokenID::RIGHT_CURVED), s7},
-            ST{Token(TokenID::NEWLINE), s8},
-            ST{Token(TokenID::EXCEPT), s9},
-            ST{Token(TokenID::ID, "E"), s10},
-            ST{Token(TokenID::LEFT_CURLY), s11},
-            ST{Token(TokenID::PERCENT), s12},
-            ST{Token(TokenID::ID, "e"), s13},
-            ST{Token(TokenID::RIGHT_CURLY), s14}
+            ST{{TokenID::TRY}, s1},
+            ST{{TokenID::COLON}, s2},
+            ST{{TokenID::NEWLINE}, s3},
+            ST{{TokenID::SPACE, std::uint32_t(4)}, s4},
+            ST{{TokenID::ID, "f"}, s5},
+            ST{{TokenID::LEFT_CURVED}, s6},
+            ST{{TokenID::RIGHT_CURVED}, s7},
+            ST{{TokenID::NEWLINE}, s8},
+            ST{{TokenID::EXCEPT}, s9},
+            ST{{TokenID::ID, "e"}, s10},
+            ST{{TokenID::COLON}, s11},
+            ST{{TokenID::ID, "E"}, s12}
         )) == vec(
             Op(OpID::CONSTRUCT, s1),
             Op(OpID::TRY, s1),
@@ -5416,12 +6675,9 @@ TEST_CASE("Parser Input/Output", "[parse]") {
             Op(OpID::END, s9),
             Op(OpID::STMT, s9),
             Op(OpID::EXCEPT, s9),
-            Op(OpID::ID, "E", s10),
-            Op(OpID::CALL, s11),
-            Op(OpID::ENCLOSURE, s11),
-            Op(OpID::LAMBDA, s12),
-            Op(OpID::ID, "e", s13),
-            Op(OpID::END, s14),
+            Op(OpID::ID, "e", s10),
+            Op(OpID::TYPE_LABEL, s11),
+            Op(OpID::ID, "E", s12),
             Op(OpID::STMT, s_end),
             Op(OpID::END, s_end)
         ));
@@ -5508,6 +6764,19 @@ TEST_CASE("Parser Input/Output", "[parse]") {
             Op(OpID::ID, "args", s4),
             Op(OpID::SEP, s5),
             Op(OpID::ID, "b", s6)
+        ));
+
+        // (*args)
+        REQUIRE(feed_all(vec(
+            ST{{TokenID::LEFT_CURVED}, s1},
+            ST{{TokenID::STAR}, s2},
+            ST{{TokenID::ID, "args"}, s3},
+            ST{{TokenID::RIGHT_CURVED}, s4}
+        )) == vec(
+            Op(OpID::GROUP, s1),
+            Op(OpID::UNPACK_ARGS, s2),
+            Op(OpID::ID, "args", s3),
+            Op(OpID::END, s4)
         ));
     }
 
@@ -5633,28 +6902,6 @@ TEST_CASE("Parser Input/Output", "[parse]") {
     }
 
     SECTION("While") {
-        // while a: f()
-        REQUIRE(feed_all(vec(
-            ST{Token(TokenID::WHILE), s1},
-            ST{Token(TokenID::ID, "a"), s2},
-            ST{Token(TokenID::COLON), s3},
-            ST{Token(TokenID::ID, "f"), s4},
-            ST{Token(TokenID::LEFT_CURVED), s5},
-            ST{Token(TokenID::RIGHT_CURVED), s6}
-        )) == vec(
-            Op(OpID::CONSTRUCT, s1),
-            Op(OpID::WHILE, s1),
-            Op(OpID::ID, "a", s2),
-            Op(OpID::LABEL, s3),
-            Op(OpID::ID, "f", s4),
-            Op(OpID::CALL, s5),
-            Op(OpID::GROUP, s5),
-            Op(OpID::NOTHING, s6),
-            Op(OpID::END, s6),
-            Op(OpID::STMT, s_end),
-            Op(OpID::END, s_end)
-        ));
-
         // while a:
         //     f()
         REQUIRE(feed_all(vec(

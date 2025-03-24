@@ -29,6 +29,7 @@ using Break = Nullary<NodeKind::BREAK>;
 using Continue = Nullary<NodeKind::CONTINUE>;
 using None = Nullary<NodeKind::NONE>;
 using Null = Nullary<NodeKind::NULL_>;
+using Placeholder = Nullary<NodeKind::PLACEHOLDER>;
 using This = Nullary<NodeKind::THIS>;
 
 }

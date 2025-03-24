@@ -23,6 +23,7 @@ namespace dl {
 // Mapping from keywords to pointers to their corresponding token objects.
 std::unordered_map<std::string_view, TokenID> KEYWORDS {
     {"and", TokenID::AND},
+    {"as", TokenID::AS},
     {"break", TokenID::BREAK},
     {"case", TokenID::CASE},
     {"continue", TokenID::CONTINUE},
@@ -40,6 +41,7 @@ std::unordered_map<std::string_view, TokenID> KEYWORDS {
     {"none", TokenID::NONE},
     {"null", TokenID::NULL_},
     {"or", TokenID::OR},
+    {"_", TokenID::PLACEHOLDER},
     {"raise", TokenID::RAISE},
     {"return", TokenID::RETURN},
     {"this", TokenID::THIS},
@@ -648,9 +650,7 @@ Res<Token> next_token(Cursor& cursor) {
         cursor.ungetc();
         return Token(TokenID::HASH);
     case ':':
-        return Token(
-            check_next(cursor, ':') ? TokenID::DOUBLE_COLON: TokenID::COLON
-        );
+        return Token(TokenID::COLON);
     case ',':
         return Token(TokenID::COMMA);
     case '.':
@@ -752,9 +752,16 @@ Res<Token> next_token(Cursor& cursor) {
             TokenID::AMPERSAND_EQUALS: TokenID::AMPERSAND
         );
     case '|':
-        return Token(
-            check_next(cursor, '=') ? TokenID::PIPE_EQUALS: TokenID::PIPE
-        );
+        c = cursor.getc();
+        switch(c) {
+        case '|':
+            return Token(TokenID::DOUBLE_PIPE);
+        case '=':
+            return Token(TokenID::PIPE_EQUALS);
+        default:
+            cursor.ungetc();
+            return Token(TokenID::PIPE);
+        }
     case '^':
         return Token(
             check_next(cursor, '=') ? TokenID::CAROT_EQUALS: TokenID::CAROT

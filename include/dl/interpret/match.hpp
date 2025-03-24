@@ -4,7 +4,7 @@
 #include <utility>
 #include <vector>
 
-#include "dl/interpret/case.hpp"
+#include "dl/interpret/matchcase.hpp"
 #include "dl/interpret/node.hpp"
 #include "dl/interpret/nodekind.hpp"
 #include "dl/pos.hpp"
@@ -14,22 +14,14 @@ namespace dl {
 
 struct Match final: Node {
     NodePtr matchee;
-    std::vector<Case> cases;
-    Nodes orelse;
+    std::vector<MatchCase> cases;
 
-    Match(NodePtr&& matchee, std::vector<Case>&& cases, Nodes&& orelse, Pos src)
-    noexcept:
-    Node(src),
-    matchee(std::move(matchee)),
-    cases(std::move(cases)),
-    orelse(std::move(orelse)) {}
+    Match(NodePtr&& matchee, std::vector<MatchCase>&& cases, Pos src) noexcept:
+    Node(src), matchee(std::move(matchee)), cases(std::move(cases)) {}
 
     virtual bool equals(const Node& that) const noexcept override {
         const auto& casted = dynamic_cast<const Match&>(that);
-        return
-            npeq(matchee, casted.matchee) &&
-            cases == casted.cases &&
-            nodes_eq(orelse, casted.orelse);
+        return npeq(matchee, casted.matchee) && cases == casted.cases;
     }
 
     virtual NodeKind kind() const noexcept override {
@@ -37,8 +29,7 @@ struct Match final: Node {
     }
 
     virtual std::ostream& out_data(std::ostream& os) const override {
-        return
-            os << matchee << ", " << OutContainerManip(cases) << ", " << orelse;
+        return os << matchee << ", " << OutContainerManip(cases);
     }
 };
 

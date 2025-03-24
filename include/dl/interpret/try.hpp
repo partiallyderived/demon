@@ -13,10 +13,15 @@ namespace dl {
 
 struct Try final: Node {
     Nodes body;
-    std::vector<Case> excepts;
+    std::vector<MatchCase> excepts;
     Nodes finally;
 
-    Try(Nodes&& body, std::vector<Case>&& excepts, Nodes&& finally, Pos src)
+    Try(
+        Nodes&& body,
+        std::vector<MatchCase>&& excepts,
+        Nodes&& finally,
+        Pos src
+    )
     noexcept:
     Node(src),
     body(std::move(body)),

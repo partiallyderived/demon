@@ -29,6 +29,8 @@ struct Comp {
     };
     Pos src;
 
+    inline ~Comp() noexcept;
+
     Comp(const Comp& that) = delete;
 
     Comp(Comp&& that) noexcept: op(that.op), src(that.src) {
@@ -48,7 +50,8 @@ struct Comp {
         case AGGREGATE:
             new(&comps) std::vector<Comp>(std::move(that.comps));
             return;
-        default:;
+        default: 
+            return;
         }
     }
 
@@ -71,8 +74,6 @@ struct Comp {
     op(op), comps(std::move(comps)), src(src) {}
 
     inline bool operator==(const Comp& that) const noexcept;
-
-    inline ~Comp() noexcept;
 };
 
 struct BinaryData {

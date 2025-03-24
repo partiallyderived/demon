@@ -9,7 +9,6 @@ namespace dl {
 // orientation itself.
 
 // START: At the start of any instruction.
-// STMT: At the start of a statement. Excludes constructs like "if".
 // BEFORE: Before a value, where we may expect one.
 // AFTER: After a value, where a binary operator is allowed.
 // OPTIONAL: Where a value is optional.
@@ -19,15 +18,16 @@ namespace dl {
 // AFTER_STAR: Special case: after encountering * in parentheses where a value
 //             is expected. Special orientation is needed because * may
 //             present as either a unary operator or a value in that case.
+// INDENTING: After a colon and a newline, where an indent is expected.
 // END: End of a statement, where a newline is expected.
 enum class Orientation {
     START,
-    STMT,
     BEFORE,
     AFTER,
     OPTIONAL,
     AFTER_NOT,
     AFTER_STAR,
+    INDENTING,
     END
 };
 
@@ -36,8 +36,6 @@ std::ostream& operator<<(std::ostream& os, Orientation orientation) {
     switch(orientation) {
     case START:
         return os << "START";
-    case STMT:
-        return os << "STMT";
     case BEFORE:
         return os << "BEFORE";
     case AFTER:
@@ -48,6 +46,8 @@ std::ostream& operator<<(std::ostream& os, Orientation orientation) {
         return os << "AFTER_NOT";
     case AFTER_STAR:
         return os << "AFTER_STAR";
+    case INDENTING:
+        return os << "INDENTING";
     case END:
         return os << "END";
     }
