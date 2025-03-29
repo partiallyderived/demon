@@ -17,6 +17,14 @@ struct Pos {
     constexpr Pos(std::uint32_t line, std::uint32_t col) noexcept:
     line(line), col(col) {}
 
+    Pos operator+(int diff) noexcept {
+        return Pos(line, col + diff);
+    }
+
+    Pos operator-(int diff) noexcept {
+        return Pos(line, col - diff);
+    }
+
     bool operator==(const Pos&) const noexcept = default;
     bool operator!=(const Pos&) const noexcept = default;
 };

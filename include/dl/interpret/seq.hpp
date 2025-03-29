@@ -5,17 +5,21 @@
 
 #include "dl/interpret/node.hpp"
 #include "dl/interpret/nodekind.hpp"
-#include "dl/pos.hpp"
+#include "dl/span.hpp"
 #include "dl/util.hpp"
 
 namespace dl {
 
 template<NodeKind KIND>
-struct Seq final: Node {
+struct Seq final: Node_<Seq<KIND>> {
     Nodes nodes;
 
-    Seq(Nodes&& nodes, Pos src) noexcept: 
-    Node(src), nodes(std::move(nodes)) {}
+    Seq(Nodes&& nodes, Span src) noexcept:
+    Node_<Seq<KIND>>(src), nodes(std::move(nodes)) {}
+
+    virtual Seq copy() const override {
+        return Seq(deep_copy_ptr(nodes), this->src);
+    }
 
     virtual bool equals(const Node& that) const noexcept override {
         return nodes_eq(nodes, dynamic_cast<const Seq&>(that).nodes);
@@ -26,7 +30,11 @@ struct Seq final: Node {
     }
 
     virtual std::ostream& out_data(std::ostream& os) const override {
-        return os << OutContainerManip(nodes);
+        return os << nodes;
+    }
+
+    virtual Span span() const noexcept override {
+        return this->src;
     }
 };
 

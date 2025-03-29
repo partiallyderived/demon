@@ -8,19 +8,23 @@
 #include "dl/interpret/defcase.hpp"
 #include "dl/interpret/node.hpp"
 #include "dl/interpret/nodekind.hpp"
-#include "dl/pos.hpp"
+#include "dl/span.hpp"
 #include "dl/util.hpp"
 
 namespace dl {
 
-struct Def final: Node {
+struct Def final: Node_<Def> {
     NodePtr id;
     std::vector<DefCase> cases;
 
-    Def(NodePtr&& id, std::vector<DefCase>&& cases, Pos src) noexcept:
-    Node(src),
+    Def(NodePtr&& id, std::vector<DefCase>&& cases, Span src) noexcept:
+    Node_<Def>(src),
     id(std::move(id)),
     cases(std::move(cases)) {}
+
+    virtual Def copy() const override {
+        return Def(id->copy_ptr(), deep_copy(cases), this->src);
+    }
 
     virtual NodeKind kind() const noexcept override {
         return NodeKind::DEF;
@@ -33,6 +37,10 @@ struct Def final: Node {
 
     virtual std::ostream& out_data(std::ostream& os) const override {
         return os << id << ", " << OutContainerManip(cases);
+    }
+
+    virtual Span span() const noexcept override {
+        return Span(cases.front().span(), cases.back().span());
     }
 };
 

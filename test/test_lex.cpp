@@ -6,8 +6,10 @@
 #include "dl/lex/lex.hpp"
 #include "dl/lex/token.hpp"
 #include "dl/lex/tokenid.hpp"
+#include "dl/meta/reference.hpp"
 #include "dl/pos.hpp"
 #include "dl/res.hpp"
+#include "dl/span.hpp"
 
 #include "streamfile.hpp"
 
@@ -89,13 +91,19 @@ TEST_CASE("lex", "[lex]") {
         REQUIRE(c.getc() == 'd');
         REQUIRE(c.getc() == 'f');
         REQUIRE(c.pos == Pos(4, 5));
+
+        REQUIRE(c.getc() == EOF);
+        REQUIRE(c.pos == Pos(4, 5));
+        c.ungetc();
+        REQUIRE(c.pos == Pos(4, 5));
+        REQUIRE(c.getc() == EOF);
     }
 
     SECTION("Space") {
         SECTION("Trailing Space Error") {
-            REQUIRE(*result(c, "    \n") == TrailingSpaceErr(Pos()));
+            REQUIRE(*result(c, "    \n") == TrailingSpaceErr(Span(1, 1, 4)));
 
-            REQUIRE(*result(c, "    ") == TrailingSpaceErr(Pos()));
+            REQUIRE(*result(c, "    ") == TrailingSpaceErr(Span(1, 1, 4)));
         }
 
         SECTION("Space") {
@@ -260,6 +268,10 @@ TEST_CASE("lex", "[lex]") {
         REQUIRE(result(c, "^") == Token(TokenID::CAROT));
     }
 
+    SECTION("At") {
+        REQUIRE(result(c, "@") == Token(TokenID::AT));
+    }
+
     SECTION("Left Curved") {
         REQUIRE(result(c, "(") == Token(TokenID::LEFT_CURVED));
     }
@@ -307,40 +319,45 @@ TEST_CASE("lex", "[lex]") {
         }
 
         SECTION("Invalid Escape Error") {
-            REQUIRE(*result(c, "'\\c'") == InvalidEscapeErr(Pos(1, 2)));
+            REQUIRE(
+                *result(c, "'\\c'") == InvalidEscapeErr(Span(1, 2, 2))
+            );
         }
 
         SECTION("Unclosed Char Error") {
-            REQUIRE(*result(c, "'a") == UnclosedCharErr(Pos()));
+            REQUIRE(*result(c, "'a") == UnclosedCharErr(Span(1, 1, 2)));
 
-            REQUIRE(*result(c, "'a\n'") == UnclosedCharErr(Pos()));
+            REQUIRE(*result(c, "'a\n'") == UnclosedCharErr(Span(1, 1, 2)));
 
             // Should take precedence over any other error.
-            REQUIRE(*result(c, "'\\c") == UnclosedCharErr(Pos()));
+            REQUIRE(*result(c, "'\\c") == UnclosedCharErr(Span(1, 1, 3)));
         }
 
         SECTION("Empty") {
-            REQUIRE(*result(c, "''") == InvalidCharErr(Pos()));
+            REQUIRE(*result(c, "''") == InvalidCharErr(Span(1, 1, 2)));
         }
 
         SECTION("More Than One Character") {
-            REQUIRE(*result(c, "'ab'") == InvalidCharErr(Pos()));
+            REQUIRE(*result(c, "'ab'") == InvalidCharErr(Span(1, 1, 4)));
 
-            REQUIRE(*result(c, "'\\ab'") == InvalidCharErr(Pos()));
+            REQUIRE(*result(c, "'\\ab'") == InvalidCharErr(Span(1, 1, 5)));
 
             // UTF-8 2 byte character, then a.
-            REQUIRE(*result(c, "'\xDF\xBF\a'") == InvalidCharErr(Pos()));
+            REQUIRE(
+                *result(c, "'\xDF\xBF\a'") == InvalidCharErr(Span(1, 1, 4))
+            );
         }
 
         SECTION("Byte Escape") {
             REQUIRE(
-                result(c, "'\\xa9'") ==
-                Token(TokenID::CHAR, std::int32_t(0xa9))
+                result(c, "'\\xa9'") == Token(TokenID::CHAR, std::int32_t(0xa9))
             );
         }
 
         SECTION("Bad Byte Escape") {
-            REQUIRE(*result(c, "'\\xk9'") == InvalidHexDigitErr(Pos(1, 4)));
+            REQUIRE(
+                *result(c, "'\\xk9'") == InvalidHexDigitErr(Span(1, 4))
+            );
         }
 
         SECTION("Unicode Escape") {
@@ -362,12 +379,13 @@ TEST_CASE("lex", "[lex]") {
 
         SECTION("Bad Unicode Escape") {
             REQUIRE(
-                *result(c, "'\\u0x1y'") == InvalidHexDigitErr(Pos(1, 5))
+                *result(c, "'\\u0x1y'") == InvalidHexDigitErr(Span(1, 5))
             );
 
             // Invalid UTF-8 (Surrogate)
             REQUIRE(
-                *result(c, "'\\uDEAD'") == InvalidUnicodeCodePointErr(Pos(1, 4))
+                *result(c, "'\\uDEAD'") ==
+                InvalidUnicodeCodePointErr(Span(1, 2, 6))
             );
         }
 
@@ -380,19 +398,20 @@ TEST_CASE("lex", "[lex]") {
 
         SECTION("Bad Long Unicode Escape") {
             REQUIRE(
-                *result(c, "'\\U0001x2yz'") == InvalidHexDigitErr(Pos(1, 8))
+                *result(c, "'\\U0001x2yz'") ==
+                InvalidHexDigitErr(Span(1, 8))
             );
 
             // Invalid UTF-8 (Surrogate)
             REQUIRE(
                 *result(c, "'\\U0000DEAD'") ==
-                InvalidUnicodeCodePointErr(Pos(1, 4))
+                InvalidUnicodeCodePointErr(Span(1, 2, 10))
             );
 
             // Invalid UTF-8 (Code point exceeds 0x0010FFFF)
             REQUIRE(
                 *result(c, "'\\U00110000'") ==
-                InvalidUnicodeCodePointErr(Pos(1, 4))
+                InvalidUnicodeCodePointErr(Span(1, 2, 10))
             );
         }
 
@@ -460,17 +479,18 @@ TEST_CASE("lex", "[lex]") {
             // Results in two errors so invalid character due to length because
             // it consists of two replacement characters.
             REQUIRE(
-                *result(c, "'\xDF\xFF'") == InvalidCharErr(Pos())
+                *result(c, "'\xDF\xFF'") == InvalidCharErr(Span(1, 1, 4))
             );
 
             // 3 Bytes, third byte has all bits on.
             REQUIRE(
-                *result(c, "'\xEF\x80\xFF'") == InvalidCharErr(Pos())
+                *result(c, "'\xEF\x80\xFF'") == InvalidCharErr(Span(1, 1, 4))
             );
 
             // 4 Bytes, fourth byte has all bits on.
             REQUIRE(
-                *result(c, "'\xF7\x80\x80\xFF'") == InvalidCharErr(Pos())
+                *result(c, "'\xF7\x80\x80\xFF'") ==
+                InvalidCharErr(Span(1, 1, 4))
             );
         }
     }
@@ -489,16 +509,19 @@ TEST_CASE("lex", "[lex]") {
         }
 
         SECTION("Invalid Escape Error") {
-            REQUIRE(*result(c, "\"asdf\\c\"") == InvalidEscapeErr(Pos(1, 6)));
+            REQUIRE(
+                *result(c, "\"asdf\\c\"") ==
+                InvalidEscapeErr(Span(1, 6, 2))
+            );
         }
 
         SECTION("Unclosed String Error") {
-            REQUIRE(*result(c, "\"asdf") == UnclosedStrErr(Pos()));
+            REQUIRE(*result(c, "\"asdf") == UnclosedStrErr(Span(1, 1, 5)));
 
-            REQUIRE(*result(c, "\"asdf\n\"") == UnclosedStrErr(Pos()));
+            REQUIRE(*result(c, "\"asdf\n\"") == UnclosedStrErr(Span(1, 1, 5)));
 
             // Should take precedence over any other error.
-            REQUIRE(*result(c, "\"asdf\\c") == UnclosedStrErr(Pos()));
+            REQUIRE(*result(c, "\"asdf\\c") == UnclosedStrErr(Span(1, 1, 7)));
         }
 
         SECTION("Byte Escape") {
@@ -510,7 +533,8 @@ TEST_CASE("lex", "[lex]") {
 
         SECTION("Bad Byte Escape") {
             REQUIRE(
-                *result(c, "\"asdf\\xyz\"") == InvalidHexDigitErr(Pos(1, 8))
+                *result(c, "\"asdf\\xyz\"") ==
+                InvalidHexDigitErr(Span(1, 8))
             );
         }
 
@@ -533,13 +557,14 @@ TEST_CASE("lex", "[lex]") {
 
         SECTION("Bad Unicode Escape") {
             REQUIRE(
-                *result(c, "\"asdf\\u0x1y\"") == InvalidHexDigitErr(Pos(1, 9))
+                *result(c, "\"asdf\\u0x1y\"") ==
+                InvalidHexDigitErr(Span(1, 9))
             );
 
             // Invalid UTF-8 (surrogate)
             REQUIRE(
                 *result(c, "\"asdf\\uDEAD\"") ==
-                InvalidUnicodeCodePointErr(Pos(1, 8))
+                InvalidUnicodeCodePointErr(Span(1, 6, 6))
             );
         }
 
@@ -554,19 +579,19 @@ TEST_CASE("lex", "[lex]") {
             // Contains non-hex characters.
             REQUIRE(
                 *result(c, "\"asdf\\U000axbyz\"") ==
-                InvalidHexDigitErr(Pos(1, 12))
+                InvalidHexDigitErr(Span(1, 12))
             );
 
             // Invalid UTF-8 (surrogate)
             REQUIRE(
                 *result(c, "\"asdf\\U0000DEAD\"") ==
-                InvalidUnicodeCodePointErr(Pos(1, 8))
+                InvalidUnicodeCodePointErr(Span(1, 6, 10))
             );
 
             // Code point is too big
             REQUIRE(
                 *result(c, "\"asdf\\U00110000\"") ==
-                InvalidUnicodeCodePointErr(Pos(1, 8))
+                InvalidUnicodeCodePointErr(Span(1, 6, 10))
             );
         }
 
@@ -876,39 +901,57 @@ TEST_CASE("lex", "[lex]") {
             }
 
             SECTION("Leading Zeroes Error") {
-                REQUIRE(*result(c, "00") == LeadingZeroesErr(Pos()));
+                REQUIRE(*result(c, "00") == LeadingZeroesErr(Span(1, 1, 2)));
 
-                REQUIRE(*result(c, "01") == LeadingZeroesErr(Pos()));
+                REQUIRE(*result(c, "01") == LeadingZeroesErr(Span(1, 1, 2)));
 
-                REQUIRE(*result(c, "001234") == LeadingZeroesErr(Pos()));
+                REQUIRE(
+                    *result(c, "001234") == LeadingZeroesErr(Span(1, 1, 6))
+                );
             }
 
             SECTION("Invalid Numeric Literal Error") {
-                REQUIRE(*result(c, "0h") == InvalidNumericLiteralErr(Pos()));
+                REQUIRE(
+                    *result(c, "0h") ==
+                    InvalidNumericLiteralErr(Span(1, 1, 2))
+                );
 
-                REQUIRE(*result(c, "123g") == InvalidNumericLiteralErr(Pos()));
+                REQUIRE(
+                    *result(c, "123g") ==
+                    InvalidNumericLiteralErr(Span(1, 1, 4))
+                );
             }
 
             SECTION("Out Of Range Error") {
-                REQUIRE(*result(c, "3000000000s32") == OutOfRangeErr(Pos()));
-
-                REQUIRE(*result(c, "200s8") == OutOfRangeErr(Pos()));
-
-                REQUIRE(*result(c, "33000s16") == OutOfRangeErr(Pos()));
-
                 REQUIRE(
-                    *result(c, "9300000000000000000s64") == OutOfRangeErr(Pos())
+                    *result(c, "3000000000s32") ==
+                    OutOfRangeErr(Span(1, 1, 13))
                 );
 
-                REQUIRE(*result(c, "5000000000u") == OutOfRangeErr(Pos()));
+                REQUIRE(*result(c, "200s8") == OutOfRangeErr(Span(1, 1, 5)));
 
-                REQUIRE(*result(c, "300u8") == OutOfRangeErr(Pos()));
+                REQUIRE(
+                    *result(c, "33000s16") == OutOfRangeErr(Span(1, 1, 8))
+                );
 
-                REQUIRE(*result(c, "70000u16") == OutOfRangeErr(Pos()));
+                REQUIRE(
+                    *result(c, "9300000000000000000s64") ==
+                    OutOfRangeErr(Span(1, 1, 22))
+                );
+
+                REQUIRE(
+                    *result(c, "5000000000u") == OutOfRangeErr(Span(1, 1, 11))
+                );
+
+                REQUIRE(*result(c, "300u8") == OutOfRangeErr(Span(1, 1, 5)));
+
+                REQUIRE(
+                    *result(c, "70000u16") == OutOfRangeErr(Span(1, 1, 8))
+                );
 
                 REQUIRE(
                     *result(c, "19000000000000000000u64") ==
-                    OutOfRangeErr(Pos())
+                    OutOfRangeErr(Span(1, 1, 23))
                 );
             }
         }
@@ -953,10 +996,18 @@ TEST_CASE("lex", "[lex]") {
             }
 
             SECTION("Invalid Floating-point Tail Error") {
-                REQUIRE(*result(c, "1e") == InvalidFloatTailErr(Pos()));
-                REQUIRE(*result(c, "1e-") == InvalidFloatTailErr(Pos()));
-                REQUIRE(*result(c, "0ef31") == InvalidFloatTailErr(Pos()));
-                REQUIRE(*result(c, "2ea") == InvalidFloatTailErr(Pos()));
+                REQUIRE(
+                    *result(c, "1e") == InvalidFloatTailErr(Span(1, 1, 2))
+                );
+                REQUIRE(
+                    *result(c, "1e-") == InvalidFloatTailErr(Span(1, 1, 3))
+                );
+                REQUIRE(
+                    *result(c, "0ef31") == InvalidFloatTailErr(Span(1, 1, 5))
+                );
+                REQUIRE(
+                    *result(c, "2ea") == InvalidFloatTailErr(Span(1, 1, 3))
+                );
             }
         }
     }
@@ -966,6 +1017,7 @@ TEST_CASE("lex", "[lex]") {
     }
 
     SECTION("Keywords") {
+        REQUIRE(result(c, "_") == Token(TokenID::PLACEHOLDER));
         REQUIRE(result(c, "and") == Token(TokenID::AND));
         REQUIRE(result(c, "as") == Token(TokenID::AS));
         REQUIRE(result(c, "break") == Token(TokenID::BREAK));
@@ -989,8 +1041,6 @@ TEST_CASE("lex", "[lex]") {
         REQUIRE(result(c, "this") == Token(TokenID::THIS));
         REQUIRE(result(c, "true") == Token(TokenID::TRUE));
         REQUIRE(result(c, "try") == Token(TokenID::TRY));
-        REQUIRE(result(c, "type") == Token(TokenID::TYPE));
-        REQUIRE(result(c, "vars") == Token(TokenID::VARS));
         REQUIRE(result(c, "while") == Token(TokenID::WHILE));
     }
 
@@ -1063,7 +1113,7 @@ TEST_CASE("lex", "[lex]") {
     }
 
     SECTION("Unexpected Char Error") {
-        REQUIRE(*result(c, "!") == UnexpectedCharErr(Pos(), '!'));
-        REQUIRE(*result(c, "$") == UnexpectedCharErr(Pos(), '$'));
+        REQUIRE(*result(c, "!") == UnexpectedCharErr('!', Span(1, 1)));
+        REQUIRE(*result(c, "$") == UnexpectedCharErr('$', Span(1, 1)));
     }
 }

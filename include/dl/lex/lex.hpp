@@ -17,6 +17,7 @@
 #include "dl/lex/tokenid.hpp"
 #include "dl/pos.hpp"
 #include "dl/res.hpp"
+#include "dl/span.hpp"
 
 namespace dl {
 
@@ -47,8 +48,6 @@ std::unordered_map<std::string_view, TokenID> KEYWORDS {
     {"this", TokenID::THIS},
     {"true", TokenID::TRUE},
     {"try", TokenID::TRY},
-    {"type", TokenID::TYPE},
-    {"vars", TokenID::VARS},
     {"while", TokenID::WHILE}
 };
 
@@ -56,7 +55,7 @@ std::unordered_map<std::string_view, TokenID> KEYWORDS {
 const std::locale LOCALE("C");
 
 struct InvalidCharErr final: SourcedErr {
-    InvalidCharErr(Pos src) noexcept: SourcedErr(src) {}
+    InvalidCharErr(Span src) noexcept: SourcedErr(src) {}
 
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "InvalidCharErr";
@@ -65,7 +64,7 @@ struct InvalidCharErr final: SourcedErr {
 
 // Indicates that an invalid escape sequence was found.
 struct InvalidEscapeErr final: SourcedErr {
-    InvalidEscapeErr(Pos src) noexcept: SourcedErr(src) {}
+    InvalidEscapeErr(Span src) noexcept: SourcedErr(src) {}
 
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "InvalidEscapeErr";
@@ -73,7 +72,7 @@ struct InvalidEscapeErr final: SourcedErr {
 };
 
 struct InvalidFloatTailErr final: SourcedErr {
-    InvalidFloatTailErr(Pos src) noexcept: SourcedErr(src) {}
+    InvalidFloatTailErr(Span src) noexcept: SourcedErr(src) {}
 
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "InvalidFloatTailErr";
@@ -81,7 +80,7 @@ struct InvalidFloatTailErr final: SourcedErr {
 };
 
 struct InvalidHexDigitErr final: SourcedErr {
-    InvalidHexDigitErr(Pos src) noexcept: SourcedErr(src) {}
+    InvalidHexDigitErr(Span src) noexcept: SourcedErr(src) {}
 
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "InvalidHexDigitErr";
@@ -89,7 +88,7 @@ struct InvalidHexDigitErr final: SourcedErr {
 };
 
 struct InvalidUnicodeCodePointErr final: SourcedErr {
-    InvalidUnicodeCodePointErr(Pos src) noexcept: SourcedErr(src) {}
+    InvalidUnicodeCodePointErr(Span src) noexcept: SourcedErr(src) {}
 
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "InvalidUnicodeCodePointErr";
@@ -97,7 +96,7 @@ struct InvalidUnicodeCodePointErr final: SourcedErr {
 };
 
 struct LeadingZeroesErr final: SourcedErr {
-    LeadingZeroesErr(Pos src) noexcept: SourcedErr(src) {}
+    LeadingZeroesErr(Span src) noexcept: SourcedErr(src) {}
 
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "LeadingZeroesErr";
@@ -106,7 +105,7 @@ struct LeadingZeroesErr final: SourcedErr {
 
 // Indicates that a line ended with space which was unassociated with a string.
 struct TrailingSpaceErr final: SourcedErr {
-    TrailingSpaceErr(Pos src) noexcept: SourcedErr(src) {}
+    TrailingSpaceErr(Span src) noexcept: SourcedErr(src) {}
 
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "TrailingSpaceErr";
@@ -116,7 +115,7 @@ struct TrailingSpaceErr final: SourcedErr {
 // Indicates that a char was started but was unclosed: the statement ended
 // before the closing ' was found.
 struct UnclosedCharErr final: SourcedErr {
-    UnclosedCharErr(Pos src) noexcept: SourcedErr(src) {}
+    UnclosedCharErr(Span src) noexcept: SourcedErr(src) {}
 
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "UnclosedCharErr";
@@ -126,7 +125,7 @@ struct UnclosedCharErr final: SourcedErr {
 // Indicates that a string was started but was unclosed: the statement ended
 // before the closing " was found.
 struct UnclosedStrErr final: SourcedErr {
-    UnclosedStrErr(Pos src) noexcept: SourcedErr(src) {}
+    UnclosedStrErr(Span src) noexcept: SourcedErr(src) {}
 
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "UnclosedStrErr";
@@ -137,7 +136,7 @@ struct UnclosedStrErr final: SourcedErr {
 struct UnexpectedCharErr final: SourcedErr {
     std::int32_t c;
 
-    UnexpectedCharErr(Pos src, std::int32_t c)
+    UnexpectedCharErr(std::int32_t c, Span src)
     noexcept: SourcedErr(src), c(c) {}
 
     virtual bool equals(const Err& that) const noexcept override {
@@ -146,7 +145,7 @@ struct UnexpectedCharErr final: SourcedErr {
     }
 
     virtual std::ostream& out_data(std::ostream& os) const override {
-        return SourcedErr::out_data(os) << ", " << c;
+        return os << c;
     }
 
     virtual std::ostream& out_name(std::ostream& os) const override {
@@ -265,15 +264,15 @@ void encode_unicode(std::int32_t code_point, std::string& s) noexcept {
     s += char(code_point & 0x3F | 0x80);
 }
 
-// Read 1 up to 8 hexadecimal digits into an std::uint32_t.
+// Read 1 to 8 hexadecimal digits into an std::uint32_t.
 Res<std::int32_t> read_hex_digits(Cursor& cursor, int n) {
     std::int32_t res = 0;
     for (int j = 0; j < n; j++) {
         std::int32_t x = cursor.getc();
         if (!is_hex_digit(x))
-            return ErrPtr(
-                new InvalidHexDigitErr(Pos(cursor.pos.line, cursor.pos.col - 1))
-            );
+            return ErrPtr(new InvalidHexDigitErr(Span(
+                Pos(cursor.pos.line, cursor.pos.col - 1)
+            )));
         res <<= 4;
         res |= hexvalue(x);
     }
@@ -283,6 +282,8 @@ Res<std::int32_t> read_hex_digits(Cursor& cursor, int n) {
 Res<std::int32_t> escaped_char(Cursor& cursor) {
     std::int32_t c = cursor.getc();
     switch(c) {
+    case '0':
+        return std::int32_t(0);
     case 'a':
         return std::int32_t('\a');
     case 'b':
@@ -311,7 +312,7 @@ Res<std::int32_t> escaped_char(Cursor& cursor) {
         if (res.res >= 0xD800 && res.res <= 0xDFFF)
             // Surrogate
             return ErrPtr(new InvalidUnicodeCodePointErr(
-                Pos(cursor.pos.line, cursor.pos.col - 4)
+                Span(Pos(cursor.pos.line, cursor.pos.col - 6), 6)
             ));
         return res;
     }
@@ -324,7 +325,7 @@ Res<std::int32_t> escaped_char(Cursor& cursor) {
         if (res.res > 0x10FFFF || (res.res >= 0xD800 && res.res <= 0xDFFF))
             // Surrogate or code point too large.
             return ErrPtr(new InvalidUnicodeCodePointErr(
-                Pos(cursor.pos.line, cursor.pos.col - 8)
+                Span(Pos(cursor.pos.line, cursor.pos.col - 10), 10)
             ));
         return res;
     }
@@ -336,9 +337,9 @@ Res<std::int32_t> escaped_char(Cursor& cursor) {
         return c;
     default:
         // An invalid character was escaped.
-        return ErrPtr(
-            new InvalidEscapeErr(Pos(cursor.pos.line, cursor.pos.col - 2))
-        );
+        return ErrPtr(new InvalidEscapeErr(Span(
+            Pos(cursor.pos.line, cursor.pos.col - 2), 2
+        )));
     }
 }
 
@@ -351,7 +352,7 @@ void read_alnum(std::int32_t c, Cursor& cursor, std::string& res) {
 }
 
 Res<Token> read_float_tail(
-    Cursor& cursor, Pos start, std::string&& res
+    Cursor& cursor, std::string&& res, Pos start
 ) noexcept {
     std::int32_t c = cursor.getc();
     if (c == '-') {
@@ -362,7 +363,7 @@ Res<Token> read_float_tail(
     if (!is_digit(c)) {
         // Invalid: floating point literal can't end with e or -.
         read_alnum(c, cursor, res);
-        return ErrPtr(new InvalidFloatTailErr(start));
+        return ErrPtr(new InvalidFloatTailErr(Span(start, res.size())));
     }
 
     while(is_digit(c)) {
@@ -375,22 +376,19 @@ Res<Token> read_float_tail(
         read_alnum(c, cursor, res);
         LiteralSuffix suffix = lit_suffix(res);
         if (res.size() - alnum_start != lit_suffix_len(suffix)) 
-            return ErrPtr(new InvalidFloatTailErr(start));
-    }
+            return ErrPtr(new InvalidFloatTailErr(Span(start, res.size())));
+    } else
+        // Got one extra character, put it back.
+        cursor.ungetc();
 
-    // Got one extra character, put it back.
-    cursor.ungetc();
     return Token(TokenID::FLOAT_TAIL, std::move(res));
 }
 
 template<typename T>
 Res<Token> read_number_token(
-    Pos start,
-    const char* begin,
-    const char* expected_end,
-    int base
+    const std::string& s, const char* expected_end, int base, Pos start
 ) {
-    Res<T> res = read_number<T>(start, begin, expected_end, base);
+    Res<T> res = read_number<T>(s, expected_end, base, start);
     if (res.is_err)
         return std::move(res.err);
     return Token(TokenID::NUMBER, res.res);
@@ -401,8 +399,10 @@ bool seek_quote(Cursor& cursor, std::int32_t quote) {
         std::int32_t c = cursor.getc();
         if (c == quote)
             return true;
-        if (c == '\n' || c == EOF)
+        if (c == '\n' || c == EOF) {
+            cursor.ungetc();
             return false;
+        }
     }
 }
 
@@ -413,21 +413,22 @@ Res<Token> next_char(Cursor& cursor) {
 
     switch(c) {
     case '\'':
-        return ErrPtr(new InvalidCharErr(start));
+        return ErrPtr(new InvalidCharErr(Span(start, 2)));
     case '\\': {
         Res<std::int32_t> res = escaped_char(cursor);
         if (res.is_err) {
             // Prioritize UnclosedCharErr if it applies
             if (seek_quote(cursor, '\''))
                 return std::move(res.err);
-            return ErrPtr(new UnclosedCharErr(start));
+            return ErrPtr(new UnclosedCharErr(Span(start, cursor.pos - 1)));
         }
         c = res.res;
         break;
     }
     case '\n':
     case EOF:
-        return ErrPtr(new UnclosedCharErr(start)); 
+        cursor.ungetc();
+        return ErrPtr(new UnclosedCharErr(Span(start, cursor.pos - 1))); 
     }
     
     switch(cursor.getc()) {
@@ -435,11 +436,12 @@ Res<Token> next_char(Cursor& cursor) {
         return Token(TokenID::CHAR, c);
     case '\n':
     case EOF:
-        return ErrPtr(new UnclosedCharErr(start));
+        cursor.ungetc();
+        return ErrPtr(new UnclosedCharErr(Span(start, cursor.pos - 1)));
     default:
         if (seek_quote(cursor, '\''))
-            return ErrPtr(new InvalidCharErr(start));
-        return ErrPtr(new UnclosedCharErr(start));
+            return ErrPtr(new InvalidCharErr(Span(start, cursor.pos - 1)));
+        return ErrPtr(new UnclosedCharErr(Span(start, cursor.pos - 1)));
     }
 }
 
@@ -498,7 +500,7 @@ Res<Token> next_number(std::int32_t c, Cursor& cursor) {
             // missing the integral part, like 89.123e45. These parts are
             // combined into a floating-point number later by the interpreter.
             res += char(c);
-            return read_float_tail(cursor, start, std::move(res));
+            return read_float_tail(cursor, std::move(res), start);
         }
     }
 
@@ -511,7 +513,7 @@ Res<Token> next_number(std::int32_t c, Cursor& cursor) {
         // Put back the character we read.
         cursor.ungetc();
     if (res.size() > 1 && res[0] == '0' && is_digit(res[1]))
-        return ErrPtr(new LeadingZeroesErr(start));
+        return ErrPtr(new LeadingZeroesErr(Span(start, cursor.pos - 1)));
 
     LiteralSuffix suffix = lit_suffix(res);
     const char* begin = &res[0];
@@ -525,41 +527,41 @@ Res<Token> next_number(std::int32_t c, Cursor& cursor) {
             return Token(TokenID::PLAIN_INT, std::move(res));
         }
         return read_number_token<std::int32_t>(
-            start, begin, expected_end, base
+            res, expected_end, base, start
         );
     case LiteralSuffix::S:
     case LiteralSuffix::S32:
         return read_number_token<std::int32_t>(
-            start, begin, expected_end, base
+            res, expected_end, base, start
         );
     case LiteralSuffix::S8:
         return read_number_token<std::int8_t>(
-            start, begin, expected_end, base
+            res, expected_end, base, start
         );
     case LiteralSuffix::S16:
         return read_number_token<std::int16_t>(
-            start, begin, expected_end, base
+            res, expected_end, base, start
         );
     case LiteralSuffix::S64:
         return read_number_token<std::int64_t>(
-            start, begin, expected_end, base
+            res, expected_end, base, start
         );
     case LiteralSuffix::U:
     case LiteralSuffix::U32:
         return read_number_token<std::uint32_t>(
-            start, begin, expected_end, base
+            res, expected_end, base, start
         );
     case LiteralSuffix::U8:
         return read_number_token<std::uint8_t>(
-            start, begin, expected_end, base
+            res, expected_end, base, start
         );
     case LiteralSuffix::U16:
         return read_number_token<std::uint16_t>(
-            start, begin, expected_end, base
+            res, expected_end, base, start
         );
     case LiteralSuffix::U64:
         return read_number_token<std::uint64_t>(
-            start, begin, expected_end, base
+            res, expected_end, base, start
         );
     case LiteralSuffix::F:
     case LiteralSuffix::F64:
@@ -567,23 +569,27 @@ Res<Token> next_number(std::int32_t c, Cursor& cursor) {
             // Suffix is valid hex, let it be read as such.
             expected_end += lit_suffix_len(suffix);
             return read_number_token<std::int32_t>(
-                start, begin, expected_end, base
+                res, expected_end, base, start
             );
         }
         else if (base == 8)
             // Octal floating point not allowed.
-            return ErrPtr(new InvalidNumericLiteralErr(start));
+            return ErrPtr(new InvalidNumericLiteralErr(Span(
+                start, cursor.pos
+            )));
         // May not be the entire float, since the lexer splits on . always.
         return Token(TokenID::FLOAT_TAIL, std::move(res));
     case LiteralSuffix::F32:
         if (base == 16) {
             expected_end += 3;
             return read_number_token<std::int32_t>(
-                start, begin, expected_end, base
+                res, expected_end, base, start
             );
         }
         else if (base == 8)
-            return ErrPtr(new InvalidNumericLiteralErr(start));
+            return ErrPtr(new InvalidNumericLiteralErr(Span(
+                start, cursor.pos
+            )));
         return Token(TokenID::FLOAT_TAIL, std::move(res));
     }
 }
@@ -602,7 +608,7 @@ Res<Token> next_str(Cursor& cursor) {
                 // Prioritize UnclosedStrErr
                 if (seek_quote(cursor, '"'))
                     return std::move(code_point.err);
-                return ErrPtr(new UnclosedStrErr(start));
+                return ErrPtr(new UnclosedStrErr(Span(start, cursor.pos - 1)));
             }
             encode_unicode(code_point.res, s);
             break;
@@ -611,7 +617,8 @@ Res<Token> next_str(Cursor& cursor) {
             return Token(TokenID::STRING, s);
         case '\n':
         case EOF:
-            return ErrPtr(new UnclosedStrErr(start));
+            cursor.ungetc();
+            return ErrPtr(new UnclosedStrErr(Span(start, cursor.pos - 1)));
         default:
             encode_unicode(c, s);
         }
@@ -637,7 +644,7 @@ Res<Token> next_token(Cursor& cursor) {
         if (c == '\n' || c == EOF) {
             // If the last character read was a newline or EOF, we found space
             // at the end of a line.
-            return ErrPtr(new TrailingSpaceErr(start));
+            return ErrPtr(new TrailingSpaceErr(Span(start, space_count)));
         }
         return Token(TokenID::SPACE, space_count);
     }
@@ -661,8 +668,10 @@ Res<Token> next_token(Cursor& cursor) {
         );
     case '!':
         if (!check_next(cursor, '='))
-            return ErrPtr(new UnexpectedCharErr(start, c));
+            return ErrPtr(new UnexpectedCharErr(c, Span(start)));
         return Token(TokenID::BANG_EQUALS);
+    case '@':
+        return Token(TokenID::AT);
     case '<':
         switch(cursor.getc()) {
         case '=':
@@ -785,9 +794,9 @@ Res<Token> next_token(Cursor& cursor) {
     default:
         if (is_digit(c))
             return next_number(c, cursor);
-        if (is_alnum(c))
+        if (is_alnum(c) || c == '_')
             return next_id(c, cursor);
-        return ErrPtr(new UnexpectedCharErr(start, c));
+        return ErrPtr(new UnexpectedCharErr(c, Span(start)));
     }
 }
 

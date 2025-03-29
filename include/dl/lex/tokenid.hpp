@@ -86,8 +86,6 @@ enum class TokenID {
     TILDE,
     TRUE,
     TRY,
-    TYPE,
-    VARS,
     WHILE
 };
 
@@ -252,10 +250,6 @@ std::ostream& operator<<(std::ostream& os, TokenID id) {
         return os << "TRUE";
     case TRY:
         return os << "TRY";
-    case TYPE:
-        return os << "TYPE";
-    case VARS:
-        return os << "VARS";
     case WHILE:
         return os << "WHILE";
     }

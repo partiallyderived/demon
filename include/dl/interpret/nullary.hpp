@@ -4,13 +4,17 @@
 
 #include "dl/interpret/node.hpp"
 #include "dl/interpret/nodekind.hpp"
-#include "dl/pos.hpp"
+#include "dl/span.hpp"
 
 namespace dl {
 
 template<NodeKind KIND>
-struct Nullary final: Node {
-    Nullary(Pos src) noexcept: Node(src) {}
+struct Nullary final: Node_<Nullary<KIND>> {
+    Nullary(Span src) noexcept: Node_<Nullary<KIND>>(src) {}
+
+    virtual Nullary copy() const override {
+        return Nullary(this->src);
+    }
 
     virtual bool equals(const Node& that) const noexcept override {
         return true;
@@ -22,6 +26,10 @@ struct Nullary final: Node {
 
     virtual std::ostream& out_data(std::ostream& os) const override {
         return os;
+    }
+
+    virtual Span span() const noexcept override {
+        return this->src;
     }
 };
 

@@ -194,10 +194,10 @@ struct Cursor {
         prev2 = prev1;
         prev1 = c;
         if (c == '\n')
-            // Note: advance prev1 or prev2 does not modify prevcol1 or
+            // Note: advancing prev1 or prev2 does not modify prevcol1 or
             // prevcol2 like getting a character from file does.
             inc_line();
-        else
+        else if (c != EOF)
             pos.col++;
         return c;
     }
@@ -214,13 +214,13 @@ struct Cursor {
                     pos.col = prevcol2;
                 else
                     pos.col = prevcol1;
-            } else
+            } else if (prev2 != EOF)
                 pos.col--;
         } else {
             if (prev1 == '\n') {
                 pos.line--;
                 pos.col = prevcol1;
-            } else
+            } else if (prev1 != EOF)
                 pos.col--;
         }
         put_back++;

@@ -9,9 +9,10 @@
 
 #include "dl/compose/opinfo.hpp"
 #include "dl/compose/opkind.hpp"
+#include "dl/compose/precedence.hpp"
 #include "dl/data.hpp"
 #include "dl/parse/opid.hpp"
-#include "dl/pos.hpp"
+#include "dl/span.hpp"
 #include "dl/util.hpp"
 
 namespace dl {
@@ -27,7 +28,7 @@ struct Comp {
         Data data;
         std::vector<Comp> comps;
     };
-    Pos src;
+    Span src;
 
     inline ~Comp() noexcept;
 
@@ -56,24 +57,31 @@ struct Comp {
     }
 
     // Nullary constructor
-    Comp(OpID op, Pos src) noexcept: op(op), src(src) {}
+    Comp(OpID op, Span src) noexcept: op(op), src(src) {}
 
     // Unary constructor
-    Comp(OpID op, Comp&& comp, Pos src):
+    Comp(OpID op, Comp&& comp, Span src):
     op(op), comp(new Comp(std::move(comp))), src(src) {}
 
     // Binary constructor
-    inline Comp(OpID op, Comp&& lhs, Comp&& rhs, Pos src);
+    inline Comp(OpID op, Comp&& lhs, Comp&& rhs, Span src);
 
     // Data constructor
-    Comp(OpID op, Data&& data, Pos src):
+    Comp(OpID op, Data&& data, Span src):
     op(op), data(std::move(data)), src(src) {}
 
     // Aggregate constructor
-    Comp(OpID op, std::vector<Comp>&& comps, Pos src) noexcept:
+    Comp(OpID op, std::vector<Comp>&& comps, Span src) noexcept:
     op(op), comps(std::move(comps)), src(src) {}
 
     inline bool operator==(const Comp& that) const noexcept;
+
+    inline Comp copy() const noexcept;
+
+    // Gives the full span of this Comp, including its children which are not
+    // always included in src (for operators, src is only the span for the
+    // operator itself).
+    inline Span span() const noexcept;
 };
 
 struct BinaryData {
@@ -84,7 +92,7 @@ struct BinaryData {
     lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 };
 
-Comp::Comp(OpID op, Comp&& lhs, Comp&& rhs, Pos src):
+Comp::Comp(OpID op, Comp&& lhs, Comp&& rhs, Span src):
 op(op), bin(new BinaryData(std::move(lhs), std::move(rhs))), src(src) {}
 
 bool Comp::operator==(const Comp& that) const noexcept {
@@ -122,6 +130,40 @@ Comp::~Comp() noexcept {
         comps.~vector();
         return;
     default:;
+    }
+}
+
+Comp Comp::copy() const noexcept {
+    using enum OpKind;
+    switch(opinfo(op).kind) {
+    case UNARY:
+        return Comp(op, comp->copy(), src);
+    case BINARY:
+        return Comp(op, bin->lhs.copy(), bin->rhs.copy(), src);
+    case DATA:
+        return Comp(op, Data(data), src);
+    case AGGREGATE:
+        return Comp(op, deep_copy(comps), src);
+    default:
+        return Comp(op, src);
+    }
+}
+
+Span Comp::span() const noexcept {
+    using enum OpKind;
+    switch(opinfo(op).kind) {
+    case UNARY:
+        if (op == OpID::ADDR_TYPE)
+            // Account for suffix operators by reversing order.
+            return Span(comp->span(), src);
+        if (opinfo(op).left_precedence == Precedence::START)
+            // Start operators have the entire span in src already.
+            return src;
+        return Span(src, comp->span());
+    case BINARY:
+        return Span(bin->lhs.span(), bin->rhs.span());
+    default:
+        return src;
     }
 }
 

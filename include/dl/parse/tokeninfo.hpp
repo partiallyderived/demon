@@ -258,10 +258,6 @@ const TokenInfo TOKEN_INFO_[static_cast<int>(TokenID::WHILE) + 1] = {
     value_info_(OpID::TRUE, OpID::SUFFIX),
     // TRY
     construct_first_info_(OpID::TRY),
-    // TYPE
-    construct_first_info_(OpID::TYPE),
-    // VARS
-    value_info_(OpID::VARS, OpID::SUFFIX),
     // WHILE
     construct_first_info_(OpID::WHILE)
 };

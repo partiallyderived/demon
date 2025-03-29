@@ -18,6 +18,10 @@ struct Token {
     // Data associated with the token, if any.
     Data data;
 
+    Token(const Token& that) = delete;
+
+    Token(Token&& that) noexcept: id(that.id), data(std::move(that.data)) {}
+
     // For most tokens, the content is inferrable by the ID. For +, for example,
     // there is no need to store the content as "+".
     Token(TokenID id) noexcept: id(id), data() {}
@@ -26,6 +30,9 @@ struct Token {
     id(id), data(std::move(data)) {}
 
     bool operator==(const Token& that) const = default;
+    Token copy() const noexcept {
+        return Token(id, Data(data));
+    }
 };
 
 std::ostream& operator<<(std::ostream& os, const Token& t) {

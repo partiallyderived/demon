@@ -99,12 +99,10 @@ enum class OpID {
     THIS,
     TRUE,
     TRY,
-    TYPE,
     TYPE_LABEL,
     UNPACK_ARGS,
     UNPACK_KWARGS,
     UP,
-    VARS,
     WHILE,
     WAITING
 };
@@ -298,8 +296,6 @@ std::ostream& operator<<(std::ostream& os, OpID id) {
         return os << "TRUE";
     case TRY:
         return os << "TRY";
-    case TYPE:
-        return os << "TYPE";
     case TYPE_LABEL:
         return os << "TYPE_LABEL";
     case UNPACK_ARGS:
@@ -308,8 +304,6 @@ std::ostream& operator<<(std::ostream& os, OpID id) {
         return os << "UNPACK_KWARGS";
     case UP:
         return os << "UP";
-    case VARS:
-        return os << "VARS";
     case WHILE:
         return os << "WHILE";
     case WAITING:

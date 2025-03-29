@@ -3,37 +3,42 @@
 #include <ostream>
 #include <utility>
 
-#include "dl/interpret/case.hpp"
+#include "dl/interpret/block.hpp"
+#include "dl/interpret/matchcase.hpp"
 #include "dl/interpret/node.hpp"
 #include "dl/interpret/nodekind.hpp"
-#include "dl/pos.hpp"
+#include "dl/span.hpp"
 #include "dl/util.hpp"
 
 namespace dl {
 
-struct Try final: Node {
-    Nodes body;
+struct Try final: Node_<Try> {
+    Block body;
     std::vector<MatchCase> excepts;
-    Nodes finally;
+    Block finally;
 
     Try(
-        Nodes&& body,
+        Block&& body,
         std::vector<MatchCase>&& excepts,
-        Nodes&& finally,
-        Pos src
+        Block&& finally,
+        Span src
     )
     noexcept:
-    Node(src),
+    Node_<Try>(src),
     body(std::move(body)),
     excepts(std::move(excepts)),
     finally(std::move(finally)) {}
 
+    virtual Try copy() const override {
+        return Try(body.copy(), deep_copy(excepts), finally.copy(), this->src);
+    }
+
     virtual bool equals(const Node& that) const noexcept override {
         const auto& casted = dynamic_cast<const Try&>(that);
         return
-            nodes_eq(body, casted.body) &&
+            body == casted.body &&
             excepts == casted.excepts &&
-            nodes_eq(finally, casted.finally);
+            finally == casted.finally;
     }
 
     virtual NodeKind kind() const noexcept override {
@@ -41,8 +46,14 @@ struct Try final: Node {
     }
 
     virtual std::ostream& out_data(std::ostream& os) const override {
-        return
-            os << body << ", " << OutContainerManip(excepts) << ", " << finally;
+        return os <<
+            body << ", " << OutContainerManip(excepts) << ", " << finally;
+    }
+
+    virtual Span span() const noexcept override {
+        Span end = finally.code.size() > 0 ?
+            finally.code.back()->span(): excepts.back().span();
+        return Span(body.src, end);
     }
 };
 

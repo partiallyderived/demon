@@ -6,21 +6,27 @@
 #include "dl/interpret/data.hpp"
 #include "dl/interpret/node.hpp"
 #include "dl/interpret/nodekind.hpp"
-#include "dl/pos.hpp"
+#include "dl/span.hpp"
 #include "dl/util.hpp"
 
 namespace dl {
 
-struct Init final: Node {
+struct Init final: Node_<Init> {
     NodePtr attr;
     NodePtr type;
     NodePtr val;
 
-    Init(NodePtr&& attr, NodePtr&& type, NodePtr&& val, Pos src) noexcept:
-    Node(src),
+    Init(NodePtr&& attr, NodePtr&& type, NodePtr&& val, Span src) noexcept:
+    Node_<Init>(src),
     attr(std::move(attr)),
     type(std::move(type)),
     val(std::move(val)) {}
+
+    virtual Init copy() const override {
+        return Init(
+            attr->copy_ptr(), type->copy_ptr(), val->copy_ptr(), this->src
+        );
+    }
 
     virtual bool equals(const Node& that) const noexcept override {
         const auto& casted = dynamic_cast<const Init&>(that);
@@ -36,6 +42,10 @@ struct Init final: Node {
 
     virtual std::ostream& out_data(std::ostream& os) const override {
         return out_csv(os, attr, type, val);
+    }
+
+    virtual Span span() const noexcept override {
+        return Span(attr->span(), val->span());
     }
 };
 

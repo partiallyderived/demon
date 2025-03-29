@@ -7,11 +7,12 @@
 #include <type_traits>
 
 #include "dl/res.hpp"
+#include "dl/span.hpp"
 
 namespace dl {
 
 struct InvalidNumericLiteralErr final: SourcedErr {
-    InvalidNumericLiteralErr(Pos src) noexcept: SourcedErr(src) {}
+    InvalidNumericLiteralErr(Span src) noexcept: SourcedErr(src) {}
 
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "InvalidNumericLiteralErr";
@@ -19,7 +20,7 @@ struct InvalidNumericLiteralErr final: SourcedErr {
 };
 
 struct OutOfRangeErr final: SourcedErr {
-    OutOfRangeErr(Pos src) noexcept: SourcedErr(src) {}
+    OutOfRangeErr(Span src) noexcept: SourcedErr(src) {}
 
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "OutOfRangeErr";
@@ -65,18 +66,19 @@ T strto(const char* str, char** str_end, int base = 10) {
 
 template<typename T>
 Res<T> read_number(
-    Pos start,
-    const char* begin,
+    const std::string& str,
     const char* expected_end,
-    int base
+    int base,
+    Pos start
 ) noexcept {
+    const char* begin = &str[0];
     char* end;
     errno = 0;
     T res = strto<T>(begin, &end, base);
     if (errno == ERANGE)
-        return ErrPtr(new OutOfRangeErr(start));
+        return ErrPtr(new OutOfRangeErr(Span(start, str.size())));
     if (end < expected_end)
-        return ErrPtr(new InvalidNumericLiteralErr(start));
+        return ErrPtr(new InvalidNumericLiteralErr(Span(start, str.size())));
     return res;
 }
 

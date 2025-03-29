@@ -127,12 +127,12 @@ struct Res {
             if constexpr (can_deref<ErrType>)
                 return DerefType<ErrType>(*err);
             else
-                return err;
+                return DerefType<ErrType>(err);
         }
         if constexpr (can_deref<ResType>)
             return DerefType<ResType>(*res);
         else
-            return res;
+            return DerefType<ResType>(res);
     }
 
     // Need to explicitly call destructor of active union member.

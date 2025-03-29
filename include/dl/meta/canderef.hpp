@@ -19,7 +19,7 @@ constexpr bool can_deref = decltype(can_deref_impl<Type>(0))::value;
 
 template<typename Type, typename Enable = void>
 struct DerefTypeImpl {
-    using T = Type;
+    using T = Reference<Type>;
 };
 
 template<typename Type>

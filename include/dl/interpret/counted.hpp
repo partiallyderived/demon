@@ -7,19 +7,22 @@
 
 #include "dl/interpret/node.hpp"
 #include "dl/interpret/nodekind.hpp"
-#include "dl/pos.hpp"
+#include "dl/span.hpp"
 #include "dl/util.hpp"
 
 namespace dl {
 
 template<NodeKind KIND>
-struct Counted final: Node {
-
+struct Counted final: Node_<Counted<KIND>> {
     std::uint32_t count;
     NodePtr arg;
 
-    Counted(std::uint32_t count, NodePtr&& arg, Pos src) noexcept:
-    Node(src), count(count), arg(std::move(arg)) {}
+    Counted(std::uint32_t count, NodePtr&& arg, Span src) noexcept:
+    Node_<Counted<KIND>>(src), count(count), arg(std::move(arg)) {}
+
+    virtual Counted copy() const override {
+        return Counted(count, arg->copy_ptr(), this->src);
+    }
 
     virtual bool equals(const Node& that) const noexcept override {
         const auto& casted = dynamic_cast<const Counted&>(that);
@@ -32,6 +35,10 @@ struct Counted final: Node {
 
     virtual std::ostream& out_data(std::ostream& os) const override {
         return out_csv(os, count, arg);
+    }
+
+    virtual Span span() const noexcept override {
+        return Span(this->src, arg->span());
     }
 };
 

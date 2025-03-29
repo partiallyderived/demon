@@ -3,15 +3,15 @@
 #include <ostream>
 #include <utility>
 
-#include "dl/interpret/matchargs.hpp"
+#include "dl/interpret/args.hpp"
 #include "dl/interpret/node.hpp"
 #include "dl/interpret/nodekind.hpp"
-#include "dl/pos.hpp"
+#include "dl/span.hpp"
 #include "dl/util.hpp"
 
 namespace dl {
 
-struct DefCase final: Node {
+struct DefCase final: Node_<DefCase> {
     MatchArgs spec;
     NodePtr guard;
     NodePtr returns;
@@ -21,13 +21,24 @@ struct DefCase final: Node {
         MatchArgs&& spec,
         NodePtr&& guard,
         NodePtr&& returns,
-        Nodes&& body, Pos src
+        Nodes&& body,
+        Span src
     ) noexcept:
-    Node(src),
+    Node_<DefCase>(src),
     spec(std::move(spec)),
     guard(std::move(guard)),
     returns(std::move(returns)),
     body(std::move(body)) {}
+
+    virtual DefCase copy() const override {
+        return DefCase(
+            spec.copy(),
+            copy_np(guard),
+            copy_np(returns),
+            deep_copy_ptr(body),
+            this->src
+        );
+    }
 
     virtual bool equals(const Node& that) const noexcept override {
         const auto& casted = dynamic_cast<const DefCase&>(that);
@@ -44,6 +55,10 @@ struct DefCase final: Node {
 
     virtual std::ostream& out_data(std::ostream& os) const override {
         return out_csv(os, spec, guard, returns, body);
+    }
+
+    virtual Span span() const noexcept override {
+        return Span(src, body.back()->span());
     }
 };
 

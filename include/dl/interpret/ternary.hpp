@@ -5,24 +5,32 @@
 
 #include "dl/interpret/node.hpp"
 #include "dl/interpret/nodekind.hpp"
-#include "dl/pos.hpp"
+#include "dl/span.hpp"
 #include "dl/util.hpp"
 
 namespace dl {
 
-struct Ternary final: Node {
+struct Ternary final: Node_<Ternary> {
     NodePtr predicate;
     NodePtr if_case;
     NodePtr else_case;
 
     Ternary(
-        NodePtr&& predicate, NodePtr&& if_case, NodePtr&& else_case, Pos src
-    )
-    noexcept:
-    Node(src),
+        NodePtr&& predicate, NodePtr&& if_case, NodePtr&& else_case, Span src
+    ) noexcept:
+    Node_<Ternary>(src),
     predicate(std::move(predicate)),
     if_case(std::move(if_case)),
     else_case(std::move(else_case)) {}
+
+    virtual Ternary copy() const override {
+        return Ternary(
+            predicate->copy_ptr(),
+            if_case->copy_ptr(),
+            else_case->copy_ptr(),
+            this->src
+        );
+    }
 
     virtual bool equals(const Node& that) const noexcept override {
         const auto& casted = dynamic_cast<const Ternary&>(that);
@@ -38,6 +46,10 @@ struct Ternary final: Node {
 
     virtual std::ostream& out_data(std::ostream& os) const override {
         return out_csv(os, predicate, if_case, else_case);
+    }
+
+    virtual Span span() const noexcept override {
+        return Span(if_case->span(), else_case->span());
     }
 };
 

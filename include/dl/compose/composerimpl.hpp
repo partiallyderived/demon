@@ -15,6 +15,7 @@
 #include "dl/compose/comp.hpp"
 #include "dl/parse/opid.hpp"
 #include "dl/pos.hpp"
+#include "dl/span.hpp"
 
 namespace dl {
 
@@ -37,7 +38,7 @@ struct ComposerImpl: Composer {
     }
 
     Op pop_op() {
-        Op op = ops.back();
+        Op op = std::move(ops.back());
         ops.pop_back();
         return op;
     }
@@ -111,11 +112,15 @@ struct ComposerImpl: Composer {
                 // which is why <= rather than < is used.
                 for (i = 0; i <= dest.size(); i++)
                     comps.pop_back();
-                comps.push_back(Comp(start.id, std::move(dest), start.src));
+                comps.push_back(
+                    Comp(start.id, std::move(dest), Span(start.src, op.src))
+                );
             } else
                 // Start operators are essentially unary, taking their entire
                 // contents as a single argument.
-                comps.push_back(Comp(start.id, pop_comp(), start.src));
+                comps.push_back(
+                    Comp(start.id, pop_comp(), Span(start.src, op.src))
+                );
         }
         else if (op.id == OpID::STMT) {
             // Statement does not get pushed to the operator stack, because it
@@ -139,7 +144,7 @@ struct ComposerImpl: Composer {
 
     Comp next() override {
         if (queue.empty())
-            return Comp(OpID::WAITING, Pos());
+            return Comp(OpID::WAITING, Span(Pos()));
         Comp comp = std::move(queue.front());
         queue.pop();
         return comp;

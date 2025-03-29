@@ -8,17 +8,21 @@
 
 #include "dl/interpret/node.hpp"
 #include "dl/interpret/nodekind.hpp"
-#include "dl/pos.hpp"
+#include "dl/span.hpp"
 
 namespace dl {
 
 template<NodeKind KIND, typename DataType>
-struct DataNode final: Node {
+struct DataNode final: Node_<DataNode<KIND, DataType>> {
     using Type = DataType;
     DataType data;
 
-    DataNode(DataType&& data, Pos src)
-    noexcept: Node(src), data(std::move(data)) {}
+    DataNode(DataType&& data, Span src)
+    noexcept: Node_<DataNode<KIND, DataType>>(src), data(std::move(data)) {}
+
+    virtual DataNode copy() const override {
+        return DataNode(DataType(data), this->src);
+    }
 
     virtual bool equals(const Node& that) const noexcept override {
         return data == dynamic_cast<
@@ -32,6 +36,10 @@ struct DataNode final: Node {
 
     std::ostream& out_data(std::ostream& os) const override {
         return os << std::boolalpha << data;
+    }
+
+    virtual Span span() const noexcept override {
+        return this->src;
     }
 };
 

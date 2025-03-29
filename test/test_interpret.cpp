@@ -1,501 +1,362 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include <iostream>
 #include <utility>
 #include <vector>
 
 #include "dl/compose/comp.hpp"
 #include "dl/interpret/interpreterimpl.hpp"
+#include "dl/lex/token.hpp"
+#include "dl/lex/tokenid.hpp"
+#include "dl/parse/op.hpp"
 #include "dl/parse/opid.hpp"
+#include "dl/res.hpp"
 
+#include "capturingcontroller.hpp"
+#include "streamfile.hpp"
 #include "util.hpp"
 
 using namespace dl;
+
+CapturingController capture(const char* str) {
+    auto f = StreamFile();
+    auto cc = CapturingController(&f);
+    cc.capture(str);
+    return cc;
+}
 
 TEST_CASE("interpret", "[interpret]") {
     auto interpreter = InterpreterImpl();
 
     SECTION("ADD") {
-        // a + b
-        REQUIRE(*interpreter.interpret(Comp(
+        auto cc = capture("a + b");
+        REQUIRE(cc.tokens() == vec(
+            std::pair<Token, Span>(Token(TokenID::ID, "a"), Span(1, 1)),
+            std::pair<Token, Span>(
+                Token(TokenID::SPACE, std::uint32_t(1)), Span(1, 2)
+            ),
+            std::pair<Token, Span>(Token(TokenID::PLUS), Span(1, 3)),
+            std::pair<Token, Span>(
+                Token(TokenID::SPACE, std::uint32_t(1)), Span(1, 4)
+            ),
+            std::pair<Token, Span>(Token(TokenID::ID, "b"), Span(1, 5)),
+            std::pair<Token, Span>(Token(TokenID::END_OF_FILE), Span(1, 6))
+        ));
+
+        REQUIRE(cc.ops() == vec(
+            Op(OpID::ID, "a", Span(1, 1)),
+            Op(OpID::ADD, Span(1, 3)),
+            Op(OpID::ID, "b", Span(1, 5)),
+            Op(OpID::STMT, Span(1, 6))
+        ));
+
+        REQUIRE(cc.comp() == Comp(
             OpID::ADD,
-            Comp(OpID::ID, "a", s1),
-            Comp(OpID::ID, "b", s3),
-            s2
-        )) == CallAttr(
-            NodePtr(new ID("a", s1)),
-            NodePtr(new ID("__add__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
-            s2
+            Comp(OpID::ID, "a", Span(1, 1)),
+            Comp(OpID::ID, "b", Span(1, 5)),
+            Span(1, 3)
+        ));
+
+        REQUIRE(*cc.node() == Add(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ID("b", Span(1, 5))),
+            Span(1, 3)
         ));
     }
 
     SECTION("Addr") {
-        // @a
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::ADDR, Comp(OpID::ID, "a", s2), s1
-        )) == Addr(
-            NodePtr(new ID("a", s2)), s1
+        REQUIRE(*capture(
+            "@a"
+        ).node() == Addr(
+            NodePtr(new ID("a", Span(1, 2))),
+            Span(1, 1)
         ));
     }
 
     SECTION("AddrType") {
-        // Int@
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::ADDR_TYPE, Comp(OpID::ID, "Int", s1), s2
-        )) == AddrType(
-            NodePtr(new ID("Int", s1)), s2
+        REQUIRE(*capture(
+            "Int@"
+        ).node() == AddrType(
+            NodePtr(new ID("Int", Span(1, 1, 3))),
+            Span(1, 4)
         ));
     }
 
     SECTION("And") {
-        // true and false
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::AND, Comp(OpID::TRUE, s1), Comp(OpID::FALSE, s3), s2
-        )) == And(
-            NodePtr(new Bool(true, s1)),
-            NodePtr(new Bool(false, s3)),
-            s2
+        REQUIRE(*capture(
+            "true and false"
+        ).node() == And(
+            NodePtr(new Bool(true, Span(1, 1, 4))),
+            NodePtr(new Bool(false, Span(1, 10, 5))),
+            Span(1, 6, 3)
         ));
     }
 
     SECTION("Assign") {
-        // a = b
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::SET, Comp(OpID::ID, "a", s1), Comp(OpID::ID, "b", s3), s2
-        )) == Assign(
-            NodePtr(new ID("a", s1)),
-            NodePtr(new ID("b", s3)),
-            s2
+        REQUIRE(*capture(
+            "a = b"
+        ).node() == Assign(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ID("b", Span(1, 5))),
+            Span(1, 3)
         ));
     }
 
     SECTION("BAND") {
-        // a & b
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::BAND,
-            Comp(OpID::ID, "a", s1),
-            Comp(OpID::ID, "b", s3),
-            s2
-        )) == CallAttr(
-            NodePtr(new ID("a", s1)),
-            NodePtr(new ID("__band__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
-            s2
+        REQUIRE(*capture(
+            "a & b"
+        ).node() == BitAnd(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ID("b", Span(1, 5))),
+            Span(1, 3)
         ));
     }
 
     SECTION("BNOT") {
-        // ~a
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::BNOT,
-            Comp(OpID::ID, "a", s2),
-            s1
-        )) == CallAttr(
-            NodePtr(new ID("a", s2)),
-            NodePtr(new ID("__bnot__", s1)),
-            Args({}, {}, s1),
-            s1
+        REQUIRE(*capture(
+            "~a"
+        ).node() == BitNot(
+            NodePtr(new ID("a", Span(1, 2))),
+            Span(1, 1)
         ));
     }
 
     SECTION("BOR") {
-        // a | b
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::BOR,
-            Comp(OpID::ID, "a", s1),
-            Comp(OpID::ID, "b", s3),
-            s2
-        )) == CallAttr(
-            NodePtr(new ID("a", s1)),
-            NodePtr(new ID("__bor__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
-            s2
+        REQUIRE(*capture(
+            "a | b"
+        ).node() == BitOr(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ID("b", Span(1, 5))),
+            Span(1, 3)
         ));
     }
 
     SECTION("BXOR") {
-        // a ^ b
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::BXOR,
-            Comp(OpID::ID, "a", s1),
-            Comp(OpID::ID, "b", s3),
-            s2
-        )) == CallAttr(
-            NodePtr(new ID("a", s1)),
-            NodePtr(new ID("__bxor__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
-            s2
+        REQUIRE(*capture(
+            "a ^ b"
+        ).node() == BitXor(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ID("b", Span(1, 5))),
+            Span(1, 3)
         ));
     }
 
     SECTION("Break") {
-        // break
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::BREAK, s1
-        )) == Break(s1));
-    }
-
-    SECTION("Cached Call") {
-        // Vector[Int]
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CALL,
-            Comp(OpID::ID, "Vector", s1),
-            Comp(OpID::LIST, Comp(OpID::ID, "Int", s3), s2),
-            s2
-        )) == CachedCall(
-            NodePtr(new ID("Vector", s1)),
-            Args(vec(NodePtr(new ID("Int", s3))), {}, s2),
-            s2
+        REQUIRE(*capture(
+            "break"
+        ).node() == Break(
+            Span(1, 1, 5)
         ));
     }
 
-    SECTION("Cached CallAttr") {
-        // obj.attr[T]
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CALL,
-            Comp(
-                OpID::GET,
-                Comp(OpID::ID, "obj", s1),
-                Comp(OpID::ID, "attr", s3),
-                s2
+    SECTION("Cached Call") {
+        REQUIRE(*capture(
+            "Vector[Int]"
+        ).node() == CachedCall(
+            NodePtr(new ID("Vector", Span(1, 1, 6))),
+            Args(
+                vec(NodePtr(new ID("Int", Span(1, 8, 3)))),
+                {},
+                Span(1, 7, 5)
             ),
-            Comp(OpID::LIST, Comp(OpID::ID, "T", s5), s4),
-            s4
-        )) == CachedCallAttr(
-            NodePtr(new ID("obj", s1)),
-            NodePtr(new ID("attr", s3)),
-            Args(vec(NodePtr(new ID("T", s5))), {}, s4),
-            s4
+            Span(1, 7)
         ));
     }
 
     SECTION("Call") {
-        // fn()
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CALL,
-            Comp(OpID::ID, "fn", s1),
-            Comp(OpID::GROUP, Comp(OpID::NOTHING, s3), s2),
-            s2
-        )) == Call(
-            NodePtr(new ID("fn", s1)),
-            Args({}, {}, s2),
-            s2
+        auto cc = capture("fn()");
+        REQUIRE(cc.ops() == vec(
+            Op(OpID::ID, "fn", Span(1, 1, 2)),
+            Op(OpID::CALL, Span(1, 3)),
+            Op(OpID::GROUP, Span(1, 3)),
+            Op(OpID::NOTHING, Span(1, 4)),
+            Op(OpID::END, Span(1, 4)),
+            Op(OpID::STMT, Span(1, 5))
         ));
 
-        // fn(1, 2)
-        REQUIRE(*interpreter.interpret(Comp(
+        REQUIRE(cc.comp() == Comp(
             OpID::CALL,
-            Comp(OpID::ID, "fn", s1),
+            Comp(OpID::ID, "fn", Span(1, 1, 2)),
             Comp(
                 OpID::GROUP,
-                Comp(
-                    OpID::SEP,
-                    Comp(OpID::PLAIN_INT, "1", s3),
-                    Comp(OpID::PLAIN_INT, "2", s5),
-                    s4
-                ),
-                s2
+                Comp(OpID::NOTHING, Span(1, 4)),
+                Span(1, 3, 2)
             ),
-            s2
-        )) == Call(
-            NodePtr(new ID("fn", s1)),
-            Args(
-                vec(NodePtr(new Int32(1, s3)), NodePtr(new Int32(2, s5))),
-                {},
-                s2
-            ),
-            s2
+            Span(1, 3)
         ));
 
-        // fn(1, 2, *args)
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CALL,
-            Comp(OpID::ID, "fn", s1),
-            Comp(
-                OpID::GROUP,
-                Comp(
-                    OpID::SEP,
-                    Comp(
-                        OpID::SEP,
-                        Comp(OpID::PLAIN_INT, "1", s3),
-                        Comp(OpID::PLAIN_INT, "2", s5),
-                        s4
-                    ),
-                    Comp(OpID::UNPACK_ARGS, Comp(OpID::ID, "args", s8), s7),
-                    s6
-                ),
-                s2
-            ),
-            s2
-        )) == Call(
-            NodePtr(new ID("fn", s1)),
+        REQUIRE(*cc.node() == Call(
+            NodePtr(new ID("fn", Span(1, 1, 2))),
+            Args({}, {}, Span(1, 3, 2)),
+            Span(1, 3)
+        ));
+
+        REQUIRE(*capture(
+            "fn(1, 2)"
+        ).node() == Call(
+            NodePtr(new ID("fn", Span(1, 1, 2))),
             Args(
                 vec(
-                    NodePtr(new Int32(1, s3)),
-                    NodePtr(new Int32(2, s5)),
+                    NodePtr(new Int32(1, Span(1, 4))),
+                    NodePtr(new Int32(2, Span(1, 7)))
+                ),
+                {},
+                Span(1, 3, 6)
+            ),
+            Span(1, 3)
+        ));
+
+        REQUIRE(*capture(
+            "fn(1, 2, *args)"
+        ).node() == Call(
+            NodePtr(new ID("fn", Span(1, 1, 2))),
+            Args(
+                vec(
+                    NodePtr(new Int32(1, Span(1, 4))),
+                    NodePtr(new Int32(2, Span(1, 7))),
                     NodePtr(new Expansion(
-                        NodePtr(new ID("args", s8)), s7
+                        NodePtr(new ID("args", Span(1, 11, 4))),
+                        Span(1, 10)
                     ))
                 ),
                 {},
-                s2
+                Span(1, 3, 13)
             ),
-            s2
+            Span(1, 3)
         ));
 
-        // fn(1, 2, *args, kw1="yes", kw2=true)
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CALL,
-            Comp(OpID::ID, "fn", s1),
-            Comp(
-                OpID::GROUP,
-                csv(
-                    Comp(OpID::PLAIN_INT, "1", s3),
-                    Comp(OpID::PLAIN_INT, "2", s5),
-                    Comp(OpID::UNPACK_ARGS, Comp(OpID::ID, "args", s8), s7),
-                    Comp(
-                        OpID::BIND,
-                        Comp(OpID::ID, "kw1", s10),
-                        Comp(OpID::STRING, "yes", s12),
-                        s11
-                    ),
-                    Comp(
-                        OpID::BIND,
-                        Comp(OpID::ID, "kw2", s14),
-                        Comp(OpID::TRUE, s16),
-                        s15
-                    )
-                ),
-                s2
-            ),
-            s2
-        )) == Call(
-            NodePtr(new ID("fn", s1)),
+        REQUIRE(*capture(
+            "fn(1, 2, *args, kw1=\"yes\", kw2=true)"
+        ).node() ==
+        Call(
+            NodePtr(new ID("fn", Span(1, 1, 2))),
             Args(
                 vec(
-                    NodePtr(new Int32(1, s3)),
-                    NodePtr(new Int32(2, s5)),
-                    NodePtr(new Expansion(NodePtr(new ID("args", s8)), s7))
+                    NodePtr(new Int32(1, Span(1, 4))),
+                    NodePtr(new Int32(2, Span(1, 7))),
+                    NodePtr(new Expansion(
+                        NodePtr(new ID("args", Span(1, 11, 4))),
+                        Span(1, 10)
+                    ))
                 ),
                 vec(
                     NodePtr(new KeywordArg(
-                        ID("kw1", s10), NodePtr(new String("yes", s12)), s11
+                        ID("kw1", Span(1, 17, 3)),
+                        NodePtr(new String("yes", Span(1, 21, 5))),
+                        Span(1, 20)
                     )),
                     NodePtr(new KeywordArg{
-                        ID("kw2", s14), NodePtr(new Bool(true, s16)), s15
+                        ID("kw2", Span(1, 28, 3)),
+                        NodePtr(new Bool(true, Span(1, 32, 4))),
+                        Span(1, 31)
                     })
                 ),
-                s2
+                Span(1, 3, 1, 36)
             ),
-            s2
+            Span(1, 3)
         ));
 
-        // fn(1, 2, *args, kw1="yes", kw2=true, **kwargs)
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CALL,
-            Comp(OpID::ID, "fn", s1),
-            Comp(
-                OpID::GROUP,
-                csv(
-                    Comp(OpID::PLAIN_INT, "1", s3),
-                    Comp(OpID::PLAIN_INT, "2", s5),
-                    Comp(OpID::UNPACK_ARGS, Comp(OpID::ID, "args", s8), s7),
-                    Comp(
-                        OpID::BIND,
-                        Comp(OpID::ID, "kw1", s10),
-                        Comp(OpID::STRING, "yes", s12),
-                        s11
-                    ),
-                    Comp(
-                        OpID::BIND,
-                        Comp(OpID::ID, "kw2", s14),
-                        Comp(OpID::TRUE, s16),
-                        s15
-                    ),
-                    Comp(
-                        OpID::UNPACK_KWARGS,
-                        Comp(OpID::ID, "kwargs", s19),
-                        s18
-                    )
-                ),
-                s2
-            ),
-            s2
-        )) == Call(
-            NodePtr(new ID("fn", s1)),
+        REQUIRE(
+        *capture(
+            "fn(1, 2, *args, kw1=\"yes\", kw2=true, **kwargs)"
+        ).node() ==
+        Call(
+            NodePtr(new ID("fn", Span(1, 1, 2))),
             Args(
                 vec(
-                    NodePtr(new Int32(1, s3)),
-                    NodePtr(new Int32(2, s5)),
-                    NodePtr(new Expansion(NodePtr(new ID("args", s8)), s7))
-                ),
-                vec(
-                    NodePtr(new KeywordArg(
-                        ID("kw1", s10), NodePtr(new String("yes", s12)), s11
-                    )),
-                    NodePtr(new KeywordArg(
-                        ID("kw2", s14), NodePtr(new Bool(true, s16)), s15
-                    )),
-                    NodePtr(new Expansion(NodePtr(new ID("kwargs", s19)), s18))
-                ),
-                s2
-            ),
-            s2
-        ));
-
-        // fn(1, kw1="yes", 2)
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CALL,
-            Comp(OpID::ID, "fn", s1),
-            Comp(
-                OpID::GROUP,
-                csv(
-                    Comp(OpID::PLAIN_INT, "1", s3),
-                    Comp(
-                        OpID::BIND,
-                        Comp(OpID::ID, "kw1", s5),
-                        Comp(OpID::STRING, "yes", s7),
-                        s6
-                    ),
-                    Comp(OpID::PLAIN_INT, "2", s9)
-                ),
-                s2
-            ),
-            s2
-        )) == PosAfterKeywordErr(s9));
-    }
-
-    SECTION("CallAttr") {
-        // thing.do(arg1, arg2, setting=true)
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CALL,
-            Comp(
-                OpID::GET,
-                Comp(OpID::ID, "thing", s1),
-                Comp(OpID::ID, "do", s3),
-                s2
-            ),
-            Comp(
-                OpID::GROUP,
-                Comp(
-                    OpID::SEP,
-                    Comp(
-                        OpID::SEP,
-                        Comp(OpID::ID, "arg1", s5),
-                        Comp(OpID::ID, "arg2", s7),
-                        s6
-                    ),
-                    Comp(
-                        OpID::BIND,
-                        Comp(OpID::ID, "setting", s9),
-                        Comp(OpID::TRUE, s11),
-                        s10
-                    ),
-                    s8
-                ),
-                s4
-            ),
-            s4
-        )) == CallAttr(
-            NodePtr(new ID("thing", s1)),
-            NodePtr(new ID("do", s3)),
-            Args(
-                vec(NodePtr(new ID("arg1", s5)), NodePtr(new ID("arg2", s7))),
-                vec(
-                    NodePtr(new KeywordArg(
-                        ID("setting", s9), NodePtr(new Bool(true, s11)), s10
+                    NodePtr(new Int32(1, Span(1, 4))),
+                    NodePtr(new Int32(2, Span(1, 7))),
+                    NodePtr(new Expansion(
+                        NodePtr(new ID("args", Span(1, 11, 4))),
+                        Span(1, 10)
                     ))
                 ),
-                s4
+                vec(
+                    NodePtr(new KeywordArg(
+                        ID("kw1", Span(1, 17, 3)),
+                        NodePtr(new String("yes", Span(1, 21, 5))),
+                        Span(1, 20)
+                    )),
+                    NodePtr(new KeywordArg{
+                        ID("kw2", Span(1, 28, 3)),
+                        NodePtr(new Bool(true, Span(1, 32, 4))),
+                        Span(1, 31)
+                    }),
+                    NodePtr(new Expansion(
+                        NodePtr(new ID("kwargs", Span(1, 40, 6))),
+                        Span(1, 38, 2)
+                    ))
+                ),
+                Span(1, 3, 1, 46)
             ),
-            s4
+            Span(1, 3)
         ));
 
-        // a.3
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CALL,
-            Comp(
-                OpID::GET,
-                Comp(OpID::ID, "a", s1),
-                Comp(OpID::PLAIN_INT, "3", s3),
-                s2
-            ),
-            Comp(
-                OpID::GROUP,
-                Comp(OpID::NOTHING, s5),
-                s4
-            ),
-            s4
-        )) == CallAttr(
-            NodePtr(new ID("a", s1)),
-            NodePtr(new NumID(3, s3)),
-            Args({}, {}, s4),
-            s4
-        ));
-
-        // a.true()
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CALL,
-            Comp(
-                OpID::GET,
-                Comp(OpID::ID, "a", s1),
-                Comp(OpID::TRUE, s3),
-                s2
-            ),
-            Comp(
-                OpID::GROUP,
-                Comp(OpID::NOTHING, s5),
-                s4
-            ),
-            s4
-        )) == ExpectedGeneralIDErr(s3));
+        REQUIRE(*capture(
+            "fn(1, kw1=\"yes\", 2)"
+        ).node() ==
+            PosAfterKeywordErr(Span(1, 18))
+        );
     }
 
     SECTION("Continue") {
-        // continue
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONTINUE, s1
-        )) == Continue(s1));
+        REQUIRE(*capture(
+            "continue"
+        ).node() == Continue(
+            Span(1, 1, 8)
+        ));
     }
 
     SECTION("Declare") {
-        // a: Int
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::TYPE_LABEL,
-            Comp(OpID::ID, "a", s1),
-            Comp(OpID::ID, "Int", s3),
-            s2
-        )) == Declare(
-            NodePtr(new ID("a", s1)),
-            NodePtr(new ID("Int", s3)),
-            s2
+        REQUIRE(*capture(
+            "a: Int"
+        ).node() == Declare(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ID("Int", Span(1, 4, 3))),
+            Span(1, 2)
         ));
 
-        // 3: Int
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::TYPE_LABEL,
-            Comp(OpID::PLAIN_INT, "3", s1),
-            Comp(OpID::ID, "Int", s3),
-            s2
-        )) == Declare(
-            NodePtr(new NumID(3, s1)),
-            NodePtr(new ID("Int", s3)),
-            s2
+        REQUIRE(*capture(
+            "3: Int"
+        ).node() == Declare(
+            NodePtr(new NumID(3, Span(1, 1))),
+            NodePtr(new ID("Int", Span(1, 4, 3))),
+            Span(1, 2)
         ));
 
-        // true: Int
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::TYPE_LABEL,
-            Comp(OpID::TRUE, s1),
-            Comp(OpID::ID, "Int", s3),
-            s2
-        )) == ExpectedGeneralIDErr(s1));
+        REQUIRE(*capture(
+            "true: Int"
+        ).node() ==
+            ExpectedGeneralIDErr(Span(1, 1, 4))
+        );
     }
 
     SECTION("Def") {
-        // def f():
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
+        auto cc = capture(
+            "def f():\n"
+            "    return 0"
+        );
+
+        REQUIRE(cc.ops() == vec(
+            Op(OpID::CONSTRUCT, Span(1, 1, 3)),
+            Op(OpID::DEF, Span(1, 1, 3)),
+            Op(OpID::ID, "f", Span(1, 5)),
+            Op(OpID::CALL, Span(1, 6)),
+            Op(OpID::GROUP, Span(1, 6)),
+            Op(OpID::NOTHING, Span(1, 7)),
+            Op(OpID::END, Span(1, 7)),
+            Op(OpID::LABEL, Span(1, 8)),
+            Op(OpID::BLOCK, Span(2, 5)),
+            Op(OpID::RETURN, Span(2, 5, 6)),
+            Op(OpID::PLAIN_INT, "0", Span(2, 12)),
+            Op(OpID::STMT, Span(2, 13)),
+            Op(OpID::END, Span(2, 12)),
+            Op(OpID::STMT, Span(2, 12)),
+            Op(OpID::END, Span(2, 12)),
+            Op(OpID::STMT, Span(2, 12))
+        ));
+
+        REQUIRE(cc.comp() == Comp(
             OpID::CONSTRUCT,
             vec(Comp(
                 OpID::DEF,
@@ -503,6464 +364,2647 @@ TEST_CASE("interpret", "[interpret]") {
                     OpID::LABEL,
                     Comp(
                         OpID::CALL,
-                        Comp(OpID::ID, "f", s2),
-                        Comp(OpID::GROUP, Comp(OpID::NOTHING, s4), s3),
-                        s3
-                    ),
-                    Comp(
-                        OpID::BLOCK,
-                        vec(Comp(
-                            OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, "0", s9),
-                            s8
-                        )),
-                        s7
-                    ),
-                    s5
-                ),
-                s1
-            )),
-            s1
-        )) == Def(
-            NodePtr(new ID("f", s2)),
-            vec(DefCase(
-                MatchArgs({}, {}, s3),
-                nullptr,
-                nullptr,
-                vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, s9)), s8
-                ))),
-                s1
-            )),
-            s1
-        ));
-
-        // def f() -> Int:
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::DEF,
-                Comp(
-                    OpID::LABEL,
-                    Comp(
-                        OpID::RETURNS,
-                        Comp(
-                            OpID::CALL,
-                            Comp(OpID::ID, "f", s2),
-                            Comp(OpID::GROUP, Comp(OpID::NOTHING, s4), s3),
-                            s3
-                        ),
-                        Comp(OpID::ID, "Int", s6),
-                        s5
-                    ),
-                    Comp(
-                        OpID::BLOCK,
-                        vec(Comp(
-                            OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, "0", s11),
-                            s10
-                        )),
-                        s9
-                    ),
-                    s7
-                ),
-                s1
-            )),
-            s1
-        )) == Def(
-            NodePtr(new ID("f", s2)),
-            vec(DefCase(
-                MatchArgs({}, {}, s3),
-                nullptr,
-                NodePtr(new ID("Int", s6)),
-                vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, s11)), s10
-                ))),
-                s1
-            )),
-            s1
-        ));
-
-        // def f(arg) -> Int:
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::DEF,
-                Comp(
-                    OpID::LABEL,
-                    Comp(
-                        OpID::RETURNS,
-                        Comp(
-                            OpID::CALL,
-                            Comp(OpID::ID, "f", s2),
-                            Comp(
-                                OpID::GROUP, Comp(OpID::ID, "arg", s4), s3
-                            ),
-                            s3
-                        ),
-                        Comp(OpID::ID, "Int", s7),
-                        s6
-                    ),
-                    Comp(
-                        OpID::BLOCK,
-                        vec(Comp(
-                            OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, "0", s12),
-                            s11
-                        )),
-                        s10
-                    ),
-                    s8
-                ),
-                s1
-            )),
-            s1
-        )) == Def(
-            NodePtr(new ID("f", s2)),
-            vec(DefCase(
-                MatchArgs(
-                    vec(NodePtr(new ID("arg", s4))),
-                    {},
-                    s3
-                ),
-                nullptr,
-                NodePtr(new ID("Int", s7)),
-                vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, s12)), s11
-                ))),
-                s1
-            )),
-            s1
-        ));
-
-        // def f(arg1, arg2: Int) -> Int:
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::DEF,
-                Comp(
-                    OpID::LABEL,
-                    Comp(
-                        OpID::RETURNS,
-                        Comp(
-                            OpID::CALL,
-                            Comp(OpID::ID, "f", s2),
-                            Comp(
-                                OpID::GROUP,
-                                csv(
-                                    Comp(OpID::ID, "arg1", s4),
-                                    Comp(
-                                        OpID::TYPE_LABEL,
-                                        Comp(OpID::ID, "arg2", s6),
-                                        Comp(OpID::ID, "Int", s8),
-                                        s7
-                                    )
-                                ),
-                                s3
-                            ),
-                            s3
-                        ),
-                        Comp(OpID::ID, "Int", s11),
-                        s10
-                    ),
-                    Comp(
-                        OpID::BLOCK,
-                        vec(Comp(
-                            OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, "0", s16),
-                            s15
-                        )),
-                        s14
-                    ),
-                    s12
-                ),
-                s1
-            )),
-            s1
-        )) == Def(
-            NodePtr(new ID("f", s2)),
-            vec(DefCase(
-                MatchArgs(
-                    vec(
-                        NodePtr(new ID("arg1", s4)),
-                        NodePtr(new TypeMatch(
-                            NodePtr(new ID("arg2", s6)),
-                            NodePtr(new ID("Int", s8)),
-                            s7
-                        ))
-                    ),
-                    {},
-                    s3
-                ),
-                nullptr,
-                NodePtr(new ID("Int", s11)),
-                vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, s16)), s15
-                ))),
-                s1
-            )),
-            s1
-        ));
-
-        // def f(arg1, arg2: Int, *args) -> Int:
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::DEF,
-                Comp(
-                    OpID::LABEL,
-                    Comp(
-                        OpID::RETURNS,
-                        Comp(
-                            OpID::CALL,
-                            Comp(OpID::ID, "f", s2),
-                            Comp(
-                                OpID::GROUP,
-                                csv(
-                                    Comp(OpID::ID, "arg1", s4),
-                                    Comp(
-                                        OpID::TYPE_LABEL,
-                                        Comp(OpID::ID, "arg2", s6),
-                                        Comp(OpID::ID, "Int", s8),
-                                        s7
-                                    ),
-                                    Comp(
-                                        OpID::UNPACK_ARGS,
-                                        Comp(OpID::ID, "args", s11),
-                                        s10
-                                    )
-                                ),
-                                s3
-                            ),
-                            s3
-                        ),
-                        Comp(OpID::ID, "Int", s14),
-                        s13
-                    ),
-                    Comp(
-                        OpID::BLOCK,
-                        vec(Comp(
-                            OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, "0", s19),
-                            s18
-                        )),
-                        s17
-                    ),
-                    s15
-                ),
-                s1
-            )),
-            s1
-        )) == Def(
-            NodePtr(new ID("f", s2)),
-            vec(DefCase(
-                MatchArgs(
-                    vec(
-                        NodePtr(new ID("arg1", s4)),
-                        NodePtr(new TypeMatch(
-                            NodePtr(new ID("arg2", s6)),
-                            NodePtr(new ID("Int", s8)),
-                            s7
-                        )),
-                        NodePtr(new Expansion(
-                            NodePtr(new ID("args", s11)), s10
-                        ))
-                    ),
-                    {},
-                    s3
-                ),
-                nullptr,
-                NodePtr(new ID("Int", s14)),
-                vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, s19)), s18
-                ))),
-                s1
-            )),
-            s1
-        ));
-
-        // def f(arg1, arg2: Int, *args, *, kw1=1, kw2: Bool) -> Int:
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::DEF,
-                Comp(
-                    OpID::LABEL,
-                    Comp(
-                        OpID::RETURNS,
-                        Comp(
-                            OpID::CALL,
-                            Comp(OpID::ID, "f", s2),
-                            Comp(
-                                OpID::GROUP,
-                                csv(
-                                    Comp(OpID::ID, "arg1", s4),
-                                    Comp(
-                                        OpID::TYPE_LABEL,
-                                        Comp(OpID::ID, "arg2", s6),
-                                        Comp(OpID::ID, "Int", s8),
-                                        s7
-                                    ),
-                                    Comp(
-                                        OpID::UNPACK_ARGS,
-                                        Comp(OpID::ID, "args", s11),
-                                        s10
-                                    ),
-                                    Comp(
-                                        OpID::POS_KW_SEP,
-                                        s13
-                                    ),
-                                    Comp(
-                                        OpID::BIND,
-                                        Comp(OpID::ID, "kw1", s15),
-                                        Comp(OpID::PLAIN_INT, "1", s17),
-                                        s16
-                                    ),
-                                    Comp(
-                                        OpID::TYPE_LABEL,
-                                        Comp(OpID::ID, "kw2", s19),
-                                        Comp(OpID::ID, "Bool", s21),
-                                        s20
-                                    )
-                                ),
-                                s3
-                            ),
-                            s3
-                        ),
-                        Comp(OpID::ID, "Int", s24),
-                        s23
-                    ),
-                    Comp(
-                        OpID::BLOCK,
-                        vec(Comp(
-                            OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, "0", s29),
-                            s28
-                        )),
-                        s27
-                    ),
-                    s25
-                ),
-                s1
-            )),
-            s1
-        )) == Def(
-            NodePtr(new ID("f", s2)),
-            vec(DefCase(
-                MatchArgs(
-                    vec(
-                        NodePtr(new ID("arg1", s4)),
-                        NodePtr(new TypeMatch(
-                            NodePtr(new ID("arg2", s6)),
-                            NodePtr(new ID("Int", s8)),
-                            s7
-                        )),
-                        NodePtr(new Expansion(
-                            NodePtr(new ID("args", s11)), s10
-                        ))
-                    ),
-                    vec(
-                        NodePtr(new Defaulted(
-                            NodePtr(new ID("kw1", s15)),
-                            NodePtr(new Int32(1, s17)),
-                            s16
-                        )),
-                        NodePtr(new TypeMatch(
-                            NodePtr(new ID("kw2", s19)),
-                            NodePtr(new ID("Bool", s21)),
-                            s20
-                        ))
-                    ),
-                    s3
-                ),
-                nullptr,
-                NodePtr(new ID("Int", s24)),
-                vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, s29)), s28
-                ))),
-                s1
-            )),
-            s1
-        ));
-
-        // def f(
-        //     arg1, arg2: Int, *args, *, kw1=1, kw2: Bool, **kwargs
-        // ) -> Int:
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::DEF,
-                Comp(
-                    OpID::LABEL,
-                    Comp(
-                        OpID::RETURNS,
-                        Comp(
-                            OpID::CALL,
-                            Comp(OpID::ID, "f", s2),
-                            Comp(
-                                OpID::GROUP,
-                                csv(
-                                    Comp(OpID::ID, "arg1", s4),
-                                    Comp(
-                                        OpID::TYPE_LABEL,
-                                        Comp(OpID::ID, "arg2", s6),
-                                        Comp(OpID::ID, "Int", s8),
-                                        s7
-                                    ),
-                                    Comp(
-                                        OpID::UNPACK_ARGS,
-                                        Comp(OpID::ID, "args", s11),
-                                        s10
-                                    ),
-                                    Comp(
-                                        OpID::POS_KW_SEP,
-                                        s13
-                                    ),
-                                    Comp(
-                                        OpID::BIND,
-                                        Comp(OpID::ID, "kw1", s15),
-                                        Comp(OpID::PLAIN_INT, "1", s17),
-                                        s16
-                                    ),
-                                    Comp(
-                                        OpID::TYPE_LABEL,
-                                        Comp(OpID::ID, "kw2", s19),
-                                        Comp(OpID::ID, "Bool", s21),
-                                        s20
-                                    ),
-                                    Comp(
-                                        OpID::UNPACK_KWARGS,
-                                        Comp(OpID::ID, "kwargs", s24),
-                                        s23
-                                    )
-                                ),
-                                s3
-                            ),
-                            s3
-                        ),
-                        Comp(OpID::ID, "Int", s27),
-                        s26
-                    ),
-                    Comp(
-                        OpID::BLOCK,
-                        vec(Comp(
-                            OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, "0", s32),
-                            s31
-                        )),
-                        s30
-                    ),
-                    s28
-                ),
-                s1
-            )),
-            s1
-        )) == Def(
-            NodePtr(new ID("f", s2)),
-            vec(DefCase(
-                MatchArgs(
-                    vec(
-                        NodePtr(new ID("arg1", s4)),
-                        NodePtr(new TypeMatch(
-                            NodePtr(new ID("arg2", s6)),
-                            NodePtr(new ID("Int", s8)),
-                            s7
-                        )),
-                        NodePtr(new Expansion(
-                            NodePtr(new ID("args", s11)), s10
-                        ))
-                    ),
-                    vec(
-                        NodePtr(new Defaulted(
-                            NodePtr(new ID("kw1", s15)),
-                            NodePtr(new Int32(1, s17)),
-                            s16
-                        )),
-                        NodePtr(new TypeMatch(
-                            NodePtr(new ID("kw2", s19)),
-                            NodePtr(new ID("Bool", s21)),
-                            s20
-                        )),
-                        NodePtr(new Expansion(
-                            NodePtr(new ID("kwargs", s24)), s23
-                        ))
-                    ),
-                    s3
-                ),
-                nullptr,
-                NodePtr(new ID("Int", s27)),
-                vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, s32)), s31
-                ))),
-                s1
-            )),
-            s1
-        ));
-
-        // def f(a: Int, b: String):
-        //     return 0
-        // case (c: Float32, true) -> Int64:
-        //     return 3s64
-        // case (1, *, 2 as kw):
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::DEF,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::CALL,
-                            Comp(OpID::ID, "f", s2),
-                            Comp(
-                                OpID::GROUP,
-                                csv(
-                                    Comp(
-                                        OpID::TYPE_LABEL,
-                                        Comp(OpID::ID, "a", s4),
-                                        Comp(OpID::ID, "Int", s6),
-                                        s5
-                                    ),
-                                    Comp(
-                                        OpID::TYPE_LABEL,
-                                        Comp(OpID::ID, "b", s8),
-                                        Comp(OpID::ID, "String", s10),
-                                        s9
-                                    )
-                                ),
-                                s3
-                            ),
-                            s3
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "0", s16),
-                                s15
-                            )),
-                            s14
-                        ),
-                        s12
-                    ),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::RETURNS,
-                            Comp(
-                                OpID::GROUP,
-                                csv(
-                                    Comp(
-                                        OpID::TYPE_LABEL,
-                                        Comp(OpID::ID, "c", s20),
-                                        Comp(OpID::ID, "Float32", s22),
-                                        s21
-                                    ),
-                                    Comp(OpID::TRUE, s24)
-                                ),
-                                s19
-                            ),
-                            Comp(OpID::ID, "Int64", s27),
-                            s26
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::NUMBER, std::int64_t(3), s32),
-                                s31
-                            )),
-                            s30
-                        ),
-                        s28
-                    ),
-                    s18
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
+                        Comp(OpID::ID, "f", Span(1, 5)),
                         Comp(
                             OpID::GROUP,
-                            csv(
-                                Comp(OpID::PLAIN_INT, "1", s36),
-                                Comp(OpID::POS_KW_SEP, s38),
-                                Comp(
-                                    OpID::AS,
-                                    Comp(OpID::PLAIN_INT, "2", s40),
-                                    Comp(OpID::ID, "kw", s42),
-                                    s41
-                                )
-                            ),
-                            s35
+                            Comp(OpID::NOTHING, Span(1, 7)),
+                            Span(1, 6, 2)
                         ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(
-                                Comp(
-                                    OpID::RETURN,
-                                    Comp(OpID::PLAIN_INT, "0", s48),
-                                    s47
-                                )
-                            ),
-                            s46
-                        ),
-                        s44
+                        Span(1, 6)
                     ),
-                    s34
-                )
-            ),
-            s1
-        )) == Def(
-            NodePtr(new ID("f", s2)),
+                    Comp(
+                        OpID::BLOCK,
+                        vec(Comp(
+                            OpID::RETURN,
+                            Comp(OpID::PLAIN_INT, "0", Span(2, 12)),
+                            Span(2, 5, 6)
+                        )),
+                        Span(2, 5, 2, 12)
+                    ),
+                    Span(1, 8)
+                ),
+                Span(1, 1, 3)
+            )),
+            Span(1, 1, 2, 12)
+        ));
+
+        REQUIRE(*cc.node() == Def(
+            NodePtr(new ID("f", Span(1, 5))),
+            vec(DefCase(
+                MatchArgs({}, {}, Span(1, 6, 2)),
+                nullptr,
+                nullptr,
+                vec(NodePtr(new Return(
+                    NodePtr(new Int32(0, Span(2, 12))),
+                    Span(2, 5, 6)
+                ))),
+                Span(1, 1, 3)
+            )),
+            Span(1, 1, 3)
+        ));
+
+        REQUIRE(*capture(
+            "def f() -> Int:\n"
+            "    return 0"
+        ).node() == Def(
+            NodePtr(new ID("f", Span(1, 5))),
+            vec(DefCase(
+                MatchArgs({}, {}, Span(1, 6, 2)),
+                nullptr,
+                NodePtr(new ID("Int", Span(1, 12, 3))),
+                vec(NodePtr(new Return(
+                    NodePtr(new Int32(0, Span(2, 12))),
+                    Span(2, 5, 6)
+                ))),
+                Span(1, 1, 3)
+            )),
+            Span(1, 1, 3)
+        ));
+
+        REQUIRE(*capture(
+            "def f(arg) -> Int:\n"
+            "    return 0"
+        ).node() == Def(
+            NodePtr(new ID("f", Span(1, 5))),
+            vec(DefCase(
+                MatchArgs(
+                    vec(NodePtr(new ID("arg", Span(1, 7, 3)))),
+                    {},
+                    Span(1, 6, 5)
+                ),
+                nullptr,
+                NodePtr(new ID("Int", Span(1, 15, 3))),
+                vec(NodePtr(new Return(
+                    NodePtr(new Int32(0, Span(2, 12))),
+                    Span(2, 5, 6)
+                ))),
+                Span(1, 1, 3)
+            )),
+            Span(1, 1, 3)
+        ));
+
+        REQUIRE(*capture(
+            "def f(arg1, arg2: Int) -> Int:\n"
+            "    return 0"
+        ).node() == Def(
+            NodePtr(new ID("f", Span(1, 5))),
+            vec(DefCase(
+                MatchArgs(
+                    vec(
+                        NodePtr(new ID("arg1", Span(1, 7, 4))),
+                        NodePtr(new TypeMatch(
+                            NodePtr(new ID("arg2", Span(1, 13, 4))),
+                            NodePtr(new ID("Int", Span(1, 19, 3))),
+                            Span(1, 17)
+                        ))
+                    ),
+                    {},
+                    Span(1, 6, 1, 22)
+                ),
+                nullptr,
+                NodePtr(new ID("Int", Span(1, 27, 3))),
+                vec(NodePtr(new Return(
+                    NodePtr(new Int32(0, Span(2, 12))),
+                    Span(2, 5, 6)
+                ))),
+                Span(1, 1, 3)
+            )),
+            Span(1, 1, 3)
+        ));
+
+        REQUIRE(*capture(
+            "def f(arg1, arg2: Int, *args) -> Int:\n"
+            "    return 0"
+        ).node() == Def(
+            NodePtr(new ID("f", Span(1, 5))),
+            vec(DefCase(
+                MatchArgs(
+                    vec(
+                        NodePtr(new ID("arg1", Span(1, 7, 4))),
+                        NodePtr(new TypeMatch(
+                            NodePtr(new ID("arg2", Span(1, 13, 4))),
+                            NodePtr(new ID("Int", Span(1, 19, 3))),
+                            Span(1, 17)
+                        )),
+                        NodePtr(new Expansion(
+                            NodePtr(new ID("args", Span(1, 25, 4))),
+                            Span(1, 24)
+                        ))
+                    ),
+                    {},
+                    Span(1, 6, 1, 29)
+                ),
+                nullptr,
+                NodePtr(new ID("Int", Span(1, 34, 3))),
+                vec(NodePtr(new Return(
+                    NodePtr(new Int32(0, Span(2, 12))),
+                    Span(2, 5, 6)
+                ))),
+                Span(1, 1, 3)
+            )),
+            Span(1, 1, 3)
+        ));
+
+        REQUIRE(*capture(
+            "def f(arg1, arg2: Int, *args, *, kw1=1, kw2: Bool) -> Int:\n"
+            "    return 0"
+        ).node() == Def(
+            NodePtr(new ID("f", Span(1, 5))),
+            vec(DefCase(
+                MatchArgs(
+                    vec(
+                        NodePtr(new ID("arg1", Span(1, 7, 4))),
+                        NodePtr(new TypeMatch(
+                            NodePtr(new ID("arg2", Span(1, 13, 4))),
+                            NodePtr(new ID("Int", Span(1, 19, 3))),
+                            Span(1, 17)
+                        )),
+                        NodePtr(new Expansion(
+                            NodePtr(new ID("args", Span(1, 25, 4))),
+                            Span(1, 24)
+                        ))
+                    ),
+                    vec(
+                        NodePtr(new Defaulted(
+                            NodePtr(new ID("kw1", Span(1, 34, 3))),
+                            NodePtr(new Int32(1, Span(1, 38))),
+                            Span(1, 37)
+                        )),
+                        NodePtr(new TypeMatch(
+                            NodePtr(new ID("kw2", Span(1, 41, 3))),
+                            NodePtr(new ID("Bool", Span(1, 46, 4))),
+                            Span(1, 44)
+                        ))
+                    ),
+                    Span(1, 6, 1, 50)
+                ),
+                nullptr,
+                NodePtr(new ID("Int", Span(1, 55, 3))),
+                vec(NodePtr(new Return(
+                    NodePtr(new Int32(0, Span(2, 12))),
+                    Span(2, 5, 6)
+                ))),
+                Span(1, 1, 3)
+            )),
+            Span(1, 1, 3)
+        ));
+
+        REQUIRE(*capture(
+            "def f(\n"
+            "    arg1, arg2: Int, *args, *, kw1=1, kw2: Bool, **kwargs\n"
+            ") -> Int:\n"
+            "    return 0"
+        ).node() == Def(
+            NodePtr(new ID("f", Span(1, 5))),
+            vec(DefCase(
+                MatchArgs(
+                    vec(
+                        NodePtr(new ID("arg1", Span(2, 5, 4))),
+                        NodePtr(new TypeMatch(
+                            NodePtr(new ID("arg2", Span(2, 11, 4))),
+                            NodePtr(new ID("Int", Span(2, 17, 3))),
+                            Span(2, 15)
+                        )),
+                        NodePtr(new Expansion(
+                            NodePtr(new ID("args", Span(2, 23, 4))),
+                            Span(2, 22)
+                        ))
+                    ),
+                    vec(
+                        NodePtr(new Defaulted(
+                            NodePtr(new ID("kw1", Span(2, 32, 3))),
+                            NodePtr(new Int32(1, Span(2, 36))),
+                            Span(2, 35)
+                        )),
+                        NodePtr(new TypeMatch(
+                            NodePtr(new ID("kw2", Span(2, 39, 3))),
+                            NodePtr(new ID("Bool", Span(2, 44, 4))),
+                            Span(2, 42)
+                        )),
+                        NodePtr(new Expansion(
+                            NodePtr(new ID("kwargs", Span(2, 52, 6))),
+                            Span(2, 50, 2)
+                        ))
+                    ),
+                    Span(1, 6, 3, 1)
+                ),
+                nullptr,
+                NodePtr(new ID("Int", Span(3, 6, 3))),
+                vec(NodePtr(new Return(
+                    NodePtr(new Int32(0, Span(4, 12))),
+                    Span(4, 5, 6)
+                ))),
+                Span(1, 1, 3)
+            )),
+            Span(1, 1, 3)
+        ));
+
+        REQUIRE(*capture(
+            "def f(a: Int, b: String):\n"
+            "    return 0\n"
+            "case (c: Float32, true) -> Int64:\n"
+            "    return 3s64\n"
+            "case (1, *, 2 as kw):\n"
+            "    return 0"
+        ).node() == Def(
+            NodePtr(new ID("f", Span(1, 5))),
             vec(
                 DefCase(
                     MatchArgs(
                         vec(
                             NodePtr(new TypeMatch(
-                                NodePtr(new ID("a", s4)),
-                                NodePtr(new ID("Int", s6)),
-                                s5
+                                NodePtr(new ID("a", Span(1, 7))),
+                                NodePtr(new ID("Int", Span(1, 10, 3))),
+                                Span(1, 8)
                             )),
                             NodePtr(new TypeMatch(
-                                NodePtr(new ID("b", s8)),
-                                NodePtr(new ID("String", s10)),
-                                s9
+                                NodePtr(new ID("b", Span(1, 15))),
+                                NodePtr(new ID("String", Span(1, 18, 6))),
+                                Span(1, 16)
                             ))
                         ),
                         {},
-                        s3
+                        Span(1, 6, 1, 24)
                     ),
                     nullptr,
                     nullptr,
                     vec(NodePtr(new Return(
-                        NodePtr(new Int32(0, s16)), s15
+                        NodePtr(new Int32(0, Span(2, 12))),
+                        Span(2, 5, 6)
                     ))),
-                    s1
+                    Span(1, 1, 3)
                 ),
                 DefCase(
                     MatchArgs(
                         vec(
                             NodePtr(new TypeMatch(
-                                NodePtr(new ID("c", s20)),
-                                NodePtr(new ID("Float32", s22)),
-                                s21
+                                NodePtr(new ID("c", Span(3, 7))),
+                                NodePtr(new ID("Float32", Span(3, 10, 7))),
+                                Span(3, 8)
                             )),
-                            NodePtr(new Bool(true, s24))
+                            NodePtr(new Bool(true, Span(3, 19, 4)))
                         ),
                         {},
-                        s19
+                        Span(3, 6, 3, 23)
                     ),
                     nullptr,
-                    NodePtr(new ID("Int64", s27)),
+                    NodePtr(new ID("Int64", Span(3, 28, 5))),
                     vec(NodePtr(new Return(
-                        NodePtr(new Int64(3, s32)), s31
+                        NodePtr(new Int64(3, Span(4, 12, 4))),
+                        Span(4, 5, 6)
                     ))),
-                    s18
+                    Span(3, 1, 4)
                 ),
                 DefCase(
                     MatchArgs(
-                        vec(NodePtr(new Int32(1, s36))),
+                        vec(NodePtr(new Int32(1, Span(5, 7)))),
                         vec(NodePtr(new As(
-                            NodePtr(new Int32(2, s40)),
-                            NodePtr(new ID("kw", s42)),
-                            s41
+                            NodePtr(new Int32(2, Span(5, 13))),
+                            NodePtr(new ID("kw", Span(5, 18, 2))),
+                            Span(5, 15, 2)
                         ))),
-                        s35
+                        Span(5, 6, 5, 20)
                     ),
                     nullptr,
                     nullptr,
                     vec(NodePtr(new Return(
-                        NodePtr(new Int32(0, s48)), s47
+                        NodePtr(new Int32(0, Span(6, 12))),
+                        Span(6, 5, 6)
                     ))),
-                    s34
+                    Span(5, 1, 4)
                 )
             ),
-            s1
+            Span(1, 1, 3)
         ));
 
-        // def 3():
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::DEF,
-                Comp(
-                    OpID::LABEL,
-                    Comp(
-                        OpID::CALL,
-                        Comp(OpID::PLAIN_INT, "3", s2),
-                        Comp(OpID::GROUP, Comp(OpID::NOTHING, s4), s3),
-                        s3
-                    ),
-                    Comp(
-                        OpID::BLOCK,
-                        vec(Comp(
-                            OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, "0", s9),
-                            s8
-                        )),
-                        s7
-                    ),
-                    s5
-                ),
-                s1
-            )),
-            s1
-        )) == Def(
-            NodePtr(new NumID(3, s2)),
+        REQUIRE(*capture(
+            "def 3():\n"
+            "    return 0"
+        ).node() == Def(
+            NodePtr(new NumID(3, Span(1, 5))),
             vec(DefCase(
-                MatchArgs({}, {}, s3),
+                MatchArgs({}, {}, Span(1, 6, 2)),
                 nullptr,
                 nullptr,
                 vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, s9)), s8
+                    NodePtr(new Int32(0, Span(2, 12))),
+                    Span(2, 5, 6)
                 ))),
-                s1
+                Span(1, 1, 3)
             )),
-            s1
+            Span(1, 1, 3)
         ));
 
-        // def f(x: Int = 1):
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::DEF,
-                Comp(
-                    OpID::LABEL,
-                    Comp(
-                        OpID::CALL,
-                        Comp(OpID::ID, "f", s2),
-                        Comp(
-                            OpID::GROUP,
-                            Comp(
-                                OpID::BIND,
-                                Comp(
-                                    OpID::TYPE_LABEL,
-                                    Comp(OpID::ID, "x", s4),
-                                    Comp(OpID::ID, "Int", s6),
-                                    s5
-                                ),
-                                Comp(OpID::PLAIN_INT, "1", s8),
-                                s7
-                            ),
-                            s3
-                        ),
-                        s3
-                    ),
-                    Comp(
-                        OpID::BLOCK,
-                        vec(Comp(
-                            OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, "0", s14),
-                            s13
-                        )),
-                        s12
-                    ),
-                    s10
-                ),
-                s1
-            )),
-            s1
-        )) == Def(
-            NodePtr(new ID("f", s2)),
+        REQUIRE(*capture(
+            "def f(x: Int = 1):\n"
+            "    return 0"
+        ).node() == Def(
+            NodePtr(new ID("f", Span(1, 5))),
             vec(DefCase(
                 MatchArgs(
                     vec(NodePtr(new Defaulted(
                         NodePtr(new TypeMatch(
-                            NodePtr(new ID("x", s4)),
-                            NodePtr(new ID("Int", s6)),
-                            s5
+                            NodePtr(new ID("x", Span(1, 7))),
+                            NodePtr(new ID("Int", Span(1, 10, 3))),
+                            Span(1, 8)
                         )),
-                        NodePtr(new Int32(1, s8)),
-                        s7
+                        NodePtr(new Int32(1, Span(1, 16))),
+                        Span(1, 14)
                     ))),
                     {},
-                    s3
+                    Span(1, 6, 1, 17)
                 ),
                 nullptr,
                 nullptr,
                 vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, s14)), s13
+                    NodePtr(new Int32(0, Span(2, 12))),
+                    Span(2, 5, 6)
                 ))),
-                s1
+                Span(1, 1, 3)
             )),
-            s1
+            Span(1, 1, 3)
         ));
 
-        // def f(x: Int) if x > 2 -> Int:
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::DEF,
-                Comp(
-                    OpID::LABEL,
-                    Comp(
-                        OpID::RETURNS,
-                        Comp(
-                            OpID::TERNARY_IF,
-                            Comp(
-                                OpID::CALL,
-                                Comp(OpID::ID, "f", s2),
-                                Comp(
-                                    OpID::GROUP,
-                                    Comp(
-                                        OpID::TYPE_LABEL,
-                                        Comp(OpID::ID, "x", s4),
-                                        Comp(OpID::ID, "Int", s6),
-                                        s5
-                                    ),
-                                    s3
-                                ),
-                                s3
-                            ),
-                            Comp(
-                                OpID::GT,
-                                Comp(OpID::ID, "x", s9),
-                                Comp(OpID::PLAIN_INT, "2", s11),
-                                s10
-                            ),
-                            s8
-                        ),
-                        Comp(OpID::ID, "Int", s13),
-                        s12
-                    ),
-                    Comp(
-                        OpID::BLOCK,
-                        vec(Comp(
-                            OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, "0", s18),
-                            s17
-                        )),
-                        s16
-                    ),
-                    s14
-                ),
-                s1
-            )),
-            s1
-        )) == Def(
-            NodePtr(new ID("f", s2)),
+        REQUIRE(*capture(
+            "def f(x: Int) if x > 2 -> Int:\n"
+            "    return 0"
+        ).node() == Def(
+            NodePtr(new ID("f", Span(1, 5))),
             vec(DefCase(
                 MatchArgs(
                     vec(NodePtr(new TypeMatch(
-                        NodePtr(new ID("x", s4)),
-                        NodePtr(new ID("Int", s6)),
-                        s5
+                        NodePtr(new ID("x", Span(1, 7))),
+                        NodePtr(new ID("Int", Span(1, 10, 3))),
+                        Span(1, 8)
                     ))),
                     {},
-                    s3
+                    Span(1, 6, 1, 13)
                 ),
-                NodePtr(new CallAttr(
-                    NodePtr(new ID("x", s9)),
-                    NodePtr(new ID("__gt__", s10)),
-                    Args(
-                        vec(NodePtr(new Int32(2, s11))),
-                        {},
-                        s10
-                    ),
-                    s10
+                NodePtr(new GreaterThan(
+                    NodePtr(new ID("x", Span(1, 18))),
+                    NodePtr(new Int32(2, Span(1, 22))),
+                    Span(1, 20)
                 )),
-                NodePtr(new ID("Int", s13)),
+                NodePtr(new ID("Int", Span(1, 27, 3))),
                 vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, s18)),
-                    s17
+                    NodePtr(new Int32(0, Span(2, 12))),
+                    Span(2, 5, 6)
                 ))),
-                s1
+                Span(1, 1, 3)
             )),
-            s1
+            Span(1, 1, 3)
         ));
 
-        // def f((3, x) as y = (3, 4)):
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::DEF,
-                Comp(
-                    OpID::LABEL,
-                    Comp(
-                        OpID::CALL,
-                        Comp(OpID::ID, "f", s2),
-                        Comp(
-                            OpID::GROUP,
-                            Comp(
-                                OpID::BIND,
-                                Comp(
-                                    OpID::AS,
-                                    Comp(
-                                        OpID::GROUP,
-                                        csv(
-                                            Comp(OpID::PLAIN_INT, "3", s5),
-                                            Comp(OpID::ID, "x", s7)
-                                        ),
-                                        s4
-                                    ),
-                                    Comp(OpID::ID, "y", s10),
-                                    s9
-                                ),
-                                Comp(
-                                    OpID::GROUP,
-                                    csv(
-                                        Comp(OpID::PLAIN_INT, "3", s13),
-                                        Comp(OpID::PLAIN_INT, "4", s15)
-                                    ),
-                                    s12
-                                ),
-                                s11
-                            ),
-                            s3
-                        ),
-                        s3
-                    ),
-                    Comp(
-                        OpID::BLOCK,
-                        vec(Comp(
-                            OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, "0", s22),
-                            s21
-                        )),
-                        s20
-                    ),
-                    s18
-                ),
-                s1
-            )),
-            s1
-        )) == Def(
-            NodePtr(new ID("f", s2)),
+        REQUIRE(*capture(
+            "def f((3, x) as y = (3, 4)):\n"
+            "    return 0"
+        ).node() == Def(
+            NodePtr(new ID("f", Span(1, 5))),
             vec(DefCase(
                 MatchArgs(
                     vec(NodePtr(new Defaulted(
                         NodePtr(new As(
                             NodePtr(new MatchTuple(
                                 vec(
-                                    NodePtr(new Int32(3, s5)),
-                                    NodePtr(new ID("x", s7))
+                                    NodePtr(new Int32(3, Span(1, 8))),
+                                    NodePtr(new ID("x", Span(1, 11)))
                                 ),
-                                s4
+                                Span(1, 7, 6)
                             )),
-                            NodePtr(new ID("y", s10)),
-                            s9
+                            NodePtr(new ID("y", Span(1, 17))),
+                            Span(1, 14, 2)
                         )),
                         NodePtr(new Tuple(
                             vec(
-                                NodePtr(new Int32(3, s13)),
-                                NodePtr(new Int32(4, s15))
+                                NodePtr(new Int32(3, Span(1, 22))),
+                                NodePtr(new Int32(4, Span(1, 25)))
                             ),
-                            s12
+                            Span(1, 21, 6)
                         )),
-                        s11
+                        Span(1, 19)
                     ))),
                     {},
-                    s3
+                    Span(1, 6, 1, 27)
                 ),
                 nullptr,
                 nullptr,
                 vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, s22)), s21
+                    NodePtr(new Int32(0, Span(2, 12))),
+                    Span(2, 5, 6)
                 ))),
-                s1
+                Span(1, 1, 3)
             )),
-            s1
+            Span(1, 1, 3)
         ));
 
-        // def f()
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::DEF,
-                Comp(
-                    OpID::CALL,
-                    Comp(OpID::ID, "f", s2),
-                    Comp(OpID::GROUP, Comp(OpID::NOTHING, s4), s3),
-                    s3
-                ),
-                s1
-            )),
-            s1
-        )) == MissingBodyErr(s3));
+        REQUIRE(*capture(
+            "def f()"
+        ).node() == MissingBodyErr(Span(1, 1, 7)));
 
-        // def f:
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::DEF,
-                Comp(
-                    OpID::LABEL,
-                    Comp(OpID::ID, "f", s2),
-                    Comp(
-                        OpID::BLOCK,
-                        vec(Comp(
-                            OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, "0", s7),
-                            s6
-                        )),
-                        s5
-                    ),
-                    s3
-                ),
-                s1
-            )),
-            s1
-        )) == ExpectedCallErr(s2));
+        REQUIRE(*capture(
+            "def f:\n"
+            "    return 0"
+        ).node() == ExpectedCallErr(Span(1, 5)));
 
-        // def true():
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::DEF,
-                Comp(
-                    OpID::LABEL,
-                    Comp(
-                        OpID::CALL,
-                        Comp(OpID::TRUE, s2),
-                        Comp(OpID::GROUP, Comp(OpID::NOTHING, s4), s3),
-                        s3
-                    ),
-                    Comp(
-                        OpID::BLOCK,
-                        vec(Comp(
-                            OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, "0", s9),
-                            s8
-                        )),
-                        s7
-                    ),
-                    s5
-                ),
-                s1
-            )),
-            s1
-        )) == ExpectedGeneralIDErr(s2));
+        REQUIRE(*capture(
+            "def true():\n"
+            "    return 0"
+        ).node() == ExpectedGeneralIDErr(Span(1, 5, 4)));
 
-        // def f[]:
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::DEF,
-                Comp(
-                    OpID::LABEL,
-                    Comp(
-                        OpID::CALL,
-                        Comp(OpID::ID, "f", s2),
-                        Comp(OpID::LIST, Comp(OpID::NOTHING, s4), s3),
-                        s3
-                    ),
-                    Comp(
-                        OpID::BLOCK,
-                        vec(Comp(
-                            OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, "0", s9),
-                            s8
-                        )),
-                        s7
-                    ),
-                    s5
-                ),
-                s1
-            )),
-            s1
-        )) == ExpectedParentheticalErr(s3));
+        REQUIRE(*capture(
+            "def f[]:\n"
+            "    return 0"
+        ).node() == ExpectedParentheticalErr(Span(1, 6, 2)));
 
-        // def f(x, *, *, y):
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::DEF,
-                Comp(
-                    OpID::LABEL,
-                    Comp(
-                        OpID::CALL,
-                        Comp(OpID::ID, "f", s2),
-                        Comp(
-                            OpID::GROUP,
-                            csv(
-                                Comp(OpID::ID, "x", s4),
-                                Comp(OpID::POS_KW_SEP, s6),
-                                Comp(OpID::POS_KW_SEP, s8),
-                                Comp(OpID::ID, "y", s10)
-                            ),
-                            s3
-                        ),
-                        s3
-                    ),
-                    Comp(
-                        OpID::BLOCK,
-                        vec(Comp(
-                            OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, "0", s16),
-                            s15
-                        )),
-                        s14
-                    ),
-                    s12
-                ),
-                s1
-            )),
-            s1
-        )) == ArgSepWhereKeywordArgExpectedErr(s8));
+        REQUIRE(*capture(
+            "def f(x, *, *, y):\n"
+            "    return 0"
+        ).node() == ArgSepWhereKeywordArgExpectedErr(Span(1, 13)));
 
-        // def f(*, *args):
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::DEF,
-                Comp(
-                    OpID::LABEL,
-                    Comp(
-                        OpID::CALL,
-                        Comp(OpID::ID, "f", s2),
-                        Comp(
-                            OpID::GROUP,
-                            csv(
-                                Comp(OpID::POS_KW_SEP, s4),
-                                Comp(
-                                    OpID::UNPACK_ARGS,
-                                    Comp(OpID::ID, "args", s7),
-                                    s6
-                                )
-                            ),
-                            s3
-                        ),
-                        s3
-                    ),
-                    Comp(
-                        OpID::BLOCK,
-                        vec(Comp(
-                            OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, "0", s13),
-                            s12
-                        )),
-                        s11
-                    ),
-                    s9
-                ),
-                s1
-            )),
-            s1
-        )) == VarArgsWhereKeywordArgExpectedErr(s6));
+        REQUIRE(*capture(
+            "def f(*, *args):\n"
+            "    return 0"
+        ).node() == VarArgsWhereKeywordArgExpectedErr(Span(1, 10, 5)));
 
-        // def f(a=1=2):
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::DEF,
-                Comp(
-                    OpID::LABEL,
-                    Comp(
-                        OpID::CALL,
-                        Comp(OpID::ID, "f", s2),
-                        Comp(
-                            OpID::GROUP,
-                            Comp(
-                                OpID::BIND,
-                                Comp(
-                                    OpID::BIND,
-                                    Comp(OpID::ID, "a", s4),
-                                    Comp(OpID::PLAIN_INT, "1", s6),
-                                    s5
-                                ),
-                                Comp(OpID::PLAIN_INT, "2", s8),
-                                s7
-                            ),
-                            s3
-                        ),
-                        s3
-                    ),
-                    Comp(
-                        OpID::BLOCK,
-                        vec(Comp(
-                            OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, "0", s14),
-                            s13
-                        )),
-                        s12
-                    ),
-                    s10
-                ),
-                s1
-            )),
-            s1
-        )) == TwiceDefaultedErr(s7));
+        REQUIRE(*capture(
+            "def f(a=1=2):\n"
+            "    return 0"
+        ).node() == TwiceDefaultedErr(Span(1, 7, 5)));
 
-        // def f(*args=1):
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::DEF,
-                Comp(
-                    OpID::LABEL,
-                    Comp(
-                        OpID::CALL,
-                        Comp(OpID::ID, "f", s2),
-                        Comp(
-                            OpID::GROUP,
-                            Comp(
-                                OpID::BIND,
-                                Comp(
-                                    OpID::UNPACK_ARGS,
-                                    Comp(OpID::ID, "args", s5),
-                                    s4
-                                ),
-                                Comp(OpID::PLAIN_INT, "1", s7),
-                                s6
-                            ),
-                            s3
-                        ),
-                        s3
-                    ),
-                    Comp(
-                        OpID::BLOCK,
-                        vec(Comp(
-                            OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, "0", s13),
-                            s12
-                        )),
-                        s11
-                    ),
-                    s9
-                ),
-                s1
-            )),
-            s1
-        )) == DefaultedVarArgsErr(s6));
+        REQUIRE(*capture(
+            "def f(*args=1):\n"
+            "    return 0"
+        ).node() == DefaultedVarArgsErr(Span(1, 7, 7)));
 
-        // def f(**kwargs=1):
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::DEF,
-                Comp(
-                    OpID::LABEL,
-                    Comp(
-                        OpID::CALL,
-                        Comp(OpID::ID, "f", s2),
-                        Comp(
-                            OpID::GROUP,
-                            Comp(
-                                OpID::BIND,
-                                Comp(
-                                    OpID::UNPACK_KWARGS,
-                                    Comp(OpID::ID, "kwargs", s5),
-                                    s4
-                                ),
-                                Comp(OpID::PLAIN_INT, "1", s7),
-                                s6
-                            ),
-                            s3
-                        ),
-                        s3
-                    ),
-                    Comp(
-                        OpID::BLOCK,
-                        vec(Comp(
-                            OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, "0", s13),
-                            s12
-                        )),
-                        s11
-                    ),
-                    s9
-                ),
-                s1
-            )),
-            s1
-        )) == DefaultedVarKeywordArgsErr(s6));
+        REQUIRE(*capture(
+            "def f(**kwargs=1):\n"
+            "    return 0"
+        ).node() == DefaultedVarKeywordArgsErr(Span(1, 7, 10)));
 
-        // def f(3: Int):
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::DEF,
-                Comp(
-                    OpID::LABEL,
-                    Comp(
-                        OpID::CALL,
-                        Comp(OpID::ID, "f", s2),
-                        Comp(
-                            OpID::GROUP,
-                            Comp(
-                                OpID::TYPE_LABEL,
-                                Comp(OpID::PLAIN_INT, "3", s4),
-                                Comp(OpID::ID, "Int", s6),
-                                s5
-                            ),
-                            s3
-                        ),
-                        s3
-                    ),
-                    Comp(
-                        OpID::BLOCK,
-                        vec(Comp(
-                            OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, "0", s12),
-                            s11
-                        )),
-                        s10
-                    ),
-                    s8
-                ),
-                s1
-            )),
-            s1
-        )) == ExpectedIDOrVarArgsErr(s4));
+        REQUIRE(*capture(
+            "def f(3: Int):\n"
+            "    return 0"
+        ).node() == ExpectedIDOrVarArgsErr(Span(1, 7)));
 
-        // def f():
-        //     return 0
-        // elif true:
-        //     return 1
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::DEF,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::CALL,
-                            Comp(OpID::ID, "f", s2),
-                            Comp(
-                                OpID::GROUP,
-                                Comp(OpID::NOTHING, s4),
-                                s3
-                            ),
-                            s3
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "0", s9),
-                                s8
-                            )),
-                            s7
-                        ),
-                        s5
-                    ),
-                    s1
-                ),
-                Comp(
-                    OpID::ELIF,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(OpID::TRUE, s12),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "1", s17),
-                                s16
-                            )),
-                            s15
-                        ),
-                        s13
-                    ),
-                    s11
-                )
-            ),
-            s1
-        )) == ExpectedCaseErr(s11));
+        REQUIRE(*capture(
+            "def f():\n"
+            "    return 0\n"
+            "elif true:\n"
+            "    return 1"
+        ).node() == ExpectedCaseErr(Span(3, 1, 4)));
     }
 
     SECTION("DIV") {
-        // a / b
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::DIV,
-            Comp(OpID::ID, "a", s1),
-            Comp(OpID::ID, "b", s3),
-            s2
-        )) == CallAttr(
-            NodePtr(new ID("a", s1)),
-            NodePtr(new ID("__div__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
-            s2
+        REQUIRE(*capture(
+            "a / b"
+        ).node() == Divide(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ID("b", Span(1, 5))),
+            Span(1, 3)
+        ));
+    }
+
+    SECTION("EQ") {
+        REQUIRE(*capture(
+            "a == b"
+        ).node() == Equals(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ID("b", Span(1, 6))),
+            Span(1, 3, 2)
         ));
     }
 
     SECTION("For") {
-        // for x in c:
-        //     a += x
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::FOR,
-                Comp(
-                    OpID::LABEL,
-                    Comp(
-                        OpID::IN,
-                        Comp(OpID::ID, "x", s2),
-                        Comp(OpID::ID, "c", s4),
-                        s3
-                    ),
-                    Comp(
-                        OpID::BLOCK,
-                        vec(Comp(
-                            OpID::IADD,
-                            Comp(OpID::ID, "a", s8),
-                            Comp(OpID::ID, "x", s10),
-                            s9
-                        )),
-                        s7
-                    ),
-                    s5
-                ),
-                s1
-            )),
-            s1
-        )) == For(
-            vec(NodePtr(new ID("x", s2))),
-            NodePtr(new ID("c", s4)),
-            vec(NodePtr(new CallAttr(
-                NodePtr(new ID("a", s8)),
-                NodePtr(new ID("__iadd__", s9)),
-                Args(vec(NodePtr(new ID("x", s10))), {}, s9),
-                s9
+        REQUIRE(*capture(
+            "for x in c:\n"
+            "    a += x"
+        ).node() == For(
+            vec(NodePtr(new ID("x", Span(1, 5)))),
+            NodePtr(new ID("c", Span(1, 10))),
+            vec(NodePtr(new IAdd(
+                NodePtr(new ID("a", Span(2, 5))),
+                NodePtr(new ID("x", Span(2, 10))),
+                Span(2, 7, 2)
             ))),
-            {},
-            s1
+            Block(),
+            Span(1, 1, 3)
         ));
 
-        // for x, y in c:
-        //     a += x + y
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::FOR,
-                Comp(
-                    OpID::LABEL,
-                    Comp(
-                        OpID::IN,
-                        Comp(
-                            OpID::LOOP_VAR_SEP,
-                            Comp(OpID::ID, "x", s2),
-                            Comp(OpID::ID, "y", s4),
-                            s3
-                        ),
-                        Comp(OpID::ID, "c", s6),
-                        s5
-                    ),
-                    Comp(
-                        OpID::BLOCK,
-                        vec(Comp(
-                            OpID::IADD,
-                            Comp(OpID::ID, "a", s10),
-                            Comp(
-                                OpID::ADD,
-                                Comp(OpID::ID, "x", s12),
-                                Comp(OpID::ID, "y", s14),
-                                s13
-                            ),
-                            s11
-                        )),
-                        s9
-                    ),
-                    s7
-                ),
-                s1
-            )),
-            s1
-        )) == For(
-            vec(NodePtr(new ID("x", s2)), NodePtr(new ID("y", s4))),
-            NodePtr(new ID("c", s6)),
-            vec(NodePtr(new CallAttr(
-                NodePtr(new ID("a", s10)),
-                NodePtr(new ID("__iadd__", s11)),
-                Args(
-                    vec(NodePtr(new CallAttr(
-                        NodePtr(new ID("x", s12)),
-                        NodePtr(new ID("__add__", s13)),
-                        Args(vec(NodePtr(new ID("y", s14))), {}, s13),
-                        s13
-                    ))),
-                    {},
-                    s11
-                ),
-                s11
-            ))),
-            {},
-            s1
-        ));
-        
-        // for x in c:
-        //     break
-        // else:
-        //     a += 1
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
+        REQUIRE(*capture(
+            "for x, y in c:\n"
+            "    a += x + y"
+        ).node() == For(
             vec(
-                Comp(
-                    OpID::FOR,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::IN,
-                            Comp(OpID::ID, "x", s2),
-                            Comp(OpID::ID, "c", s4),
-                            s3
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(OpID::BREAK, s8)),
-                            s7
-                        ),
-                        s5
-                    ),
-                    s1
-                ),
-                Comp(
-                    OpID::ELSE,
-                    Comp(
-                        OpID::BODY,
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::IADD,
-                                Comp(OpID::ID, "a", s14),
-                                Comp(OpID::PLAIN_INT, "1", s16),
-                                s15
-                            )),
-                            s13
-                        ),
-                        s11
-                    ),
-                    s10
-                )
+                NodePtr(new ID("x", Span(1, 5))),
+                NodePtr(new ID("y", Span(1, 8)))
             ),
-            s1
-        )) == For(
-            vec(NodePtr(new ID("x", s2))),
-            NodePtr(new ID("c", s4)),
-            vec(NodePtr(new Break(s8))),
-            vec(NodePtr(new CallAttr(
-                NodePtr(new ID("a", s14)),
-                NodePtr(new ID("__iadd__", s15)),
-                Args(vec(NodePtr(new Int32(1, s16))), {}, s15),
-                s15
+            NodePtr(new ID("c", Span(1, 13))),
+            vec(NodePtr(new IAdd(
+                NodePtr(new ID("a", Span(2, 5))),
+                NodePtr(new Add(
+                    NodePtr(new ID("x", Span(2, 10))),
+                    NodePtr(new ID("y", Span(2, 14))),
+                    Span(2, 12)
+                )),
+                Span(2, 7, 2)
             ))),
-            s1
+            Block(),
+            Span(1, 1, 3)
         ));
 
-        // for _ in c:
-        //     print("hi")
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::FOR,
-                Comp(
-                    OpID::LABEL,
-                    Comp(
-                        OpID::IN,
-                        Comp(OpID::PLACEHOLDER, s2),
-                        Comp(OpID::ID, "c", s4),
-                        s3
-                    ),
-                    Comp(
-                        OpID::BLOCK,
-                        vec(Comp(
-                            OpID::CALL,
-                            Comp(OpID::ID, "print", s8),
-                            Comp(
-                                OpID::GROUP,
-                                Comp(OpID::STRING, "hi", s10),
-                                s9
-                            ),
-                            s9
-                        )),
-                        s7
-                    ),
-                    s5
-                ),
-                s1
-            )),
-            s1
-        )) == For(
-            vec(NodePtr(new Placeholder(s2))),
-            NodePtr(new ID("c", s4)),
+        REQUIRE(*capture(
+            "for x in c:\n"
+            "    break\n"
+            "else:\n"
+            "    a += 1"
+        ).node() == For(
+            vec(NodePtr(new ID("x", Span(1, 5)))),
+            NodePtr(new ID("c", Span(1, 10))),
+            vec(NodePtr(new Break(Span(2, 5, 5)))),
+            Block(
+                vec(NodePtr(new IAdd(
+                    NodePtr(new ID("a", Span(4, 5))),
+                    NodePtr(new Int32(1, Span(4, 10))),
+                    Span(4, 7, 2)
+                ))),
+                Span(3, 1, 4)
+            ),
+            Span(1, 1, 3)
+        ));
+
+        REQUIRE(*capture(
+            "for _ in c:\n"
+            "    print(\"hi\")"
+        ).node() == For(
+            vec(NodePtr(new Placeholder(Span(1, 5)))),
+            NodePtr(new ID("c", Span(1, 10))),
             vec(NodePtr(new Call(
-                NodePtr(new ID("print", s8)),
+                NodePtr(new ID("print", Span(2, 5, 5))),
                 Args(
-                    vec(NodePtr(new String("hi", s10))),
+                    vec(NodePtr(new String("hi", Span(2, 11, 4)))),
                     {},
-                    s9
+                    Span(2, 10, 6)
                 ),
-                s9
+                Span(2, 10)
             ))),
-            {},
-            s1
+            Block(),
+            Span(1, 1, 3)
         ));
 
-        // for x in c
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::FOR,
-                Comp(
-                    OpID::IN,
-                    Comp(OpID::ID, "x", s2),
-                    Comp(OpID::ID, "c", s4),
-                    s3
-                ),
-                s1
-            )),
-            s1
-        )) == MissingBodyErr(s3));
+        REQUIRE(*capture(
+            "for x in c"
+        ).node() == MissingBodyErr(Span(1, 1, 10)));
 
-        // for x:
-        //     a += x
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::FOR,
-                Comp(
-                    OpID::LABEL,
-                    Comp(OpID::ID, "x", s2),
-                    Comp(
-                        OpID::BLOCK,
-                        vec(Comp(
-                            OpID::IADD,
-                            Comp(OpID::ID, "a", s6),
-                            Comp(OpID::ID, "x", s8),
-                            s7
-                        )),
-                        s5
-                    ),
-                    s3
-                ),
-                s1
-            )),
-            s1
-        )) == ExpectedInErr(s2));
+        REQUIRE(*capture(
+            "for 3 in c:\n"
+            "    a += 1"
+        ).node() == ExpectedCommaSeparatedLoopVarsErr(Span(1, 5)));
 
-        // for 3 in c:
-        //     a += 1
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::FOR,
-                Comp(
-                    OpID::LABEL,
-                    Comp(
-                        OpID::IN,
-                        Comp(OpID::PLAIN_INT, "3", s2),
-                        Comp(OpID::ID, "c", s4),
-                        s3
-                    ),
-                    Comp(
-                        OpID::BLOCK,
-                        vec(Comp(
-                            OpID::IADD,
-                            Comp(OpID::ID, "a", s8),
-                            Comp(OpID::PLAIN_INT, "1", s10),
-                            s9
-                        )),
-                        s7
-                    ),
-                    s5
-                ),
-                s1
-            )),
-            s1
-        )) == ExpectedCommaSeparatedLoopVarsErr(s2));
+        REQUIRE(*capture(
+            "for x in c:\n"
+            "    a += x\n"
+            "elif true:\n"
+            "    return 0"
+        ).node() == ExpectedElseErr(Span(3, 1, 4)));
+    }
 
-        // for x in c:
-        //     a += x
-        // elif true:
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::FOR,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::IN,
-                            Comp(OpID::ID, "x", s2),
-                            Comp(OpID::ID, "c", s4),
-                            s3
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::IADD,
-                                Comp(OpID::ID, "a", s8),
-                                Comp(OpID::ID, "x", s10),
-                                s9
-                            )),
-                            s7
-                        ),
-                        s5
-                    ),
-                    s1
-                ),
-                Comp(
-                    OpID::ELIF,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(OpID::TRUE, s13),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, 0, s18),
-                                s17
-                            )),
-                            s16
-                        ),
-                        s14
-                    ),
-                    s12
-                )
-            ),
-            s1
-        )) == ExpectedElseErr(s12));
+    SECTION("GT") {
+        REQUIRE(*capture(
+            "a > b"
+        ).node() == GreaterThan(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ID("b", Span(1, 5))),
+            Span(1, 3)
+        ));
+    }
+
+    SECTION("GTE") {
+        REQUIRE(*capture(
+            "a >= b"
+        ).node() == GreaterThanOrEqual(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ID("b", Span(1, 6))),
+            Span(1, 3, 2)
+        ));
     }
 
     SECTION("GetAttr") {
-        // a.b
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::GET,
-            Comp(OpID::ID, "a", s1),
-            Comp(OpID::ID, "b", s3),
-            s2
-        )) == GetAttr(
-            NodePtr(new ID("a", s1)),
-            NodePtr(new ID("b", s3)),
-            s2
+        REQUIRE(*capture(
+            "a.b"
+        ).node() == GetAttr(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ID("b", Span(1, 3))),
+            Span(1, 2)
         ));
 
-        // a.3
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::GET,
-            Comp(OpID::ID, "a", s1),
-            Comp(OpID::PLAIN_INT, "3", s3),
-            s2
-        )) == GetAttr(
-            NodePtr(new ID("a", s1)),
-            NodePtr(new NumID(3, s3)),
-            s2
+        REQUIRE(*capture(
+            "a.3"
+        ).node() == GetAttr(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new NumID(3, Span(1, 3))),
+            Span(1, 2)
         ));
 
-        // a.true
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::GET,
-            Comp(OpID::ID, "a", s1),
-            Comp(OpID::TRUE, s3),
-            s2
-        )) == ExpectedGeneralIDErr(s3));
+        REQUIRE(*capture(
+            "a.true"
+        ).node() == ExpectedGeneralIDErr(Span(1, 3, 4)));
     }
 
     SECTION("IADD") {
-        // a += b
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::IADD,
-            Comp(OpID::ID, "a", s1),
-            Comp(OpID::ID, "b", s3),
-            s2
-        )) == CallAttr(
-            NodePtr(new ID("a", s1)),
-            NodePtr(new ID("__iadd__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
-            s2
+        REQUIRE(*capture(
+            "a += b"
+        ).node() == IAdd(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ID("b", Span(1, 6))),
+            Span(1, 3, 2)
         ));
     }
 
     SECTION("IBAND") {
-        // a &= b
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::IBAND,
-            Comp(OpID::ID, "a", s1),
-            Comp(OpID::ID, "b", s3),
-            s2
-        )) == CallAttr(
-            NodePtr(new ID("a", s1)),
-            NodePtr(new ID("__iband__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
-            s2
+        REQUIRE(*capture(
+            "a &= b"
+        ).node() == IBitAnd(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ID("b", Span(1, 6))),
+            Span(1, 3, 2)
         ));
     }
 
     SECTION("IBOR") {
-        // a |= b
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::IBOR,
-            Comp(OpID::ID, "a", s1),
-            Comp(OpID::ID, "b", s3),
-            s2
-        )) == CallAttr(
-            NodePtr(new ID("a", s1)),
-            NodePtr(new ID("__ibor__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
-            s2
+        REQUIRE(*capture(
+            "a |= b"
+        ).node() == IBitOr(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ID("b", Span(1, 6))),
+            Span(1, 3, 2)
         ));
     }
 
     SECTION("IBXOR") {
-        // a ^= b
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::IBXOR,
-            Comp(OpID::ID, "a", s1),
-            Comp(OpID::ID, "b", s3),
-            s2
-        )) == CallAttr(
-            NodePtr(new ID("a", s1)),
-            NodePtr(new ID("__ibxor__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
-            s2
+        REQUIRE(*capture(
+            "a ^= b"
+        ).node() == IBitXor(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ID("b", Span(1, 6))),
+            Span(1, 3, 2)
         ));
     }
 
     SECTION("ID") {
-        // a
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::ID, "a", s1
-        )) == ID(
-            "a", s1
+        REQUIRE(*capture(
+            "a"
+        ).node() == ID(
+            "a", Span(1, 1)
         ));
     }
 
     SECTION("IDIV") {
-        // a /= b
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::IDIV,
-            Comp(OpID::ID, "a", s1),
-            Comp(OpID::ID, "b", s3),
-            s2
-        )) == CallAttr(
-            NodePtr(new ID("a", s1)),
-            NodePtr(new ID("__idiv__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
-            s2
+        REQUIRE(*capture(
+            "a /= b"
+        ).node() == IDivide(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ID("b", Span(1, 6))),
+            Span(1, 3, 2)
         ));
     }
 
     SECTION("ILSH") {
-        // a <<= b
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::ILSH,
-            Comp(OpID::ID, "a", s1),
-            Comp(OpID::ID, "b", s3),
-            s2
-        )) == CallAttr(
-            NodePtr(new ID("a", s1)),
-            NodePtr(new ID("__ilsh__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
-            s2
+        REQUIRE(*capture(
+            "a <<= b"
+        ).node() == ILeftShift(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ID("b", Span(1, 7))),
+            Span(1, 3, 3)
         ));
     }
 
     SECTION("IMOD") {
-        // a %= b
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::IMOD,
-            Comp(OpID::ID, "a", s1),
-            Comp(OpID::ID, "b", s3),
-            s2
-        )) == CallAttr(
-            NodePtr(new ID("a", s1)),
-            NodePtr(new ID("__imod__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
-            s2
+        REQUIRE(*capture(
+            "a %= b"
+        ).node() == IMod(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ID("b", Span(1, 6))),
+            Span(1, 3, 2)
         ));
     }
 
     SECTION("IMUL") {
-        // a *= b
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::IMUL,
-            Comp(OpID::ID, "a", s1),
-            Comp(OpID::ID, "b", s3),
-            s2
-        )) == CallAttr(
-            NodePtr(new ID("a", s1)),
-            NodePtr(new ID("__imul__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
-            s2
+        REQUIRE(*capture(
+            "a *= b"
+        ).node() == IMultiply(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ID("b", Span(1, 6))),
+            Span(1, 3, 2)
         ));
     }
 
     SECTION("IPOW") {
-        // a **= b
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::IPOW,
-            Comp(OpID::ID, "a", s1),
-            Comp(OpID::ID, "b", s3),
-            s2
-        )) == CallAttr(
-            NodePtr(new ID("a", s1)),
-            NodePtr(new ID("__ipow__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
-            s2
+        REQUIRE(*capture(
+            "a **= b"
+        ).node() == IPower(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ID("b", Span(1, 7))),
+            Span(1, 3, 3)
         ));
     }
 
     SECTION("IRSH") {
-        // a >>= b
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::IRSH,
-            Comp(OpID::ID, "a", s1),
-            Comp(OpID::ID, "b", s3),
-            s2
-        )) == CallAttr(
-            NodePtr(new ID("a", s1)),
-            NodePtr(new ID("__irsh__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
-            s2
+        REQUIRE(*capture(
+            "a >>= b"
+        ).node() == IRightShift(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ID("b", Span(1, 7))),
+            Span(1, 3, 3)
         ));
     }
 
     SECTION("ISUB") {
-        // a -= b
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::ISUB,
-            Comp(OpID::ID, "a", s1),
-            Comp(OpID::ID, "b", s3),
-            s2
-        )) == CallAttr(
-            NodePtr(new ID("a", s1)),
-            NodePtr(new ID("__isub__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
-            s2
+        REQUIRE(*capture(
+            "a -= b"
+        ).node() == ISubtract(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ID("b", Span(1, 6))),
+            Span(1, 3, 2)
         ));
     }
 
     SECTION("If") {
-        // if x:
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::IF,
-                Comp(
-                    OpID::LABEL,
-                    Comp(OpID::ID, "x", s2),
-                    Comp(
-                        OpID::BLOCK,
-                        vec(Comp(
-                            OpID::RETURN,
-                            Comp(OpID::PLAIN_INT, "0", s7),
-                            s6
-                        )),
-                        s5
-                    ),
-                    s3
-                ),
-                s1
-            )),
-            s1
-        )) == If(
+        REQUIRE(*capture(
+            "if x:\n"
+            "    return 0"
+        ).node() == If(
             vec(Case(
-                NodePtr(new ID("x", s2)),
+                NodePtr(new ID("x", Span(1, 4))),
                 vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, s7)), s6
+                    NodePtr(new Int32(0, Span(2, 12))),
+                    Span(2, 5, 6)
                 ))),
-                s1
+                Span(1, 1, 2)
             )),
-            {},
-            s1
+            Block(),
+            Span(1, 1, 2)
         ));
 
-        // if x:
-        //     return 0
-        // elif y:
-        //     return 1
-        REQUIRE(*interpreter.interpret(Comp(
+        auto cc = capture(
+            "if x:\n"
+            "    return 0\n"
+            "elif y:\n"
+            "    return 1"
+        );
+
+        REQUIRE(cc.ops() == vec(
+            Op(OpID::CONSTRUCT, Span(1, 1, 2)),
+            Op(OpID::IF, Span(1, 1, 2)),
+            Op(OpID::ID, "x", Span(1, 4)),
+            Op(OpID::LABEL, Span(1, 5)),
+            Op(OpID::BLOCK, Span(2, 5)),
+            Op(OpID::RETURN, Span(2, 5, 6)),
+            Op(OpID::PLAIN_INT, "0", Span(2, 12)),
+            Op(OpID::STMT, Span(2, 13)),
+            Op(OpID::END, Span(2, 12)),
+            Op(OpID::STMT, Span(2, 12)),
+            Op(OpID::ELIF, Span(3, 1, 4)),
+            Op(OpID::ID, "y", Span(3, 6)),
+            Op(OpID::LABEL, Span(3, 7)),
+            Op(OpID::BLOCK, Span(4, 5)),
+            Op(OpID::RETURN, Span(4, 5, 6)),
+            Op(OpID::PLAIN_INT, "1", Span(4, 12)),
+            Op(OpID::STMT, Span(4, 13)),
+            Op(OpID::END, Span(4, 12)),
+            Op(OpID::STMT, Span(4, 12)),
+            Op(OpID::END, Span(4, 12)),
+            Op(OpID::STMT, Span(4, 12))
+        ));
+
+        REQUIRE(cc.comp() == Comp(
             OpID::CONSTRUCT,
             vec(
                 Comp(
                     OpID::IF,
                     Comp(
                         OpID::LABEL,
-                        Comp(OpID::ID, "x", s2),
+                        Comp(OpID::ID, "x", Span(1, 4)),
                         Comp(
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "0", s7),
-                                s6
+                                Comp(OpID::PLAIN_INT, "0", Span(2, 12)),
+                                Span(2, 5, 6)
                             )),
-                            s5
+                            Span(2, 5, 2, 12)
                         ),
-                        s3
+                        Span(1, 5)
                     ),
-                    s1
+                    Span(1, 1, 2)
                 ),
                 Comp(
                     OpID::ELIF,
                     Comp(
                         OpID::LABEL,
-                        Comp(OpID::ID, "y", s10),
+                        Comp(OpID::ID, "y", Span(3, 6)),
                         Comp(
                             OpID::BLOCK,
                             vec(Comp(
                                 OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "1", s15),
-                                s14
+                                Comp(OpID::PLAIN_INT, "1", Span(4, 12)),
+                                Span(4, 5, 6)
                             )),
-                            s13
+                            Span(4, 5, 4, 12)
                         ),
-                        s11
+                        Span(3, 7)
                     ),
-                    s9
+                    Span(3, 1, 4)
                 )
             ),
-            s1
-        )) == If(
-            vec(
-                Case(
-                    NodePtr(new ID("x", s2)),
-                    vec(NodePtr(new Return(
-                        NodePtr(new Int32(0, s7)), s6
-                    ))),
-                    s1
-                ),
-                Case(
-                    NodePtr(new ID("y", s10)),
-                    vec(NodePtr(new Return(
-                        NodePtr(new Int32(1, s15)), s14
-                    ))),
-                    s9
-                )
-            ),
-            {},
-            s1
+            Span(1, 1, 4, 12)
         ));
 
-        // if x:
-        //     return 0
-        // elif y:
-        //     return 1
-        // else:
-        //     return 2
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::IF,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(OpID::ID, "x", s2),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "0", s7),
-                                s6
-                            )),
-                            s5
-                        ),
-                        s3
-                    ),
-                    s1
-                ),
-                Comp(
-                    OpID::ELIF,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(OpID::ID, "y", s10),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "1", s15),
-                                s14
-                            )),
-                            s13
-                        ),
-                        s11
-                    ),
-                    s9
-                ),
-                Comp(
-                    OpID::ELSE,
-                    Comp(
-                        OpID::BODY,
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "2", s22),
-                                s21
-                            )),
-                            s20
-                        ),
-                        s18
-                    ),
-                    s17
-                )
-            ),
-            s1
-        )) == If(
+        REQUIRE(*cc.node() == If(
             vec(
                 Case(
-                    NodePtr(new ID("x", s2)),
+                    NodePtr(new ID("x", Span(1, 4))),
                     vec(NodePtr(new Return(
-                        NodePtr(new Int32(0, s7)), s6
+                        NodePtr(new Int32(0, Span(2, 12))),
+                        Span(2, 5, 6)
                     ))),
-                    s1
+                    Span(1, 1, 2)
                 ),
                 Case(
-                    NodePtr(new ID("y", s10)),
+                    NodePtr(new ID("y", Span(3, 6))),
                     vec(NodePtr(new Return(
-                        NodePtr(new Int32(1, s15)), s14
+                        NodePtr(new Int32(1, Span(4, 12))),
+                        Span(4, 5, 6)
                     ))),
-                    s9
+                    Span(3, 1, 4)
                 )
             ),
-            vec(NodePtr(new Return(
-                NodePtr(new Int32(2, s22)), s21
-            ))),
-            s1
+            Block(),
+            Span(1, 1, 2)
         ));
 
-        // if x:
-        //     return 0
-        // else:
-        //     return 1
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
+        REQUIRE(*capture(
+            "if x:\n"
+            "    return 0\n"
+            "elif y:\n"
+            "    return 1\n"
+            "else:\n"
+            "    return 2"
+        ).node() == If(
             vec(
-                Comp(
-                    OpID::IF,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(OpID::ID, "x", s2),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "0", s7),
-                                s6
-                            )),
-                            s5
-                        ),
-                        s3
-                    ),
-                    s1
+                Case(
+                    NodePtr(new ID("x", Span(1, 4))),
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(2, 12))),
+                        Span(2, 5, 6)
+                    ))),
+                    Span(1, 1, 2)
                 ),
-                Comp(
-                    OpID::ELSE,
-                    Comp(
-                        OpID::BODY,
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "1", s14),
-                                s13
-                            )),
-                            s12
-                        ),
-                        s10
-                    ),
-                    s9
+                Case(
+                    NodePtr(new ID("y", Span(3, 6))),
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(1, Span(4, 12))),
+                        Span(4, 5, 6)
+                    ))),
+                    Span(3, 1, 4)
                 )
             ),
-            s1
-        )) == If(
+            Block(
+                vec(NodePtr(new Return(
+                    NodePtr(new Int32(2, Span(6, 12))),
+                    Span(6, 5, 6)
+                ))),
+                Span(5, 1, 4)
+            ),
+            Span(1, 1, 2)
+        ));
+
+        REQUIRE(*capture(
+            "if x:\n"
+            "    return 0\n"
+            "else:\n"
+            "    return 1"
+        ).node() == If(
             vec(Case(
-                NodePtr(new ID("x", s2)),
+                NodePtr(new ID("x", Span(1, 4))),
                 vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, s7)), s6
+                    NodePtr(new Int32(0, Span(2, 12))),
+                    Span(2, 5, 6)
                 ))),
-                s1
+                Span(1, 1, 2)
             )),
-            vec(NodePtr(new Return(
-                NodePtr(new Int32(1, s14)), s13
-            ))),
-            s1
+            Block(
+                vec(NodePtr(new Return(
+                    NodePtr(new Int32(1, Span(4, 12))),
+                    Span(4, 5, 6)
+                ))),
+                Span(3, 1, 4)
+            ),
+            Span(1, 1, 2)
         ));
 
-        // if x:
-        //     return 0
-        // elif y:
-        //     return 1
-        // elif z:
-        //     return 2
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::IF,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(OpID::ID, "x", s2),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "0", s7),
-                                s6
-                            )),
-                            s5
-                        ),
-                        s3
-                    ),
-                    s1
-                ),
-                Comp(
-                    OpID::ELIF,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(OpID::ID, "y", s10),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "1", s15),
-                                s14
-                            )),
-                            s13
-                        ),
-                        s11
-                    ),
-                    s9
-                ),
-                Comp(
-                    OpID::ELIF,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(OpID::ID, "z", s18),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "2", s23),
-                                s22
-                            )),
-                            s21
-                        ),
-                        s19
-                    ),
-                    s17
-                )
-            ),
-            s1
-        )) == If(
+        REQUIRE(*capture(
+            "if x:\n"
+            "    return 0\n"
+            "elif y:\n"
+            "    return 1\n"
+            "elif z:\n"
+            "    return 2"
+        ).node() == If(
             vec(
                 Case(
-                    NodePtr(new ID("x", s2)),
+                    NodePtr(new ID("x", Span(1, 4))),
                     vec(NodePtr(new Return(
-                        NodePtr(new Int32(0, s7)), s6
+                        NodePtr(new Int32(0, Span(2, 12))),
+                        Span(2, 5, 6)
                     ))),
-                    s1
+                    Span(1, 1, 2)
                 ),
                 Case(
-                    NodePtr(new ID("y", s10)),
+                    NodePtr(new ID("y", Span(3, 6))),
                     vec(NodePtr(new Return(
-                        NodePtr(new Int32(1, s15)), s14
+                        NodePtr(new Int32(1, Span(4, 12))),
+                        Span(4, 5, 6)
                     ))),
-                    s9
+                    Span(3, 1, 4)
                 ),
                 Case(
-                    NodePtr(new ID("z", s18)),
+                    NodePtr(new ID("z", Span(5, 6))),
                     vec(NodePtr(new Return(
-                        NodePtr(new Int32(2, s23)), s22
+                        NodePtr(new Int32(2, Span(6, 12))),
+                        Span(6, 5, 6)
                     ))),
-                    s17
+                    Span(5, 1, 4)
                 )
             ),
-            {},
-            s1
+            Block(),
+            Span(1, 1, 2)
         ));
 
-        // if x
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::IF,
-                Comp(OpID::ID, "x", s2),
-                s1
-            )),
-            s1
-        )) == MissingBodyErr(s2));
+        REQUIRE(*capture(
+            "if x"
+        ).node() == MissingBodyErr(Span(1, 1, 4)));
 
-        // if x:
-        //     return 0
-        // elif y
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::IF,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(OpID::ID, "x", s2),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "0", s7),
-                                s6
-                            )),
-                            s5
-                        ),
-                        s3
-                    ),
-                    s1
-                ),
-                Comp(OpID::ELIF, Comp(OpID::ID, "y", s10), s9)
-            ),
-            s1
-        )) == MissingBodyErr(s10));
+        REQUIRE(*capture(
+            "if x:\n"
+            "    return 0\n"
+            "elif y"
+        ).node() == MissingBodyErr(Span(3, 1, 6)));
 
-        // if x:
-        //     return 0
-        // else y:
-        //     return 1
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::IF,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(OpID::ID, "x", s2),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "0", s7),
-                                s6
-                            )),
-                            s5
-                        ),
-                        s3
-                    ),
-                    s1
-                ),
-                Comp(
-                    OpID::ELSE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(OpID::ID, "y", s10),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "1", s15),
-                                s14
-                            )),
-                            s13
-                        ),
-                        s11
-                    ),
-                    s9
-                )
-            ),
-            s1
-        )) == UnexpectedPredicateErr(s11));
+        REQUIRE(*capture(
+            "if x:\n"
+            "    return 0\n"
+            "else y:\n"
+            "    return 1"
+        ).node() == UnexpectedPredicateErr(Span(3, 6)));
 
-        // if x:
-        //     return 0
-        // case y:
-        //     return 1
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::IF,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(OpID::ID, "x", s2),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "0", s7),
-                                s6
-                            )),
-                            s5
-                        ),
-                        s3
-                    ),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(OpID::ID, "y", s10),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "1", s15),
-                                s14
-                            )),
-                            s13
-                        ),
-                        s11
-                    ),
-                    s9
-                )
-            ),
-            s1
-        )) == ExpectedElifOrElseErr(s9));
+        REQUIRE(*capture(
+            "if x:\n"
+            "    return 0\n"
+            "case y:\n"
+            "    return 1"
+        ).node() == ExpectedElifOrElseErr(Span(3, 1, 4)));
     }
 
     SECTION("Init") {
-        // a: Int = 3
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::SET,
-            Comp(
-                OpID::TYPE_LABEL,
-                Comp(OpID::ID, "a", s1),
-                Comp(OpID::ID, "Int", s3),
-                s2
-            ),
-            Comp(OpID::PLAIN_INT, "3", s5),
-            s4
-        )) == Init(
-            NodePtr(new ID("a", s1)),
-            NodePtr(new ID("Int", s3)),
-            NodePtr(new Int32(3, s5)),
-            s4
+        REQUIRE(*capture(
+            "a: Int = 3"
+        ).node() == Init(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ID("Int", Span(1, 4, 3))),
+            NodePtr(new Int32(3, Span(1, 10))),
+            Span(1, 8)
         ));
 
-        // 3: Int = 3
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::SET,
-            Comp(
-                OpID::TYPE_LABEL,
-                Comp(OpID::PLAIN_INT, "3", s1),
-                Comp(OpID::ID, "Int", s3),
-                s2
-            ),
-            Comp(OpID::PLAIN_INT, "3", s5),
-            s4
-        )) == Init(
-            NodePtr(new NumID(3, s1)),
-            NodePtr(new ID("Int", s3)),
-            NodePtr(new Int32(3, s5)),
-            s4
+        REQUIRE(*capture(
+            "3: Int = 3"
+        ).node() == Init(
+            NodePtr(new NumID(3, Span(1, 1))),
+            NodePtr(new ID("Int", Span(1, 4, 3))),
+            NodePtr(new Int32(3, Span(1, 10))),
+            Span(1, 8)
         ));
 
-        // true: Int = 3
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::SET,
-            Comp(
-                OpID::TYPE_LABEL,
-                Comp(OpID::TRUE, s1),
-                Comp(OpID::ID, "Int", s3),
-                s2
-            ),
-            Comp(OpID::PLAIN_INT, "3", s5),
-            s4
-        )) == ExpectedGeneralIDErr(s1));
+        REQUIRE(*capture(
+            "true: Int = 3"
+        ).node() == ExpectedGeneralIDErr(Span(1, 1, 4)));
     }
 
     SECTION("LSH") {
-        // a << b
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::LSH,
-            Comp(OpID::ID, "a", s1),
-            Comp(OpID::ID, "b", s3),
-            s2
-        )) == CallAttr(
-            NodePtr(new ID("a", s1)),
-            NodePtr(new ID("__lsh__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
-            s2
+        REQUIRE(*capture(
+            "a << b"
+        ).node() == LeftShift(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ID("b", Span(1, 6))),
+            Span(1, 3, 2)
         ));
     }
 
-    SECTION("Lambda Args") {
-        // %*
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::LAMBDA_ARGS, s1
-        )) == LambdaArgs(
-            1, s1
+    SECTION("LT") {
+        REQUIRE(*capture(
+            "a < b"
+        ).node() == LessThan(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ID("b", Span(1, 5))),
+            Span(1, 3)
         ));
+    }
 
-        // %%%*
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::LAMBDA,
-            Comp(
-                OpID::LAMBDA,
-                Comp(
-                    OpID::LAMBDA_ARGS, s3
-                ),
-                s2
-            ),
-            s1
-        )) == LambdaArgs(
-            3, s1
+    SECTION("LTE") {
+        REQUIRE(*capture(
+            "a <= b"
+        ).node() == LessThanOrEqual(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ID("b", Span(1, 6))),
+            Span(1, 3, 2)
         ));
     }
 
     SECTION("Lambda Expression") {
-        // %(%1 + %2)
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::LAMBDA,
-            Comp(
-                OpID::GROUP,
-                Comp(
-                    OpID::ADD,
-                    Comp(
-                        OpID::LAMBDA,
-                        Comp(OpID::PLAIN_INT, "1", s4),
-                        s3
-                    ),
-                    Comp(
-                        OpID::LAMBDA,
-                        Comp(OpID::PLAIN_INT, "2", s7),
-                        s6
-                    ),
-                    s5
-                ),
-                s2
-            ),
-            s1
-        )) == Lambda(
-            NodePtr(new CallAttr(
-                NodePtr(new LambdaVar(1, NodePtr(new NumID(1, s4)), s3)),
-                NodePtr(new ID("__add__", s5)),
-                Args(
-                    vec(NodePtr(new LambdaVar(
-                        1,
-                        NodePtr(new NumID(2, s7)),
-                        s6
-                    ))),
-                    {},
-                    s5
-                ),
-                s5
+        REQUIRE(*capture(
+            "%(%1 + %2)"
+        ).node() == Lambda(
+            NodePtr(new Add(
+                NodePtr(new LambdaVar(
+                    1,
+                    NodePtr(new NumID(1, Span(1, 4))),
+                    Span(1, 3)
+                )),
+                NodePtr(new LambdaVar(
+                    1,
+                    NodePtr(new NumID(2, Span(1, 9))),
+                    Span(1, 8)
+                )),
+                Span(1, 6)
             )),
-            s1
+            Span(1, 1, 10)
         ));
 
-        // %%(%1 + %2)
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::LAMBDA,
-            Comp(
-                OpID::LAMBDA,
-                Comp(
-                    OpID::GROUP,
-                    Comp(
-                        OpID::ADD,
-                        Comp(
-                            OpID::LAMBDA,
-                            Comp(OpID::PLAIN_INT, "1", s5),
-                            s4
-                        ),
-                        Comp(
-                            OpID::LAMBDA,
-                            Comp(OpID::PLAIN_INT, "2", s8),
-                            s7
-                        ),
-                        s6
-                    ),
-                    s3
-                ),
-                s2
-            ),
-            s1
-        )) == ExpectedGeneralIDErr(s3));
+        REQUIRE(*capture(
+            "%%(%1 + %2)"
+        ).node() == ExpectedGeneralIDErr(Span(1, 3, 9)));
 
-        // %[%1 + %2]
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::LAMBDA,
-            Comp(
-                OpID::LIST,
-                Comp(
-                    OpID::ADD,
-                    Comp(
-                        OpID::LAMBDA,
-                        Comp(OpID::PLAIN_INT, "1", s4),
-                        s3
-                    ),
-                    Comp(
-                        OpID::LAMBDA,
-                        Comp(OpID::PLAIN_INT, "2", s7),
-                        s6
-                    ),
-                    s5
-                ),
-                s2
-            ),
-            s1
-        )) == ExpectedGeneralIDErr(s2));
-    }
-
-    SECTION("Lambda Keyword Args") {
-        // %**
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::LAMBDA_KWARGS, s1
-        )) == LambdaKeywordArgs(
-            1, s1
-        ));
-
-        // %%%**
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::LAMBDA,
-            Comp(
-                OpID::LAMBDA,
-                Comp(
-                    OpID::LAMBDA_KWARGS, s3
-                ),
-                s2
-            ),
-            s1
-        )) == LambdaKeywordArgs(
-            3, s1
-        ));
+        REQUIRE(*capture(
+            "%[%1 + %2]"
+        ).node() == ExpectedGeneralIDErr(Span(1, 2, 9)));
     }
 
     SECTION("Lambda Var") {
-        // %1
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::LAMBDA, Comp(OpID::PLAIN_INT, "1", s2), s1
-        )) == LambdaVar(
-            1, NodePtr(new NumID(1, s2)), s1
+        REQUIRE(*capture(
+            "%1"
+        ).node() == LambdaVar(
+            1,
+            NodePtr(new NumID(1, Span(1, 2))),
+            Span(1, 1)
         ));
 
-        // %a
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::LAMBDA, Comp(OpID::ID, "a", s2), s1
-        )) == LambdaVar(
-            1, NodePtr(new ID("a", s2)), s1
+        REQUIRE(*capture(
+            "%a"
+        ).node() == LambdaVar(
+            1,
+            NodePtr(new ID("a", Span(1, 2))),
+            Span(1, 1)
         ));
 
-        // %%%1
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::LAMBDA,
-            Comp(
-                OpID::LAMBDA,
-                Comp(OpID::LAMBDA, Comp(OpID::PLAIN_INT, "1", s4), s3),
-                s2
-            ),
-            s1
-        )) == LambdaVar(3, NodePtr(new NumID(1, s4)), s1));
+        REQUIRE(*capture(
+            "%%%1"
+        ).node() == LambdaVar(
+            3,
+            NodePtr(new NumID(1, Span(1, 4))),
+            Span(1, 1, 3)
+        ));
+    }
+
+    SECTION("Lambda Var Args") {
+        REQUIRE(*capture(
+            "%*"
+        ).node() == LambdaArgs(
+            1, Span(1, 1, 2)
+        ));
+
+        REQUIRE(*capture(
+            "%%%*"
+        ).node() == LambdaArgs(
+            3, Span(1, 1, 4)
+        ));
+    }
+
+    SECTION("Lambda Var Keyword Args") {
+        REQUIRE(*capture(
+            "%**"
+        ).node() == LambdaKeywordArgs(
+            1, Span(1, 1, 3)
+        ));
+
+        REQUIRE(*capture(
+            "%%%**"
+        ).node() == LambdaKeywordArgs(
+            3, Span(1, 1, 5)
+        ));
     }
 
     SECTION("List") {
-        // []
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::LIST, Comp(OpID::NOTHING, s2), s1
-        )) == List(
-            {}, s1
+        REQUIRE(*capture(
+            "[]"
+        ).node() == List(
+            {}, Span(1, 1, 2)
         ));
 
-        // [a]
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::LIST, Comp(OpID::ID, "a", s2), s1
-        )) == List(
-            vec(NodePtr(new ID("a", s2))), s1
+        REQUIRE(*capture(
+            "[a]"
+        ).node() == List(
+            vec(NodePtr(new ID("a", Span(1, 2)))),
+            Span(1, 1, 3)
         ));
 
-        // [a, b, c]
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::LIST,
-            csv(
-                Comp(OpID::ID, "a", s2),
-                Comp(OpID::ID, "b", s4),
-                Comp(OpID::ID, "c", s6)
-            ),
-            s1
-        )) == List(
+        REQUIRE(*capture(
+            "[a, b, c]"
+        ).node() == List(
             vec(
-                NodePtr(new ID("a", s2)),
-                NodePtr(new ID("b", s4)),
-                NodePtr(new ID("c", s6))
+                NodePtr(new ID("a", Span(1, 2))),
+                NodePtr(new ID("b", Span(1, 5))),
+                NodePtr(new ID("c", Span(1, 8)))
             ),
-            s1
+            Span(1, 1, 9)
         ));
 
-        // [a, *args, b]
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::LIST,
-            csv(
-                Comp(OpID::ID, "a", s2),
-                Comp(OpID::UNPACK_ARGS, Comp(OpID::ID, "args", s5), s4),
-                Comp(OpID::ID, "b", s7)
-            ),
-            s1
-        )) == List(
+        REQUIRE(*capture(
+            "[a, *args, b]"
+        ).node() == List(
             vec(
-                NodePtr(new ID("a", s2)),
+                NodePtr(new ID("a", Span(1, 2))),
                 NodePtr(new Expansion(
-                    NodePtr(new ID("args", s5)), s4
+                    NodePtr(new ID("args", Span(1, 6, 4))),
+                    Span(1, 5)
                 )),
-                NodePtr(new ID("b", s7))
+                NodePtr(new ID("b", Span(1, 12)))
             ),
-            s1
+            Span(1, 1, 13)
         ));
     }
 
     SECTION("Literals") {
-        // true
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::TRUE, s1
-        )) == Bool(
-            true, s1
+        REQUIRE(*capture(
+            "true"
+        ).node() == Bool(
+            true, Span(1, 1, 4)
         ));
 
-        // false
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::FALSE, s1
-        )) == Bool(
-            false, s1
+        REQUIRE(*capture(
+            "false"
+        ).node() == Bool(
+            false, Span(1, 1, 5)
         ));
 
-        // 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::PLAIN_INT, "0", s1
-        )) == Int32(
-            0, s1
+        REQUIRE(*capture(
+            "0"
+        ).node() == Int32(
+            0, Span(1, 1)
         ));
 
-        // 0s8
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::NUMBER, std::int8_t(0), s1
-        )) == Int8(
-            0, s1
+        REQUIRE(*capture(
+            "0s8"
+        ).node() == Int8(
+            0, Span(1, 1, 3)
         ));
 
-        // 0s16
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::NUMBER, std::int16_t(0), s1
-        )) == Int16(
-            0, s1
+        REQUIRE(*capture(
+            "0s16"
+        ).node() == Int16(
+            0, Span(1, 1, 4)
         ));
 
-        // 0s32
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::NUMBER, std::int32_t(0), s1
-        )) == Int32(
-            0, s1
+        REQUIRE(*capture(
+            "0s32"
+        ).node() == Int32(
+            0, Span(1, 1, 4)
         ));
 
-        // 0s64
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::NUMBER, std::int64_t(0), s1
-        )) == Int64(
-            0, s1
+        REQUIRE(*capture(
+            "0s64"
+        ).node() == Int64(
+            0, Span(1, 1, 4)
         ));
 
-        // 0u8
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::NUMBER, std::uint8_t(0), s1
-        )) == UInt8(
-            0, s1
+        REQUIRE(*capture(
+            "0u8"
+        ).node() == UInt8(
+            0, Span(1, 1, 3)
         ));
 
-        // 0u16
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::NUMBER, std::uint16_t(0), s1
-        )) == UInt16(
-            0, s1
+        REQUIRE(*capture(
+            "0u16"
+        ).node() == UInt16(
+            0, Span(1, 1, 4)
         ));
 
-        // 0u32
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::NUMBER, std::uint32_t(0), s1
-        )) == UInt32(
-            0, s1
+        REQUIRE(*capture(
+            "0u32"
+        ).node() == UInt32(
+            0, Span(1, 1, 4)
         ));
 
-        // 0u64
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::NUMBER, std::uint64_t(0), s1
-        )) == UInt64(0, s1));
-
-        // 0f32
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::FLOAT_TAIL, "0f32", s1
-        )) == Float32(
-            0, s1
+        REQUIRE(*capture(
+            "0u64"
+        ).node() == UInt64(
+            0, Span(1, 1, 4)
         ));
 
-        // 0f64
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::FLOAT_TAIL, "0f64", s1
-        )) == Float64(
-            0, s1
+        REQUIRE(*capture(
+            "0f32"
+        ).node() == Float32(
+            0, Span(1, 1, 4)
         ));
 
-        // 1e7
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::FLOAT_TAIL, "1e7", s1
-        )) == Float64(
-            1e7, s1
+        REQUIRE(*capture(
+            "0f64"
+        ).node() == Float64(
+            0, Span(1, 1, 4)
         ));
 
-        // 1e-7
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::FLOAT_TAIL, "1e-7", s1
-        )) == Float64(
-            1e-7, s1
+        REQUIRE(*capture(
+            "1e7"
+        ).node() == Float64(
+            1e7, Span(1, 1, 3)
         ));
 
-        // 12.34
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::GET,
-            Comp(OpID::PLAIN_INT, "12", s1),
-            Comp(OpID::PLAIN_INT, "34", s3),
-            s2
-        )) == Float64(12.34, s1));
-
-        // 12.34f32
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::GET,
-            Comp(OpID::PLAIN_INT, "12", s1),
-            Comp(OpID::FLOAT_TAIL, "34f32", s3),
-            s2
-        )) == Float32(12.34f, s1));
-
-        // 12.34e5
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::GET,
-            Comp(OpID::PLAIN_INT, "12", s1),
-            Comp(OpID::FLOAT_TAIL, "34e5", s3),
-            s2
-        )) == Float64(12.34e5, s1));
-
-        // 12.34e5f32
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::GET,
-            Comp(OpID::PLAIN_INT, "12", s1),
-            Comp(OpID::FLOAT_TAIL, "34e5f32", s3),
-            s2
-        )) == Float32(12.34e5f, s1));
-
-        // 1e46f32
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::FLOAT_TAIL, "1e46f32", s1
-        )) == OutOfRangeErr(s1));
-
-        // 1e309
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::FLOAT_TAIL, "1e309", s1
-        )) == OutOfRangeErr(s1));
-
-        // '\0'
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CHAR, std::int32_t(0), s1
-        )) == Char(
-            0, s1
+        REQUIRE(*capture(
+            "1e-7"
+        ).node() == Float64(
+            1e-7, Span(1, 1, 4)
         ));
 
-        // "asdf"
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::STRING, "asdf", s1
-        )) == String(
-            "asdf", s1
+        REQUIRE(*capture(
+            "12.34"
+        ).node() == Float64(
+            12.34, Span(1, 1, 5)
+        ));
+
+        REQUIRE(*capture(
+            "12.34f32"
+        ).node() == Float32(
+            12.34f, Span(1, 1, 8)
+        ));
+
+        REQUIRE(*capture(
+            "12.34e5"
+        ).node() == Float64(
+            12.34e5, Span(1, 1, 7)
+        ));
+
+        REQUIRE(*capture(
+            "12.34e5f32"
+        ).node() == Float32(
+            12.34e5f, Span(1, 1, 10)
+        ));
+
+        REQUIRE(*capture(
+            "1e46f32"
+        ).node() == OutOfRangeErr(Span(1, 1, 7)));
+
+        REQUIRE(*capture(
+            "1e309"
+        ).node() == OutOfRangeErr(Span(1, 1, 5)));
+
+        REQUIRE(*capture(
+            "'\\0'"
+        ).node() == Char(
+            0, Span(1, 1, 4)
+        ));
+
+        REQUIRE(*capture(
+            "\"asdf\""
+        ).node() == String(
+            "asdf", Span(1, 1, 6)
         ));
     }
 
     SECTION("MOD") {
-        // a % b
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::MOD,
-            Comp(OpID::ID, "a", s1),
-            Comp(OpID::ID, "b", s3),
-            s2
-        )) == CallAttr(
-            NodePtr(new ID("a", s1)),
-            NodePtr(new ID("__mod__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
-            s2
+        REQUIRE(*capture(
+            "a % b"
+        ).node() == Mod(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ID("b", Span(1, 5))),
+            Span(1, 3)
         ));
     }
 
     SECTION("MUL") {
-        // a * b
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::MUL,
-            Comp(OpID::ID, "a", s1),
-            Comp(OpID::ID, "b", s3),
-            s2
-        )) == CallAttr(
-            NodePtr(new ID("a", s1)),
-            NodePtr(new ID("__mul__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
-            s2
+        REQUIRE(*capture(
+            "a * b"
+        ).node() == Multiply(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ID("b", Span(1, 5))),
+            Span(1, 3)
         ));
     }
 
     SECTION("Map") {
-        // {}
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::ENCLOSURE, Comp(OpID::NOTHING, s2), s1
-        )) == Map(
-            {}, s1
+        REQUIRE(*capture(
+            "{}"
+        ).node() == Map(
+            {}, Span(1, 1, 2)
         ));
 
-        // {a = 1}
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::ENCLOSURE,
-            Comp(
-                OpID::BIND,
-                Comp(OpID::ID, "a", s2),
-                Comp(OpID::PLAIN_INT, "1", s4),
-                s3
-            ),
-            s1
-        )) == Map(
+        REQUIRE(*capture(
+            "{a = 1}"
+        ).node() == Map(
             vec(NodePtr(new Entry(
-                NodePtr(new ID("a", s2)),
-                NodePtr(new Int32(1, s4)),
-                s3
+                NodePtr(new ID("a", Span(1, 2))),
+                NodePtr(new Int32(1, Span(1, 6))),
+                Span(1, 4)
             ))),
-            s1
+            Span(1, 1, 7)
         ));
 
-        // {a = 1, b = 2, c = 3}
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::ENCLOSURE,
-            csv(
-                Comp(
-                    OpID::BIND,
-                    Comp(OpID::ID, "a", s2),
-                    Comp(OpID::PLAIN_INT, "1", s4),
-                    s3
-                ),
-                Comp(
-                    OpID::BIND,
-                    Comp(OpID::ID, "b", s6),
-                    Comp(OpID::PLAIN_INT, "2", s8),
-                    s7
-                ),
-                Comp(
-                    OpID::BIND,
-                    Comp(OpID::ID, "c", s10),
-                    Comp(OpID::PLAIN_INT, "3", s12),
-                    s11
-                )
-            ),
-            s1
-        )) == Map(
+        REQUIRE(*capture(
+            "{a = 1, b = 2, c = 3}"
+        ).node() == Map(
             vec(
                 NodePtr(new Entry(
-                    NodePtr(new ID("a", s2)),
-                    NodePtr(new Int32(1, s4)),
-                    s3
+                    NodePtr(new ID("a", Span(1, 2))),
+                    NodePtr(new Int32(1, Span(1, 6))),
+                    Span(1, 4)
                 )),
                 NodePtr(new Entry(
-                    NodePtr(new ID("b", s6)),
-                    NodePtr(new Int32(2, s8)),
-                    s7
+                    NodePtr(new ID("b", Span(1, 9))),
+                    NodePtr(new Int32(2, Span(1, 13))),
+                    Span(1, 11)
                 )),
                 NodePtr(new Entry(
-                    NodePtr(new ID("c", s10)),
-                    NodePtr(new Int32(3, s12)),
-                    s11
+                    NodePtr(new ID("c", Span(1, 16))),
+                    NodePtr(new Int32(3, Span(1, 20))),
+                    Span(1, 18)
                 ))
             ),
-            s1
+            Span(1, 1, 21)
         ));
 
-        // {a = 1, **kwargs, b = 2}
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::ENCLOSURE,
-            csv(
-                Comp(
-                    OpID::BIND,
-                    Comp(OpID::ID, "a", s2),
-                    Comp(OpID::PLAIN_INT, "1", s4),
-                    s3
-                ),
-                Comp(
-                    OpID::UNPACK_KWARGS,
-                    Comp(OpID::ID, "kwargs", s7),
-                    s6
-                ),
-                Comp(
-                    OpID::BIND,
-                    Comp(OpID::ID, "b", s9),
-                    Comp(OpID::PLAIN_INT, "2", s11),
-                    s10
-                )
-            ),
-            s1
-        )) == Map(
+        REQUIRE(*capture(
+            "{a = 1, **kwargs, b = 2}"
+        ).node() == Map(
             vec(
                 NodePtr(new Entry(
-                    NodePtr(new ID("a", s2)),
-                    NodePtr(new Int32(1, s4)),
-                    s3
+                    NodePtr(new ID("a", Span(1, 2))),
+                    NodePtr(new Int32(1, Span(1, 6))),
+                    Span(1, 4)
                 )),
                 NodePtr(new Expansion(
-                    NodePtr(new ID("kwargs", s7)), s6
+                    NodePtr(new ID("kwargs", Span(1, 11, 6))),
+                    Span(1, 9, 2)
                 )),
                 NodePtr(new Entry(
-                    NodePtr(new ID("b", s9)),
-                    NodePtr(new Int32(2, s11)),
-                    s10
+                    NodePtr(new ID("b", Span(1, 19))),
+                    NodePtr(new Int32(2, Span(1, 23))),
+                    Span(1, 21)
                 ))
             ),
-            s1
+            Span(1, 1, 24)
         ));
     }
 
     SECTION("Match") {
-        // match x
-        // case y:
-        //     return y
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(OpID::ID, "y", s5),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::ID, "y", s10),
-                                s9
-                            )),
-                            s8
-                        ),
-                        s6
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == Match(
-            NodePtr(new ID("x", s2)),
+        REQUIRE(*capture(
+            "match x\n"
+            "case y:\n"
+            "    return y"
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
             vec(MatchCase(
-                NodePtr(new ID("y", s5)),
+                NodePtr(new ID("y", Span(2, 6))),
                 nullptr,
                 vec(NodePtr(new Return(
-                    NodePtr(new ID("y", s10)), s9
+                    NodePtr(new ID("y", Span(3, 12))),
+                    Span(3, 5, 6)
                 ))),
-                s4
+                Span(2, 1, 4)
             )),
-            s1
+            Span(1, 1, 5)
         ));
 
-        // match x
-        // case y: Int:
-        //     return y
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::TYPE_LABEL,
-                            Comp(OpID::ID, "y", s5),
-                            Comp(OpID::ID, "Int", s7),
-                            s6
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::ID, "y", s12),
-                                s11
-                            )),
-                            s10
-                        ),
-                        s8
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == Match(
-            NodePtr(new ID("x", s2)),
+        REQUIRE(*capture(
+            "match x\n"
+            "case y: Int:\n"
+            "    return y"
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
             vec(MatchCase(
                 NodePtr(new TypeMatch(
-                    NodePtr(new ID("y", s5)), NodePtr(new ID("Int", s7)), s6
+                    NodePtr(new ID("y", Span(2, 6))),
+                    NodePtr(new ID("Int", Span(2, 9, 3))),
+                    Span(2, 7)
                 )),
                 nullptr,
                 vec(NodePtr(new Return(
-                    NodePtr(new ID("y", s12)), s11
+                    NodePtr(new ID("y", Span(3, 12))),
+                    Span(3, 5, 6)
                 ))),
-                s4
+                Span(2, 1, 4)
             )),
-            s1
+            Span(1, 1, 5)
         ));
 
-        // match x
-        // case y if y > 0:
-        //     return y
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::TERNARY_IF,
-                            Comp(OpID::ID, "y", s5),
-                            Comp(
-                                OpID::GT,
-                                Comp(OpID::ID, "y", s7),
-                                Comp(OpID::PLAIN_INT, "0", s9),
-                                s8
-                            ),
-                            s6
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::ID, "y", s14),
-                                s13
-                            )),
-                            s12
-                        ),
-                        s10
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == Match(
-            NodePtr(new ID("x", s2)),
+        REQUIRE(*capture(
+            "match x\n"
+            "case y if y > 0:\n"
+            "    return y"
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
             vec(MatchCase(
-                NodePtr(new ID("y", s5)),
-                NodePtr(new CallAttr(
-                    NodePtr(new ID("y", s7)),
-                    NodePtr(new ID("__gt__", s8)),
-                    Args(vec(NodePtr(new Int32(0, s9))), {}, s8),
-                    s8
+                NodePtr(new ID("y", Span(2, 6))),
+                NodePtr(new GreaterThan(
+                    NodePtr(new ID("y", Span(2, 11))),
+                    NodePtr(new Int32(0, Span(2, 15))),
+                    Span(2, 13)
                 )),
                 vec(NodePtr(new Return(
-                    NodePtr(new ID("y", s14)), s13
+                    NodePtr(new ID("y", Span(3, 12))),
+                    Span(3, 5, 6)
                 ))),
-                s4
+                Span(2, 1, 4)
             )),
-            s1
+            Span(1, 1, 5)
         ));
 
-        // match x
-        // case y: Int:
-        //     return y
-        // case _:
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::TYPE_LABEL,
-                            Comp(OpID::ID, "y", s5),
-                            Comp(OpID::ID, "Int", s7),
-                            s6
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::ID, "y", s12),
-                                s11
-                            )),
-                            s10
-                        ),
-                        s8
-                    ),
-                    s4
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(OpID::PLACEHOLDER, s15),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "0", s20),
-                                s19
-                            )),
-                            s18
-                        ),
-                        s16
-                    ),
-                    s14
-                )
-            ),
-            s1
-        )) == Match(
-            NodePtr(new ID("x", s2)),
+        REQUIRE(*capture(
+            "match x\n"
+            "case y: Int:\n"
+            "    return y\n"
+            "case _:\n"
+            "    return 0"
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
             vec(
                 MatchCase(
                     NodePtr(new TypeMatch(
-                        NodePtr(new ID("y", s5)), NodePtr(new ID("Int", s7)), s6
+                        NodePtr(new ID("y", Span(2, 6))),
+                        NodePtr(new ID("Int", Span(2, 9, 3))),
+                        Span(2, 7)
                     )),
                     nullptr,
                     vec(NodePtr(new Return(
-                        NodePtr(new ID("y", s12)), s11
+                        NodePtr(new ID("y", Span(3, 12))),
+                        Span(3, 5, 6)
                     ))),
-                    s4
+                    Span(2, 1, 4)
                 ),
                 MatchCase(
-                    NodePtr(new Placeholder(s15)),
+                    NodePtr(new Placeholder(Span(4, 6))),
                     nullptr,
                     vec(NodePtr(new Return(
-                        NodePtr(new Int32(0, s20)), s19
+                        NodePtr(new Int32(0, Span(5, 12))),
+                        Span(5, 5, 6)
                     ))),
-                    s14
+                    Span(4, 1, 4)
                 )
             ),
-            s1
+            Span(1, 1, 5)
         ));
 
-        // match x
-        // case (y):
-        //     return y
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::GROUP,
-                            Comp(OpID::ID, "y", s6),
-                            s5
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::ID, "y", s12),
-                                s11
-                            )),
-                            s10
-                        ),
-                        s8
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == Match(
-            NodePtr(new ID("x", s2)),
+        REQUIRE(*capture(
+            "match x\n"
+            "case (y):\n"
+            "    return y"
+
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
             vec(MatchCase(
-                NodePtr(new ID("y", s6)),
+                NodePtr(new ID("y", Span(2, 7))),
                 nullptr,
                 vec(NodePtr(new Return(
-                    NodePtr(new ID("y", s12)), s11
+                    NodePtr(new ID("y", Span(3, 12))),
+                    Span(3, 5, 6)
                 ))),
-                s4
+                Span(2, 1, 4)
             )),
-            s1
+            Span(1, 1, 5)
         ));
 
-        // match x
-        // case (y, z):
-        //     return y
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::GROUP,
-                            csv(
-                                Comp(OpID::ID, "y", s6),
-                                Comp(OpID::ID, "z", s8)
-                            ),
-                            s5
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::ID, "y", s14),
-                                s13
-                            )),
-                            s12
-                        ),
-                        s10
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == Match(
-            NodePtr(new ID("x", s2)),
+        REQUIRE(*capture(
+            "match x\n"
+            "case (y, z):\n"
+            "    return y"
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
             vec(MatchCase(
                 NodePtr(new MatchTuple(
                     vec(
-                        NodePtr(new ID("y", s6)),
-                        NodePtr(new ID("z", s8))
+                        NodePtr(new ID("y", Span(2, 7))),
+                        NodePtr(new ID("z", Span(2, 10)))
                     ),
-                    s5
+                    Span(2, 6, 6)
                 )),
                 nullptr,
                 vec(NodePtr(new Return(
-                    NodePtr(new ID("y", s14)), s13
+                    NodePtr(new ID("y", Span(3, 12))),
+                    Span(3, 5, 6)
                 ))),
-                s4
+                Span(2, 1, 4)
             )),
-            s1
+            Span(1, 1, 5)
         ));
 
-        // match x
-        // case (y, *args, z):
-        //     return y
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::GROUP,
-                            csv(
-                                Comp(OpID::ID, "y", s6),
-                                Comp(
-                                    OpID::UNPACK_ARGS,
-                                    Comp(OpID::ID, "args", s9),
-                                    s8
-                                ),
-                                Comp(OpID::ID, "z", s11)
-                            ),
-                            s5
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::ID, "y", s17),
-                                s16
-                            )),
-                            s15
-                        ),
-                        s13
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == Match(
-            NodePtr(new ID("x", s2)),
+        REQUIRE(*capture(
+            "match x\n"
+            "case (y, *args, z):\n"
+            "    return y"
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
             vec(MatchCase(
                 NodePtr(new MatchTuple(
                     vec(
-                        NodePtr(new ID("y", s6)),
+                        NodePtr(new ID("y", Span(2, 7))),
                         NodePtr(new Expansion(
-                            NodePtr(new ID("args", s9)), s8
+                            NodePtr(new ID("args", Span(2, 11, 4))),
+                            Span(2, 10)
                         )),
-                        NodePtr(new ID("z", s11))
+                        NodePtr(new ID("z", Span(2, 17)))
                     ),
-                    s5
+                    Span(2, 6, 2, 18)
                 )),
                 nullptr,
                 vec(NodePtr(new Return(
-                    NodePtr(new ID("y", s17)), s16
+                    NodePtr(new ID("y", Span(3, 12))),
+                    Span(3, 5, 6)
                 ))),
-                s4
+                Span(2, 1, 4)
             )),
-            s1
+            Span(1, 1, 5)
         ));
 
-        // match x
-        // case (*args):
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::GROUP,
-                            Comp(
-                                OpID::UNPACK_ARGS,
-                                Comp(OpID::ID, "args", s7),
-                                s6
-                            ),
-                            s5
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "0", s13),
-                                s12
-                            )),
-                            s11
-                        ),
-                        s9
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == Match(
-            NodePtr(new ID("x", s2)),
+        REQUIRE(*capture(
+            "match x\n"
+            "case (*args):\n"
+            "    return y"
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
             vec(MatchCase(
                 NodePtr(new MatchTuple(
                     vec(NodePtr(new Expansion(
-                        NodePtr(new ID("args", s7)), s6
+                        NodePtr(new ID("args", Span(2, 8, 4))),
+                        Span(2, 7)
                     ))),
-                    s5
+                    Span(2, 6, 7)
                 )),
                 nullptr,
                 vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, s13)), s12
+                    NodePtr(new ID("y", Span(3, 12))),
+                    Span(3, 5, 6)
                 ))),
-                s4
+                Span(2, 1, 4)
             )),
-            s1
+            Span(1, 1, 5)
         ));
 
-        // match x
-        // case [y, z]:
-        //     return y
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::LIST,
-                            csv(
-                                Comp(OpID::ID, "y", s6),
-                                Comp(OpID::ID, "z", s8)
-                            ),
-                            s5
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::ID, "y", s14),
-                                s13
-                            )),
-                            s12
-                        ),
-                        s10
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == Match(
-            NodePtr(new ID("x", s2)),
-            vec(MatchCase(
-                NodePtr(new MatchList(vec(
-                        NodePtr(new ID("y", s6)),
-                        NodePtr(new ID("z", s8))
-                    ),
-                    s5
-                )),
-                nullptr,
-                vec(NodePtr(new Return(
-                    NodePtr(new ID("y", s14)), s13
-                ))),
-                s4
-            )),
-            s1
-        ));
-
-        // match x
-        // case [y, *args, z]:
-        //     return y
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::LIST,
-                            csv(
-                                Comp(OpID::ID, "y", s6),
-                                Comp(
-                                    OpID::UNPACK_ARGS,
-                                    Comp(OpID::ID, "args", s9),
-                                    s8
-                                ),
-                                Comp(OpID::ID, "z", s11)
-                            ),
-                            s5
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::ID, "y", s17),
-                                s16
-                            )),
-                            s15
-                        ),
-                        s13
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == Match(
-            NodePtr(new ID("x", s2)),
+        REQUIRE(*capture(
+            "match x\n"
+            "case [y, z]:\n"
+            "    return y"
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
             vec(MatchCase(
                 NodePtr(new MatchList(
                     vec(
-                        NodePtr(new ID("y", s6)),
-                        NodePtr(new Expansion(
-                            NodePtr(new ID("args", s9)), s8
-                        )),
-                        NodePtr(new ID("z", s11))
+                        NodePtr(new ID("y", Span(2, 7))),
+                        NodePtr(new ID("z", Span(2, 10)))
                     ),
-                    s5
+                    Span(2, 6, 6)
                 )),
                 nullptr,
                 vec(NodePtr(new Return(
-                    NodePtr(new ID("y", s17)), s16
+                    NodePtr(new ID("y", Span(3, 12))),
+                    Span(3, 5, 6)
                 ))),
-                s4
+                Span(2, 1, 4)
             )),
-            s1
+            Span(1, 1, 5)
         ));
 
-        // match x
-        // case {3 = y, 4 = z}:
-        //     return y
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::ENCLOSURE,
-                            csv(
-                                Comp(
-                                    OpID::BIND,
-                                    Comp(OpID::PLAIN_INT, "3", s6),
-                                    Comp(OpID::ID, "y", s8),
-                                    s7
-                                ),
-                                Comp(
-                                    OpID::BIND,
-                                    Comp(OpID::PLAIN_INT, "4", s10),
-                                    Comp(OpID::ID, "z", s12),
-                                    s11
-                                )
-                            ),
-                            s5
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::ID, "y", s18),
-                                s17
-                            )),
-                            s16
-                        ),
-                        s14
+        REQUIRE(*capture(
+            "match x\n"
+            "case [y, *args, z]:\n"
+            "    return y"
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
+            vec(MatchCase(
+                NodePtr(new MatchList(
+                    vec(
+                        NodePtr(new ID("y", Span(2, 7))),
+                        NodePtr(new Expansion(
+                            NodePtr(new ID("args", Span(2, 11, 4))),
+                            Span(2, 10)
+                        )),
+                        NodePtr(new ID("z", Span(2, 17)))
                     ),
-                    s4
-                )
-            ),
-            s1
-        )) == Match(
-            NodePtr(new ID("x", s2)),
+                    Span(2, 6, 2, 18)
+                )),
+                nullptr,
+                vec(NodePtr(new Return(
+                    NodePtr(new ID("y", Span(3, 12))),
+                    Span(3, 5, 6)
+                ))),
+                Span(2, 1, 4)
+            )),
+            Span(1, 1, 5)
+        ));
+
+        REQUIRE(*capture(
+            "match x\n"
+            "case {3 = y, 4 = z}:\n"
+            "    return y"
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
             vec(MatchCase(
                 NodePtr(new MatchMap(
                     vec(
                         NodePtr(new Entry(
-                            NodePtr(new Int32(3, s6)),
-                            NodePtr(new ID("y", s8)),
-                            s7
+                            NodePtr(new Int32(3, Span(2, 7))),
+                            NodePtr(new ID("y", Span(2, 11))),
+                            Span(2, 9)
                         )),
                         NodePtr(new Entry(
-                            NodePtr(new Int32(4, s10)),
-                            NodePtr(new ID("z", s12)),
-                            s11
+                            NodePtr(new Int32(4, Span(2, 14))),
+                            NodePtr(new ID("z", Span(2, 18))),
+                            Span(2, 16)
                         ))
                     ),
-                    s5
+                    Span(2, 6, 2, 19)
                 )),
                 nullptr,
                 vec(NodePtr(new Return(
-                    NodePtr(new ID("y", s18)), s17
+                    NodePtr(new ID("y", Span(3, 12))),
+                    Span(3, 5, 6)
                 ))),
-                s4
+                Span(2, 1, 4)
             )),
-            s1
+            Span(1, 1, 5)
         ));
 
-        // match x:
-        // case {3 = y: Int}:
-        //     return y
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::ENCLOSURE,
-                            Comp(
-                                OpID::BIND,
-                                Comp(OpID::PLAIN_INT, "3", s6),
-                                Comp(
-                                    OpID::TYPE_LABEL,
-                                    Comp(OpID::ID, "y", s8),
-                                    Comp(OpID::ID, "Int", s10),
-                                    s9
-                                ),
-                                s7
-                            ),
-                            s5
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::ID, "y", s16),
-                                s15
-                            )),
-                            s14
-                        ),
-                        s12
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == Match(
-            NodePtr(new ID("x", s2)),
+        REQUIRE(*capture(
+            "match x\n"
+            "case {3 = y: Int}:\n"
+            "    return y"
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
             vec(MatchCase(
                 NodePtr(new MatchMap(
                     vec(NodePtr(new Entry(
-                        NodePtr(new Int32(3, s6)),
+                        NodePtr(new Int32(3, Span(2, 7))),
                         NodePtr(new TypeMatch(
-                            NodePtr(new ID("y", s8)),
-                            NodePtr(new ID("Int", s10)),
-                            s9
+                            NodePtr(new ID("y", Span(2, 11))),
+                            NodePtr(new ID("Int", Span(2, 14, 3))),
+                            Span(2, 12)
                         )),
-                        s7
+                        Span(2, 9)
                     ))),
-                    s5
+                    Span(2, 6, 2, 17)
                 )),
                 nullptr,
                 vec(NodePtr(new Return(
-                    NodePtr(new ID("y", s16)), s15
+                    NodePtr(new ID("y", Span(3, 12))),
+                    Span(3, 5, 6)
                 ))),
-                s4
+                Span(2, 1, 4)
             )),
-            s1
+            Span(1, 1, 5)
         ));
 
-        // match x
-        // case {3 = y, 4 = z, **kwargs}:
-        //     return y
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::ENCLOSURE,
-                            csv(
-                                Comp(
-                                    OpID::BIND,
-                                    Comp(OpID::PLAIN_INT, "3", s6),
-                                    Comp(OpID::ID, "y", s8),
-                                    s7
-                                ),
-                                Comp(
-                                    OpID::BIND,
-                                    Comp(OpID::PLAIN_INT, "4", s10),
-                                    Comp(OpID::ID, "z", s12),
-                                    s11
-                                ),
-                                Comp(
-                                    OpID::UNPACK_KWARGS,
-                                    Comp(OpID::ID, "kwargs", s15),
-                                    s14
-                                )
-                            ),
-                            s5
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::ID, "y", s21),
-                                s20
-                            )),
-                            s19
-                        ),
-                        s17
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == Match(
-            NodePtr(new ID("x", s2)),
+        REQUIRE(*capture(
+            "match x\n"
+            "case {3 = y, 4 = z, **kwargs}:\n"
+            "    return y"
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
             vec(MatchCase(
                 NodePtr(new MatchMap(
                     vec(
                         NodePtr(new Entry(
-                            NodePtr(new Int32(3, s6)),
-                            NodePtr(new ID("y", s8)),
-                            s7
+                            NodePtr(new Int32(3, Span(2, 7))),
+                            NodePtr(new ID("y", Span(2, 11))),
+                            Span(2, 9)
                         )),
                         NodePtr(new Entry(
-                            NodePtr(new Int32(4, s10)),
-                            NodePtr(new ID("z", s12)),
-                            s11
+                            NodePtr(new Int32(4, Span(2, 14))),
+                            NodePtr(new ID("z", Span(2, 18))),
+                            Span(2, 16)
                         )),
                         NodePtr(new Expansion(
-                            NodePtr(new ID("kwargs", s15)), s14
+                            NodePtr(new ID("kwargs", Span(2, 23, 6))),
+                            Span(2, 21, 2)
                         ))
                     ),
-                    s5
+                    Span(2, 6, 2, 29)
                 )),
                 nullptr,
                 vec(NodePtr(new Return(
-                    NodePtr(new ID("y", s21)), s20
+                    NodePtr(new ID("y", Span(3, 12))),
+                    Span(3, 5, 6)
                 ))),
-                s4
+                Span(2, 1, 4)
             )),
-            s1
+            Span(1, 1, 5)
         ));
 
-        // match x
-        // case T(y, w=z):
-        //     return y
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::CALL,
-                            Comp(OpID::ID, "T", s5),
-                            Comp(
-                                OpID::GROUP,
-                                csv(
-                                    Comp(OpID::ID, "y", s7),
-                                    Comp(
-                                        OpID::BIND,
-                                        Comp(OpID::ID, "w", s9),
-                                        Comp(OpID::ID, "z", s11),
-                                        s10
-                                    )
-                                ),
-                                s6
-                            ),
-                            s6
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::ID, "y", s17),
-                                s16
-                            )),
-                            s15
-                        ),
-                        s13
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == Match(
-            NodePtr(new ID("x", s2)),
+        REQUIRE(*capture(
+            "match x\n"
+            "case T(y, w=z):\n"
+            "    return y"
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
             vec(MatchCase(
                 NodePtr(new MatchObject(
-                    NodePtr(new ID("T", s5)),
+                    NodePtr(new ID("T", Span(2, 6))),
                     MatchArgs(
-                        vec(NodePtr(new ID("y", s7))),
+                        vec(NodePtr(new ID("y", Span(2, 8)))),
                         vec(NodePtr(new MatchKeywordArg(
-                            ID("w", s9), NodePtr(new ID("z", s11)), s10
+                            ID("w", Span(2, 11)),
+                            NodePtr(new ID("z", Span(2, 13))),
+                            Span(2, 12)
                         ))),
-                        s6
+                        Span(2, 7, 2, 14)
                     ),
-                    s6
+                    Span(2, 7)
                 )),
                 nullptr,
                 vec(NodePtr(new Return(
-                    NodePtr(new ID("y", s17)), s16
+                    NodePtr(new ID("y", Span(3, 12))),
+                    Span(3, 5, 6)
                 ))),
-                s4
+                Span(2, 1, 4)
             )),
-            s1
+            Span(1, 1, 5)
         ));
 
-        // match x
-        // case T(y, *args, **kwargs):
-        //     return y
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::CALL,
-                            Comp(OpID::ID, "T", s5),
-                            Comp(
-                                OpID::GROUP,
-                                csv(
-                                    Comp(OpID::ID, "y", s7),
-                                    Comp(
-                                        OpID::UNPACK_ARGS,
-                                        Comp(OpID::ID, "args", s10),
-                                        s9
-                                    ),
-                                    Comp(
-                                        OpID::UNPACK_KWARGS,
-                                        Comp(OpID::ID, "kwargs", s13),
-                                        s12
-                                    )
-                                ),
-                                s6
-                            ),
-                            s6
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::ID, "y", s19),
-                                s18
-                            )),
-                            s17
-                        ),
-                        s15
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == Match(
-            NodePtr(new ID("x", s2)),
+        REQUIRE(*capture(
+            "match x\n"
+            "case T(y, *args, **kwargs):\n"
+            "    return y"
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
             vec(MatchCase(
                 NodePtr(new MatchObject(
-                    NodePtr(new ID("T", s5)),
+                    NodePtr(new ID("T", Span(2, 6))),
                     MatchArgs(
                         vec(
-                            NodePtr(new ID("y", s7)),
+                            NodePtr(new ID("y", Span(2, 8))),
                             NodePtr(new Expansion(
-                                NodePtr(new ID("args", s10)), s9
+                                NodePtr(new ID("args", Span(2, 12, 4))),
+                                Span(2, 11)
                             ))
                         ),
                         vec(NodePtr(new Expansion(
-                            NodePtr(new ID("kwargs", s13)), s12
+                            NodePtr(new ID("kwargs", Span(2, 20, 6))),
+                            Span(2, 18, 2)
                         ))),
-                        s6
+                        Span(2, 7, 2, 26)
                     ),
-                    s6
+                    Span(2, 7)
                 )),
                 nullptr,
                 vec(NodePtr(new Return(
-                    NodePtr(new ID("y", s19)), s18
+                    NodePtr(new ID("y", Span(3, 12))),
+                    Span(3, 5, 6)
                 ))),
-                s4
+                Span(2, 1, 4)
             )),
-            s1
+            Span(1, 1, 5)
         ));
 
-        // match x
-        // case 1 || 2:
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::MATCH_OR,
-                            Comp(OpID::PLAIN_INT, "1", s5),
-                            Comp(OpID::PLAIN_INT, "2", s7),
-                            s6
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "0", s12),
-                                s11
-                            )),
-                            s10
-                        ),
-                        s8
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == Match(
-            NodePtr(new ID("x", s2)),
+        REQUIRE(*capture(
+            "match x\n"
+            "case 1 || 2:\n"
+            "    return 0"
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
             vec(MatchCase(
                 NodePtr(new MatchOptions(
                     vec(
-                        NodePtr(new Int32(1, s5)),
-                        NodePtr(new Int32(2, s7))
+                        NodePtr(new Int32(1, Span(2, 6))),
+                        NodePtr(new Int32(2, Span(2, 11)))
                     ),
-                    s6
+                    Span(2, 6, 6)
                 )),
                 nullptr,
                 vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, s12)), s11
+                    NodePtr(new Int32(0, Span(3, 12))),
+                    Span(3, 5, 6)
                 ))),
-                s4
+                Span(2, 1, 4)
             )),
-            s1
+            Span(1, 1, 5)
         ));
 
-        // match x
-        // case Int(y) || String(y):
-        //     return y
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::MATCH_OR,
-                            Comp(
-                                OpID::CALL,
-                                Comp(OpID::ID, "Int", s5),
-                                Comp(
-                                    OpID::GROUP,
-                                    Comp(OpID::ID, "y", s7),
-                                    s6
-                                ),
-                                s6
-                            ),
-                            Comp(
-                                OpID::CALL,
-                                Comp(OpID::ID, "String", s10),
-                                Comp(
-                                    OpID::GROUP,
-                                    Comp(OpID::ID, "y", s12),
-                                    s11
-                                ),
-                                s11
-                            ),
-                            s9
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::ID, "y", s18),
-                                s17
-                            )),
-                            s16
-                        ),
-                        s14
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == Match(
-            NodePtr(new ID("x", s2)),
+        REQUIRE(*capture(
+            "match x\n"
+            "case Int(y) || String(y):\n"
+            "    return y"
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
             vec(MatchCase(
                 NodePtr(new MatchOptions(
                     vec(
                         NodePtr(new MatchObject(
-                            NodePtr(new ID("Int", s5)),
+                            NodePtr(new ID("Int", Span(2, 6, 3))),
                             MatchArgs(
-                                vec(NodePtr(new ID("y", s7))),
+                                vec(NodePtr(new ID("y", Span(2, 10)))),
                                 {},
-                                s6
+                                Span(2, 9, 3)
                             ),
-                            s6
+                            Span(2, 9)
                         )),
                         NodePtr(new MatchObject(
-                            NodePtr(new ID("String", s10)),
+                            NodePtr(new ID("String", Span(2, 16, 6))),
                             MatchArgs(
-                                vec(NodePtr(new ID("y", s12))),
+                                vec(NodePtr(new ID("y", Span(2, 23)))),
                                 {},
-                                s11
+                                Span(2, 22, 3)
                             ),
-                            s11
+                            Span(2, 22)
                         ))
                     ),
-                    s9
+                    Span(2, 6, 2, 24)
                 )),
                 nullptr,
                 vec(NodePtr(new Return(
-                    NodePtr(new ID("y", s18)), s17
+                    NodePtr(new ID("y", Span(3, 12))),
+                    Span(3, 5, 6)
                 ))),
-                s4
+                Span(2, 1, 4)
             )),
-            s1
+            Span(1, 1, 5)
         ));
 
-        // match x
-        // case 1 || 2 as y:
-        //     return y
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::AS,
-                            Comp(
-                                OpID::MATCH_OR,
-                                Comp(OpID::PLAIN_INT, "1", s5),
-                                Comp(OpID::PLAIN_INT, "2", s7),
-                                s6
-                            ),
-                            Comp(OpID::ID, "y", s9),
-                            s8
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::ID, "y", s14),
-                                s13
-                            )),
-                            s12
-                        ),
-                        s10
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == Match(
-            NodePtr(new ID("x", s2)),
+        REQUIRE(*capture(
+            "match x\n"
+            "case 1 || 2 as y:\n"
+            "    return y"
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
             vec(MatchCase(
                 NodePtr(new As(
                     NodePtr(new MatchOptions(
                         vec(
-                            NodePtr(new Int32(1, s5)),
-                            NodePtr(new Int32(2, s7))
+                            NodePtr(new Int32(1, Span(2, 6))),
+                            NodePtr(new Int32(2, Span(2, 11)))
                         ),
-                        s6
+                        Span(2, 6, 6)
                     )),
-                    NodePtr(new ID("y", s9)),
-                    s8
+                    NodePtr(new ID("y", Span(2, 16))),
+                    Span(2, 13, 2)
                 )),
                 nullptr,
                 vec(NodePtr(new Return(
-                    NodePtr(new ID("y", s14)), s13
+                    NodePtr(new ID("y", Span(3, 12))),
+                    Span(3, 5, 6)
                 ))),
-                s4
+                Span(2, 1, 4)
             )),
-            s1
+            Span(1, 1, 5)
         ));
 
-        // match x
-        // case (3 as *args):
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::GROUP,
-                            Comp(
-                                OpID::AS,
-                                Comp(OpID::PLAIN_INT, "3", s6),
-                                Comp(
-                                    OpID::UNPACK_ARGS,
-                                    Comp(OpID::ID, "args", s9),
-                                    s8
-                                ),
-                                s7
-                            ),
-                            s5
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "0", s15),
-                                s14
-                            )),
-                            s13
-                        ),
-                        s11
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == Match(
-            NodePtr(new ID("x", s2)),
+        REQUIRE(*capture(
+            "match x\n"
+            "case (3 as *args):\n"
+            "    return 0"
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
             vec(MatchCase(
                 NodePtr(new MatchTuple(
                     vec(NodePtr(new As(
-                        NodePtr(new Int32(3, s6)),
+                        NodePtr(new Int32(3, Span(2, 7))),
                         NodePtr(new Expansion(
-                            NodePtr(new ID("args", s9)), s8
+                            NodePtr(new ID("args", Span(2, 13, 4))),
+                            Span(2, 12)
                         )),
-                        s7
+                        Span(2, 9, 2)
                     ))),
-                    s5
+                    Span(2, 6, 2, 17)
                 )),
                 nullptr,
                 vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, s15)), s14
+                    NodePtr(new Int32(0, Span(3, 12))),
+                    Span(3, 5, 6)
                 ))),
-                s4
+                Span(2, 1, 4)
             )),
-            s1
+            Span(1, 1, 5)
         ));
 
-        // match x
-        // case (*args: Int):
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::GROUP,
-                            Comp(
-                                OpID::TYPE_LABEL,
-                                Comp(
-                                    OpID::UNPACK_ARGS,
-                                    Comp(OpID::ID, "args", s7),
-                                    s6
-                                ),
-                                Comp(OpID::ID, "Int", s9),
-                                s8
-                            ),
-                            s5
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "0", s15),
-                                s14
-                            )),
-                            s13
-                        ),
-                        s11
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == Match(
-            NodePtr(new ID("x", s2)),
+        REQUIRE(*capture(
+            "match x\n"
+            "case (*args: Int):\n"
+            "    return 0"
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
             vec(MatchCase(
                 NodePtr(new MatchTuple(
                     vec(NodePtr(new TypeMatch(
                         NodePtr(new Expansion(
-                            NodePtr(new ID("args", s7)),
-                            s6
+                            NodePtr(new ID("args", Span(2, 8, 4))),
+                            Span(2, 7)
                         )),
-                        NodePtr(new ID("Int", s9)),
-                        s8
+                        NodePtr(new ID("Int", Span(2, 14, 3))),
+                        Span(2, 12)
                     ))),
-                    s5
+                    Span(2, 6, 2, 17)
                 )),
                 nullptr,
                 vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, s15)), s14
+                    NodePtr(new Int32(0, Span(3, 12))),
+                    Span(3, 5, 6)
                 ))),
-                s4
+                Span(2, 1, 4)
             )),
-            s1
+            Span(1, 1, 5)
         ));
 
-        // match x
-        // case {3 as **kwargs}:
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::ENCLOSURE,
-                            Comp(
-                                OpID::AS,
-                                Comp(OpID::PLAIN_INT, "3", s6),
-                                Comp(
-                                    OpID::UNPACK_KWARGS,
-                                    Comp(OpID::ID, "kwargs", s9),
-                                    s8
-                                ),
-                                s7
-                            ),
-                            s5
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "0", s15),
-                                s14
-                            )),
-                            s13
-                        ),
-                        s11
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == Match(
-            NodePtr(new ID("x", s2)),
+        REQUIRE(*capture(
+            "match x\n"
+            "case {3 as **kwargs}:\n"
+            "    return 0"
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
             vec(MatchCase(
                 NodePtr(new MatchMap(
                     vec(NodePtr(new As(
-                        NodePtr(new Int32(3, s6)),
+                        NodePtr(new Int32(3, Span(2, 7))),
                         NodePtr(new Expansion(
-                            NodePtr(new ID("kwargs", s9)), s8
+                            NodePtr(new ID("kwargs", Span(2, 14, 6))),
+                            Span(2, 12, 2)
                         )),
-                        s7
+                        Span(2, 9, 2)
                     ))),
-                    s5
+                    Span(2, 6, 2, 20)
                 )),
                 nullptr,
                 vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, s15)), s14
+                    NodePtr(new Int32(0, Span(3, 12))),
+                    Span(3, 5, 6)
                 ))),
-                s4
+                Span(2, 1, 4)
             )),
-            s1
+            Span(1, 1, 5)
         ));
 
-        // match x
-        // case {**kwargs: Int}:
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::ENCLOSURE,
-                            Comp(
-                                OpID::TYPE_LABEL,
-                                Comp(
-                                    OpID::UNPACK_KWARGS,
-                                    Comp(OpID::ID, "kwargs", s7),
-                                    s6
-                                ),
-                                Comp(OpID::ID, "Int", s9),
-                                s8
-                            ),
-                            s5
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "0", s15),
-                                s14
-                            )),
-                            s13
-                        ),
-                        s11
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == Match(
-            NodePtr(new ID("x", s2)),
+        REQUIRE(*capture(
+            "match x\n"
+            "case {**kwargs: Int}:\n"
+            "    return 0"
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
             vec(MatchCase(
                 NodePtr(new MatchMap(
                     vec(NodePtr(new TypeMatch(
                         NodePtr(new Expansion(
-                            NodePtr(new ID("kwargs", s7)),
-                            s6
+                            NodePtr(new ID("kwargs", Span(2, 9, 6))),
+                            Span(2, 7, 2)
                         )),
-                        NodePtr(new ID("Int", s9)),
-                        s8
+                        NodePtr(new ID("Int", Span(2, 17, 3))),
+                        Span(2, 15)
                     ))),
-                    s5
+                    Span(2, 6, 2, 20)
                 )),
                 nullptr,
                 vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, s15)), s14
+                    NodePtr(new Int32(0, Span(3, 12))),
+                    Span(3, 5, 6)
                 ))),
-                s4
+                Span(2, 1, 4)
             )),
-            s1
+            Span(1, 1, 5)
         ));
 
-        // match x
-        // case |f(y):
-        //     return y
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::LITERALLY,
-                            Comp(
-                                OpID::CALL,
-                                Comp(OpID::ID, "f", s6),
-                                Comp(
-                                    OpID::GROUP,
-                                    Comp(OpID::ID, "y", s8),
-                                    s7
-                                ),
-                                s7
-                            ),
-                            s5
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::ID, "y", s14),
-                                s13
-                            )),
-                            s12
-                        ),
-                        s10
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == Match(
-            NodePtr(new ID("x", s2)),
+        REQUIRE(*capture(
+            "match x\n"
+            "case |f(y):\n"
+            "    return y"
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
             vec(MatchCase(
                 NodePtr(new Call(
-                    NodePtr(new ID("f", s6)),
+                    NodePtr(new ID("f", Span(2, 7))),
                     Args(
-                        vec(NodePtr(new ID("y", s8))),
+                        vec(NodePtr(new ID("y", Span(2, 9)))),
                         {},
-                        s7
+                        Span(2, 8, 3)
                     ),
-                    s7
+                    Span(2, 8)
                 )),
                 nullptr,
                 vec(NodePtr(new Return(
-                    NodePtr(new ID("y", s14)), s13
+                    NodePtr(new ID("y", Span(3, 12))),
+                    Span(3, 5, 6)
                 ))),
-                s4
+                Span(2, 1, 4)
             )),
-            s1
+            Span(1, 1, 5)
         ));
 
-        // match x
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::MATCH, Comp(OpID::ID, "x", s2), s1
-            )),
-            s1
-        )) == NoMatchCasesErr(s1));
+        REQUIRE(*capture(
+            "match x"
+        ).node() == NoMatchCasesErr(Span(1, 1, 7)));
 
-        // match x
-        // case *args:
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::UNPACK_ARGS,
-                            Comp(OpID::ID, "args", s6),
-                            s5
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "0", s11),
-                                s10
-                            )),
-                            s9
-                        ),
-                        s7
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == VarArgsNotAllowedHereErr(s5));
+        REQUIRE(*capture(
+            "match x\n"
+            "case *args:\n"
+            "    return 0"
+        ).node() == VarArgsNotAllowedHereErr(Span(2, 6, 5)));
 
-        // match x
-        // case **kwargs:
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::UNPACK_KWARGS,
-                            Comp(OpID::ID, "kwargs", s6),
-                            s5
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "0", s11),
-                                s10
-                            )),
-                            s9
-                        ),
-                        s7
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == VarKeywordArgsNotAllowedHereErr(s5));
+        REQUIRE(*capture(
+            "match x\n"
+            "case **kwargs:\n"
+            "    return 0"
+        ).node() == VarKeywordArgsNotAllowedHereErr(Span(2, 6, 8)));
 
-        // match x
-        // case [**kwargs]:
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::LIST,
-                            Comp(
-                                OpID::UNPACK_KWARGS,
-                                Comp(OpID::ID, "kwargs", s7),
-                                s6
-                            ),
-                            s5
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "0", s13),
-                                s12
-                            )),
-                            s11
-                        ),
-                        s9
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == VarKeywordArgsNotAllowedHereErr(s6));
+        REQUIRE(*capture(
+            "match x\n"
+            "case [**kwargs]:\n"
+            "    return 0"
+        ).node() == VarKeywordArgsNotAllowedHereErr(Span(2, 7, 8)));
 
-        // match x
-        // case {*args}:
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::ENCLOSURE,
-                            Comp(
-                                OpID::UNPACK_ARGS,
-                                Comp(OpID::ID, "args", s7),
-                                s6
-                            ),
-                            s5
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "0", s13),
-                                s12
-                            )),
-                            s11
-                        ),
-                        s9
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == ExpectedEntryOrVarKeywordArgsErr(s6));
+        REQUIRE(*capture(
+            "match x\n"
+            "case {*args}:\n"
+            "    return 0"
+        ).node() == ExpectedEntryOrVarKeywordArgsErr(Span(2, 7, 5)));
 
-        // match x
-        // case [y=2]:
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::LIST,
-                            Comp(
-                                OpID::BIND,
-                                Comp(OpID::ID, "y", s6),
-                                Comp(OpID::PLAIN_INT, "2", s8),
-                                s7
-                            ),
-                            s5
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "0", s14),
-                                s13
-                            )),
-                            s12
-                        ),
-                        s10
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == UnexpectedOpErr(OpID::BIND, s7));
+        REQUIRE(*capture(
+            "match x\n"
+            "case [y=2]:\n"
+            "    return 0"
+        ).node() == UnexpectedOpErr(OpID::BIND, Span(2, 8)));
 
-        // match x
-        // case y as z as w:
-        //     return y
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::AS,
-                            Comp(
-                                OpID::AS,
-                                Comp(OpID::ID, "y", s5),
-                                Comp(OpID::ID, "z", s7),
-                                s6
-                            ),
-                            Comp(OpID::ID, "w", s9),
-                            s8
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::ID, "y", s14),
-                                s13
-                            )),
-                            s12
-                        ),
-                        s10
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == DoubleAsErr(s8));
+        REQUIRE(*capture(
+            "match x\n"
+            "case y as z as w:\n"
+            "    return y"
+        ).node() == DoubleAsErr(Span(2, 6, 11)));
 
-        // match x
-        // case y: Int as z:
-        //     return y
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::AS,
-                            Comp(
-                                OpID::TYPE_LABEL,
-                                Comp(OpID::ID, "y", s5),
-                                Comp(OpID::ID, "Int", s7),
-                                s6
-                            ),
-                            Comp(OpID::ID, "z", s9),
-                            s8
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::ID, "y", s14),
-                                s13
-                            )),
-                            s12
-                        ),
-                        s10
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == TypeMatchWithAsErr(s6));
+        REQUIRE(*capture(
+            "match x\n"
+            "case y: Int as z:\n"
+            "    return y"
+        ).node() == TypeMatchWithAsErr(Span(2, 6, 11)));
 
-        // match x
-        // case [*args as y]:
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::LIST,
-                            Comp(
-                                OpID::AS,
-                                Comp(
-                                    OpID::UNPACK_ARGS,
-                                    Comp(OpID::ID, "args", s7),
-                                    s6
-                                ),
-                                Comp(OpID::ID, "y", s9),
-                                s8
-                            ),
-                            s5
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "0", s15),
-                                s14
-                            )),
-                            s13
-                        ),
-                        s11
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == VarArgsWithAsErr(s6));
+        REQUIRE(*capture(
+            "match x\n"
+            "case [*args as y]:\n"
+            "    return y"
+        ).node() == VarArgsWithAsErr(Span(2, 7, 10)));
 
-        // match x
-        // case T(**kwargs as y):
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::CALL,
-                            Comp(OpID::ID, "T", s5),
-                            Comp(
-                                OpID::GROUP,
-                                Comp(
-                                    OpID::AS,
-                                    Comp(
-                                        OpID::UNPACK_KWARGS,
-                                        Comp(OpID::ID, "kwargs", s8),
-                                        s7
-                                    ),
-                                    Comp(OpID::ID, "y", s10),
-                                    s9
-                                ),
-                                s6
-                            ),
-                            s6
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "0", s16),
-                                s15
-                            )),
-                            s14
-                        ),
-                        s12
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == VarArgsWithAsErr(s7));
+        REQUIRE(*capture(
+            "match x\n"
+            "case T(**kwargs as y):\n"
+            "    return 0"
+        ).node() == VarArgsWithAsErr(Span(2, 8, 13)));
 
-        // match x
-        // case (y: Int):
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::GROUP,
-                            Comp(
-                                OpID::TYPE_LABEL,
-                                Comp(OpID::ID, "y", s6),
-                                Comp(OpID::ID, "Int", s8),
-                                s7
-                            ),
-                            s5
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "0", s14),
-                                s13
-                            )),
-                            s12
-                        ),
-                        s10
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == ExpectedExprErr(s7));
+        REQUIRE(*capture(
+            "match x\n"
+            "case (y: Int):\n"
+            "    return 0"
+        ).node() == ExpectedExprErr(Span(2, 7, 6)));
 
-        // match x
-        // case (3 as y):
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::GROUP,
-                            Comp(
-                                OpID::AS,
-                                Comp(OpID::PLAIN_INT, "3", s6),
-                                Comp(OpID::ID, "y", s8),
-                                s7
-                            ),
-                            s5
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "0", s14),
-                                s13
-                            )),
-                            s12
-                        ),
-                        s10
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == ExpectedExprErr(s7));
+        REQUIRE(*capture(
+            "match x\n"
+            "case (3 as y):\n"
+            "    return 0"
+        ).node() == ExpectedExprErr(Span(2, 7, 6)));
 
-        // match x
-        // case {y: Int}:
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::ENCLOSURE,
-                            Comp(
-                                OpID::TYPE_LABEL,
-                                Comp(OpID::ID, "y", s6),
-                                Comp(OpID::ID, "Int", s8),
-                                s7
-                            ),
-                            s5
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "0", s14),
-                                s13
-                            )),
-                            s12
-                        ),
-                        s10
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == ExpectedEntryOrVarKeywordArgsErr(s7));
+        REQUIRE(*capture(
+            "match x\n"
+            "case {y: Int}:\n"
+            "    return 0"
+        ).node() == ExpectedEntryOrVarKeywordArgsErr(Span(2, 7, 6)));
 
-        // match x
-        // case {3 as y}:
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::ENCLOSURE,
-                            Comp(
-                                OpID::AS,
-                                Comp(OpID::PLAIN_INT, "3", s6),
-                                Comp(OpID::ID, "y", s8),
-                                s7
-                            ),
-                            s5
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "0", s14),
-                                s13
-                            )),
-                            s12
-                        ),
-                        s10
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == ExpectedEntryOrVarKeywordArgsErr(s7));
+        REQUIRE(*capture(
+            "match x\n"
+            "case {3 as y}:\n"
+            "    return 0"
+        ).node() == ExpectedEntryOrVarKeywordArgsErr(Span(2, 7, 6)));
 
-        // match x
-        // case [*3: Int]
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::LIST,
-                            Comp(
-                                OpID::TYPE_LABEL,
-                                Comp(
-                                    OpID::UNPACK_ARGS,
-                                    Comp(OpID::PLAIN_INT, "3", s7),
-                                    s6
-                                ),
-                                Comp(OpID::ID, "Int", s9),
-                                s8
-                            ),
-                            s5
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "0", s15),
-                                s14
-                            )),
-                            s13
-                        ),
-                        s11
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == ExpectedIDErr(s7));
+        REQUIRE(*capture(
+            "match x\n"
+            "case [*3: Int]:\n"
+            "    return 0"
+        ).node() == ExpectedIDErr(Span(2, 8)));
 
-        // match x
-        // case {**3: Int}
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::ENCLOSURE,
-                            Comp(
-                                OpID::TYPE_LABEL,
-                                Comp(
-                                    OpID::UNPACK_KWARGS,
-                                    Comp(OpID::PLAIN_INT, "3", s7),
-                                    s6
-                                ),
-                                Comp(OpID::ID, "Int", s9),
-                                s8
-                            ),
-                            s5
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "0", s15),
-                                s14
-                            )),
-                            s13
-                        ),
-                        s11
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == ExpectedIDErr(s7));
+        REQUIRE(*capture(
+            "match x\n"
+            "case {**3: Int}:\n"
+            "    return 0"
+        ).node() == ExpectedIDErr(Span(2, 9)));
 
+        REQUIRE(*capture(
+            "match x\n"
+            "case [y as *3]:\n"
+            "    return 0"
+        ).node() == ExpectedIDErr(Span(2, 13)));
 
-        // match x
-        // case [y as *3]:
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::LIST,
-                            Comp(
-                                OpID::AS,
-                                Comp(OpID::ID, "y", s6),
-                                Comp(
-                                    OpID::UNPACK_ARGS,
-                                    Comp(OpID::PLAIN_INT, "3", s9),
-                                    s8
-                                ),
-                                s7
-                            ),
-                            s5
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "0", s15),
-                                s14
-                            )),
-                            s13
-                        ),
-                        s11
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == ExpectedIDErr(s9));
+        REQUIRE(*capture(
+            "match x\n"
+            "case {y as **3}:\n"
+            "    return 0"
+        ).node() == ExpectedIDErr(Span(2, 14)));
 
-        // match x
-        // case {y as **3}:
-        //     return 0
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::ENCLOSURE,
-                            Comp(
-                                OpID::AS,
-                                Comp(OpID::ID, "y", s6),
-                                Comp(
-                                    OpID::UNPACK_KWARGS,
-                                    Comp(OpID::PLAIN_INT, "3", s9),
-                                    s8
-                                ),
-                                s7
-                            ),
-                            s5
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::PLAIN_INT, "0", s15),
-                                s14
-                            )),
-                            s13
-                        ),
-                        s11
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == ExpectedIDErr(s9));
+        REQUIRE(*capture(
+            "match x\n"
+            "case y"
+        ).node() == MissingBodyErr(Span(2, 1, 6)));
 
-        // match x
-        // case y
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::CASE,
-                    Comp(OpID::ID, "y", s5),
-                    s4
-                )
-            ),
-            s1
-        )) == MissingBodyErr(s5));
-
-        // match x
-        // elif y:
-        //     return y
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::MATCH,
-                    Comp(OpID::ID, "x", s2),
-                    s1
-                ),
-                Comp(
-                    OpID::ELIF,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(OpID::ID, "y", s5),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::RETURN,
-                                Comp(OpID::ID, "y", s10),
-                                s9
-                            )),
-                            s8
-                        ),
-                        s6
-                    ),
-                    s4
-                )
-            ),
-            s1
-        )) == ExpectedCaseErr(s4));
+        REQUIRE(*capture(
+            "match x\n"
+            "elif y:\n"
+            "    return y"
+        ).node() == ExpectedCaseErr(Span(2, 1, 4)));
     }
 
     SECTION("NEG") {
-        // -a
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::NEG,
-            Comp(OpID::ID, "a", s2),
-            s1
-        )) == CallAttr(
-            NodePtr(new ID("a", s2)),
-            NodePtr(new ID("__neg__", s1)),
-            Args({}, {}, s1),
-            s1
+        REQUIRE(*capture(
+            "-a"
+        ).node() == Negate(
+            NodePtr(new ID("a", Span(1, 2))),
+            Span(1, 1)
         ));
     }
 
+    SECTION("NEQ") {
+        REQUIRE(*capture(
+            "a != b"
+        ).node() == NotEquals(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ID("b", Span(1, 6))),
+            Span(1, 3, 2)
+        ));
+    }
+
+    SECTION("None") {
+        REQUIRE(*capture(
+            "none"
+        ).node() == None(Span(1, 1, 4)));
+    }
+
+    SECTION("Null") {
+        REQUIRE(*capture(
+            "null"
+        ).node() == Null(Span(1, 1, 4)));
+    }
+
     SECTION("Or") {
-        // a or b
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::OR,
-            Comp(OpID::ID, "a", s1),
-            Comp(OpID::ID, "b", s3),
-            s2
-        )) == Or(
-            NodePtr(new ID("a", s1)),
-            NodePtr(new ID("b", s3)),
-            s2
+        REQUIRE(*capture(
+            "a or b"
+        ).node() == Or(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ID("b", Span(1, 6))),
+            Span(1, 3, 2)
         ));
     }
 
     SECTION("POW") {
-        // a ** b
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::POW,
-            Comp(OpID::ID, "a", s1),
-            Comp(OpID::ID, "b", s3),
-            s2
-        )) == CallAttr(
-            NodePtr(new ID("a", s1)),
-            NodePtr(new ID("__pow__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
-            s2
+        REQUIRE(*capture(
+            "a ** b"
+        ).node() == Power(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ID("b", Span(1, 6))),
+            Span(1, 3, 2)
         ));
     }
 
     SECTION("RSH") {
-        // a >> b
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::RSH,
-            Comp(OpID::ID, "a", s1),
-            Comp(OpID::ID, "b", s3),
-            s2
-        )) == CallAttr(
-            NodePtr(new ID("a", s1)),
-            NodePtr(new ID("__rsh__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
-            s2
+        REQUIRE(*capture(
+            "a >> b"
+        ).node() == RightShift(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ID("b", Span(1, 6))),
+            Span(1, 3, 2)
         ));
     }
 
     SECTION("Raise") {
-        // raise
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::RAISE, Comp(OpID::NOTHING, s_end), s1
-        )) == Raise(
-            nullptr, s1
+        REQUIRE(*capture(
+            "raise"
+        ).node() == Raise(
+            nullptr,
+            Span(1, 1, 5)
         ));
 
-        // raise a
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::RAISE, Comp(OpID::ID, "a", s2), s1
-        )) == Raise(
-            NodePtr(new ID("a", s2)), s1
+        REQUIRE(*capture(
+            "raise a"
+        ).node() == Raise(
+            NodePtr(new ID("a", Span(1, 7))),
+            Span(1, 1, 5)
         ));
     }
 
     SECTION("Return") {
-        // return
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::RETURN, Comp(OpID::NOTHING, s_end), s1
-        )) == Return(
-            nullptr, s1
+        REQUIRE(*capture(
+            "return"
+        ).node() == Return(
+            nullptr,
+            Span(1, 1, 6)
         ));
 
-        // return a
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::RETURN, Comp(OpID::ID, "a", s2), s1
-        )) == Return(
-            NodePtr(new ID("a", s2)), s1
+        REQUIRE(*capture(
+            "return a"
+        ).node() == Return(
+            NodePtr(new ID("a", Span(1, 8))),
+            Span(1, 1, 6)
         ));
     }
 
     SECTION("SUB") {
-        // a - b
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::SUB,
-            Comp(OpID::ID, "a", s1),
-            Comp(OpID::ID, "b", s3),
-            s2
-        )) == CallAttr(
-            NodePtr(new ID("a", s1)),
-            NodePtr(new ID("__sub__", s2)),
-            Args(vec(NodePtr(new ID("b", s3))), {}, s2),
-            s2
+        REQUIRE(*capture(
+            "a - b"
+        ).node() == Subtract(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ID("b", Span(1, 5))),
+            Span(1, 3)
         ));
     }
 
     SECTION("Set") {
-        // {a}
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::ENCLOSURE,
-            Comp(OpID::ID, "a", s2),
-            s1
-        )) == Set(vec(NodePtr(new ID("a", s2))), s1));
-
-        // {a, b, c}
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::ENCLOSURE,
-            csv(
-                Comp(OpID::ID, "a", s2),
-                Comp(OpID::ID, "b", s4),
-                Comp(OpID::ID, "c", s6)
-            ),
-            s1
-        )) == Set(
-            vec(
-                NodePtr(new ID("a", s2)),
-                NodePtr(new ID("b", s4)),
-                NodePtr(new ID("c", s6))
-            ),
-            s1
+        REQUIRE(*capture(
+            "{a}"
+        ).node() == Set(
+            vec(NodePtr(new ID("a", Span(1, 2)))),
+            Span(1, 1, 3)
         ));
 
-        // {a, *args, b}
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::ENCLOSURE,
-            csv(
-                Comp(OpID::ID, "a", s2),
-                Comp(OpID::UNPACK_ARGS, Comp(OpID::ID, "args", s5), s4),
-                Comp(OpID::ID, "b", s7)
-            ),
-            s1
-        )) == Set(
+        REQUIRE(*capture(
+            "{a, b, c}"
+        ).node() == Set(
             vec(
-                NodePtr(new ID("a", s2)),
+                NodePtr(new ID("a", Span(1, 2))),
+                NodePtr(new ID("b", Span(1, 5))),
+                NodePtr(new ID("c", Span(1, 8)))
+            ),
+            Span(1, 1, 9)
+        ));
+
+        REQUIRE(*capture(
+            "{a, *args, b}"
+        ).node() == Set(
+            vec(
+                NodePtr(new ID("a", Span(1, 2))),
                 NodePtr(new Expansion(
-                    NodePtr(new ID("args", s5)), s4
+                    NodePtr(new ID("args", Span(1, 6, 4))),
+                    Span(1, 5)
                 )),
-                NodePtr(new ID("b", s7))
+                NodePtr(new ID("b", Span(1, 12)))
             ),
-            s1
+            Span(1, 1, 13)
         ));
-    }
-
-    SECTION("SetAttr") {
-        // a.b = c
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::SET,
-            Comp(
-                OpID::GET,
-                Comp(OpID::ID, "a", s1),
-                Comp(OpID::ID, "b", s3),
-                s2
-            ),
-            Comp(OpID::ID, "c", s5),
-            s4
-        )) == SetAttr(
-            NodePtr(new ID("a", s1)),
-            NodePtr(new ID("b", s3)),
-            NodePtr(new ID("c", s5)),
-            s4
-        ));
-
-        // a.3 = b
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::SET,
-            Comp(
-                OpID::GET,
-                Comp(OpID::ID, "a", s1),
-                Comp(OpID::PLAIN_INT, "3", s3),
-                s2
-            ),
-            Comp(OpID::ID, "b", s5),
-            s4
-        )) == SetAttr(
-            NodePtr(new ID("a", s1)),
-            NodePtr(new NumID(3, s3)),
-            NodePtr(new ID("b", s5)),
-            s4
-        ));
-
-        // a.true = b
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::SET,
-            Comp(
-                OpID::GET,
-                Comp(OpID::ID, "a", s1),
-                Comp(OpID::TRUE, s3),
-                s2
-            ),
-            Comp(OpID::ID, "b", s5),
-            s4
-        )) == ExpectedGeneralIDErr(s3));
     }
 
     SECTION("Symbol") {
-        // :x
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::SYMBOL, Comp(OpID::ID, "x", s2), s1
-        )) == Symbol(NodePtr(new ID("x", s2)), s1));
+        REQUIRE(*capture(
+            ":x"
+        ).node() == Symbol(
+            NodePtr(new ID("x", Span(1, 2))),
+            Span(1, 1, 2)
+        ));
 
-        // :3
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::SYMBOL,
-            Comp(OpID::PLAIN_INT, "3", s2),
-            s1
-        )) == Symbol(NodePtr(new NumID(3, s2)), s1));
+        REQUIRE(*capture(
+            ":3"
+        ).node() == Symbol(
+            NodePtr(new NumID(3, Span(1, 2))),
+            Span(1, 1, 2)
+        ));
     }
 
     SECTION("Ternary") {
-        // x if y else z
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::TERNARY_ELSE,
-            Comp(
-                OpID::TERNARY_IF,
-                Comp(OpID::ID, "x", s1),
-                Comp(OpID::ID, "y", s3),
-                s2
-            ),
-            Comp(OpID::ID, "z", s5),
-            s4
-        )) == Ternary(
-            NodePtr(new ID("y", s3)),
-            NodePtr(new ID("x", s1)),
-            NodePtr(new ID("z", s5)),
-            s4
+        REQUIRE(*capture(
+            "x if y else z"
+        ).node() == Ternary(
+            NodePtr(new ID("y", Span(1, 6))),
+            NodePtr(new ID("x", Span(1, 1))),
+            NodePtr(new ID("z", Span(1, 13))),
+            Span(1, 3, 2)
         ));
 
-        // x if y
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::TERNARY_IF,
-            Comp(OpID::ID, "x", s1),
-            Comp(OpID::ID, "y", s3),
-            s2
-        )) == ExpectedExprErr(s2));
+        REQUIRE(*capture(
+            "x if y"
+        ).node() == ExpectedExprErr(Span(1, 1, 6)));
 
-        // x else y
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::TERNARY_ELSE,
-            Comp(OpID::ID, "x", s1),
-            Comp(OpID::ID, "y", s3),
-            s2
-        )) == ExpectedTernaryIfErr(s1));
+        REQUIRE(*capture(
+            "x else y"
+        ).node() == ExpectedTernaryIfErr(Span(1, 1)));
     }
 
     SECTION("This") {
-        // this
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::THIS, s1
-        )) == This(s1));
+        REQUIRE(*capture(
+            "this"
+        ).node() == This(Span(1, 1, 4)));
     }
 
     SECTION("Try") {
-        // try:
-        //     f()
-        // except e: E:
-        //     g()
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::TRY,
-                    Comp(
-                        OpID::BODY,
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::CALL,
-                                Comp(OpID::ID, "f", s5),
-                                Comp(
-                                    OpID::GROUP,
-                                    Comp(OpID::NOTHING, s7),
-                                    s6
-                                ),
-                                s6
-                            )),
-                            s4
-                        ),
-                        s2
-                    ),
-                    s1
-                ),
-                Comp(
-                    OpID::EXCEPT,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::TYPE_LABEL,
-                            Comp(OpID::ID, "e", s10),
-                            Comp(OpID::ID, "E", s12),
-                            s11
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::CALL,
-                                Comp(OpID::ID, "g", s16),
-                                Comp(
-                                    OpID::GROUP,
-                                    Comp(OpID::NOTHING, s18),
-                                    s17
-                                ),
-                                s17
-                            )),
-                            s15
-                        ),
-                        s13
-                    ),
-                    s9
-                )
+        REQUIRE(*capture(
+            "try:\n"
+            "    f()\n"
+            "except e: E:\n"
+            "    g()"
+        ).node() == Try(
+            Block(
+                vec(NodePtr(new Call(
+                    NodePtr(new ID("f", Span(2, 5))),
+                    Args({}, {}, Span(2, 6, 2)),
+                    Span(2, 6)
+                ))),
+                Span(1, 1, 3)
             ),
-            s1
-        )) == Try(
-            vec(NodePtr(new Call(
-                NodePtr(new ID("f", s5)),
-                Args({}, {}, s6),
-                s6
-            ))),
             vec(MatchCase(
                 NodePtr(new TypeMatch(
-                    NodePtr(new ID("e", s10)),
-                    NodePtr(new ID("E", s12)),
-                    s11
+                    NodePtr(new ID("e", Span(3, 8))),
+                    NodePtr(new ID("E", Span(3, 11))),
+                    Span(3, 9)
                 )),
                 nullptr,
                 vec(NodePtr(new Call(
-                    NodePtr(new ID("g", s16)),
-                    Args({}, {}, s17),
-                    s17
+                    NodePtr(new ID("g", Span(4, 5))),
+                    Args({}, {}, Span(4, 6, 2)),
+                    Span(4, 6)
                 ))),
-                s9
+                Span(3, 1, 6)
             )),
-            {},
-            s1
+            Block(),
+            Span(1, 1, 3)
         ));
 
-        // try:
-        //     f()
-        // except e: E:
-        //     g()
-        // finally:
-        //     h()
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::TRY,
-                    Comp(
-                        OpID::BODY,
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::CALL,
-                                Comp(OpID::ID, "f", s5),
-                                Comp(
-                                    OpID::GROUP,
-                                    Comp(OpID::NOTHING, s7),
-                                    s6
-                                ),
-                                s6
-                            )),
-                            s4
-                        ),
-                        s2
-                    ),
-                    s1
-                ),
-                Comp(
-                    OpID::EXCEPT,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::TYPE_LABEL,
-                            Comp(OpID::ID, "e", s10),
-                            Comp(OpID::ID, "E", s12),
-                            s11
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::CALL,
-                                Comp(OpID::ID, "g", s16),
-                                Comp(
-                                    OpID::GROUP,
-                                    Comp(OpID::NOTHING, s18),
-                                    s17
-                                ),
-                                s17
-                            )),
-                            s15
-                        ),
-                        s13
-                    ),
-                    s9
-                ),
-                Comp(
-                    OpID::FINALLY,
-                    Comp(
-                        OpID::BODY,
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::CALL,
-                                Comp(OpID::ID, "h", s24),
-                                Comp(
-                                    OpID::GROUP,
-                                    Comp(OpID::NOTHING, s26),
-                                    s25
-                                ),
-                                s25
-                            )),
-                            s23
-                        ),
-                        s21
-                    ),
-                    s20
-                )
+        REQUIRE(*capture(
+            "try:\n"
+            "    f()\n"
+            "except e: E:\n"
+            "    g()\n"
+            "finally:\n"
+            "    h()"
+        ).node() == Try(
+            Block(
+                vec(NodePtr(new Call(
+                    NodePtr(new ID("f", Span(2, 5))),
+                    Args({}, {}, Span(2, 6, 2)),
+                    Span(2, 6)
+                ))),
+                Span(1, 1, 3)
             ),
-            s1
-        )) == Try(
-            vec(NodePtr(new Call(
-                NodePtr(new ID("f", s5)),
-                Args({}, {}, s6),
-                s6
-            ))),
             vec(MatchCase(
                 NodePtr(new TypeMatch(
-                    NodePtr(new ID("e", s10)),
-                    NodePtr(new ID("E", s12)),
-                    s11
+                    NodePtr(new ID("e", Span(3, 8))),
+                    NodePtr(new ID("E", Span(3, 11))),
+                    Span(3, 9)
                 )),
                 nullptr,
                 vec(NodePtr(new Call(
-                    NodePtr(new ID("g", s16)),
-                    Args({}, {}, s17),
-                    s17
+                    NodePtr(new ID("g", Span(4, 5))),
+                    Args({}, {}, Span(4, 6, 2)),
+                    Span(4, 6)
                 ))),
-                s9
+                Span(3, 1, 6)
             )),
-            vec(NodePtr(new Call(
-                NodePtr(new ID("h", s24)),
-                Args({}, {}, s25),
-                s25
-            ))),
-            s1
+            Block(
+                vec(NodePtr(new Call(
+                    NodePtr(new ID("h", Span(6, 5))),
+                    Args({}, {}, Span(6, 6, 2)),
+                    Span(6, 6)
+                ))),
+                Span(5, 1, 7)
+            ),
+            Span(1, 1, 3)
         ));
 
-        // try:
-        //     f()
-        // finally:
-        //     g()
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::TRY,
-                    Comp(
-                        OpID::BODY,
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::CALL,
-                                Comp(OpID::ID, "f", s5),
-                                Comp(OpID::GROUP, Comp(OpID::NOTHING, s7), s6),
-                                s6
-                            )),
-                            s4
-                        ),
-                        s2
-                    ),
-                    s1
-                ),
-                Comp(
-                    OpID::FINALLY,
-                    Comp(
-                        OpID::BODY,
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::CALL,
-                                Comp(OpID::ID, "g", s13),
-                                Comp(
-                                    OpID::GROUP, Comp(OpID::NOTHING, s15), s14
-                                ),
-                                s14
-                            )),
-                            s12
-                        ),
-                        s10
-                    ),
-                    s9
-                )
+        REQUIRE(*capture(
+            "try:\n"
+            "    f()\n"
+            "finally:\n"
+            "    g()"
+        ).node() == Try(
+            Block(
+                vec(NodePtr(new Call(
+                    NodePtr(new ID("f", Span(2, 5))),
+                    Args({}, {}, Span(2, 6, 2)),
+                    Span(2, 6)
+                ))),
+                Span(1, 1, 3)
             ),
-            s1
-        )) == Try(
-            vec(NodePtr(new Call(
-                NodePtr(new ID("f", s5)), Args({}, {}, s6), s6
-            ))),
             {},
-            vec(NodePtr(new Call(
-                NodePtr(new ID("g", s13)), Args({}, {}, s14), s14
-            ))),
-            s1
+            Block(
+                vec(NodePtr(new Call(
+                    NodePtr(new ID("g", Span(4, 5))),
+                    Args({}, {}, Span(4, 6, 2)),
+                    Span(4, 6)
+                ))),
+                Span(3, 1, 7)
+            ),
+            Span(1, 1, 3)
         ));
 
-        // try:
-        //     f()
-        // except e: E1:
-        //     g()
-        // except e: E2:
-        //     h()
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::TRY,
-                    Comp(
-                        OpID::BODY,
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::CALL,
-                                Comp(OpID::ID, "f", s5),
-                                Comp(
-                                    OpID::GROUP,
-                                    Comp(OpID::NOTHING, s7),
-                                    s6
-                                ),
-                                s6
-                            )),
-                            s4
-                        ),
-                        s2
-                    ),
-                    s1
-                ),
-                Comp(
-                    OpID::EXCEPT,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::TYPE_LABEL,
-                            Comp(OpID::ID, "e", s10),
-                            Comp(OpID::ID, "E1", s12),
-                            s11
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::CALL,
-                                Comp(OpID::ID, "g", s16),
-                                Comp(
-                                    OpID::GROUP,
-                                    Comp(OpID::NOTHING, s18),
-                                    s17
-                                ),
-                                s17
-                            )),
-                            s15
-                        ),
-                        s13
-                    ),
-                    s9
-                ),
-                Comp(
-                    OpID::EXCEPT,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::TYPE_LABEL,
-                            Comp(OpID::ID, "e", s21),
-                            Comp(OpID::ID, "E2", s23),
-                            s22
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::CALL,
-                                Comp(OpID::ID, "h", s27),
-                                Comp(
-                                    OpID::GROUP,
-                                    Comp(OpID::NOTHING, s29),
-                                    s28
-                                ),
-                                s28
-                            )),
-                            s26
-                        ),
-                        s24
-                    ),
-                    s20
-                )
+        REQUIRE(*capture(
+            "try:\n"
+            "    f()\n"
+            "except e: E1:\n"
+            "    g()\n"
+            "except e: E2:\n"
+            "    h()"
+        ).node() == Try(
+            Block(
+                vec(NodePtr(new Call(
+                    NodePtr(new ID("f", Span(2, 5))),
+                    Args({}, {}, Span(2, 6, 2)),
+                    Span(2, 6)
+                ))),
+                Span(1, 1, 3)
             ),
-            s1
-        )) == Try(
-            vec(NodePtr(new Call(
-                NodePtr(new ID("f", s5)),
-                Args({}, {}, s6),
-                s6
-            ))),
             vec(
                 MatchCase(
                     NodePtr(new TypeMatch(
-                        NodePtr(new ID("e", s10)),
-                        NodePtr(new ID("E1", s12)),
-                        s11
+                        NodePtr(new ID("e", Span(3, 8))),
+                        NodePtr(new ID("E1", Span(3, 11, 2))),
+                        Span(3, 9)
                     )),
                     nullptr,
                     vec(NodePtr(new Call(
-                        NodePtr(new ID("g", s16)),
-                        Args({}, {}, s17),
-                        s17
+                        NodePtr(new ID("g", Span(4, 5))),
+                        Args({}, {}, Span(4, 6, 2)),
+                        Span(4, 6)
                     ))),
-                    s9
+                    Span(3, 1, 6)
                 ),
                 MatchCase(
                     NodePtr(new TypeMatch(
-                        NodePtr(new ID("e", s21)),
-                        NodePtr(new ID("E2", s23)),
-                        s22
+                        NodePtr(new ID("e", Span(5, 8))),
+                        NodePtr(new ID("E2", Span(5, 11, 2))),
+                        Span(5, 9)
                     )),
                     nullptr,
                     vec(NodePtr(new Call(
-                        NodePtr(new ID("h", s27)),
-                        Args({}, {}, s28),
-                        s28
+                        NodePtr(new ID("h", Span(6, 5))),
+                        Args({}, {}, Span(6, 6, 2)),
+                        Span(6, 6)
                     ))),
-                    s20
+                    Span(5, 1, 6)
                 )
             ),
-            {},
-            s1
+            Block(),
+            Span(1, 1, 3)
         ));
 
-        // try:
-        //     f()
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::TRY,
-                Comp(
-                    OpID::BODY,
-                    Comp(
-                        OpID::BLOCK,
-                        vec(Comp(
-                            OpID::CALL,
-                            Comp(OpID::ID, "f", s5),
-                            Comp(OpID::GROUP, Comp(OpID::NOTHING, s7), s6),
-                            s6
-                        )),
-                        s4
-                    ),
-                    s2
-                ),
-                s1
-            )),
-            s1
-        )) == IsolatedTryErr(s1));
+        REQUIRE(*capture(
+            "try:\n"
+            "    f()"
+        ).node() == IsolatedTryErr(Span(1, 1, 2, 7)));
 
-        // try a:
-        //     f()
-        // except e: E:
-        //     g()
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::TRY,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(OpID::ID, "a", s2),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::CALL,
-                                Comp(OpID::ID, "f", s6),
-                                Comp(
-                                    OpID::GROUP,
-                                    Comp(OpID::NOTHING, s8),
-                                    s7
-                                ),
-                                s7
-                            )),
-                            s5
-                        ),
-                        s3
-                    ),
-                    s1
-                ),
-                Comp(
-                    OpID::EXCEPT,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(
-                            OpID::TYPE_LABEL,
-                            Comp(OpID::ID, "e", s11),
-                            Comp(OpID::ID, "E", s13),
-                            s12
-                        ),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::CALL,
-                                Comp(OpID::ID, "g", s17),
-                                Comp(
-                                    OpID::GROUP,
-                                    Comp(OpID::NOTHING, s19),
-                                    s18
-                                ),
-                                s18
-                            )),
-                            s16
-                        ),
-                        s14
-                    ),
-                    s10
-                )
-            ),
-            s1
-        )) == UnexpectedPredicateErr(s3));
+        REQUIRE(*capture(
+            "try a:\n"
+            "    f()\n"
+            "except e: E:\n"
+            "    g()"
+        ).node() == UnexpectedPredicateErr(Span(1, 5)));
 
-        // try:
-        //     f()
-        // finally a:
-        //     g()
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::TRY,
-                    Comp(
-                        OpID::BODY,
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::CALL,
-                                Comp(OpID::ID, "f", s5),
-                                Comp(OpID::GROUP, Comp(OpID::NOTHING, s7), s6),
-                                s6
-                            )),
-                            s4
-                        ),
-                        s2
-                    ),
-                    s1
-                ),
-                Comp(
-                    OpID::FINALLY,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(OpID::ID, "a", s10),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::CALL,
-                                Comp(OpID::ID, "g", s14),
-                                Comp(
-                                    OpID::GROUP, Comp(OpID::NOTHING, s16), s15
-                                ),
-                                s15
-                            )),
-                            s13
-                        ),
-                        s11
-                    ),
-                    s9
-                )
-            ),
-            s1
-        )) == UnexpectedPredicateErr(s11));
+        REQUIRE(*capture(
+            "try:\n"
+            "    f()\n"
+            "finally a:\n"
+            "    g()"
+        ).node() == UnexpectedPredicateErr(Span(3, 9)));
 
-        // try:
-        //     f()
-        // except e: E
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::TRY,
-                    Comp(
-                        OpID::BODY,
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::CALL,
-                                Comp(OpID::ID, "f", s5),
-                                Comp(
-                                    OpID::GROUP,
-                                    Comp(OpID::NOTHING, s7),
-                                    s6
-                                ),
-                                s6
-                            )),
-                            s4
-                        ),
-                        s2
-                    ),
-                    s1
-                ),
-                Comp(
-                    OpID::EXCEPT,
-                    Comp(
-                        OpID::TYPE_LABEL,
-                        Comp(OpID::ID, "e", s10),
-                        Comp(OpID::ID, "E", s12),
-                        s11
-                    ),
-                    s9
-                )
-            ),
-            s1
-        )) == MissingBodyErr(s11));
+        REQUIRE(*capture(
+            "try:\n"
+            "    f()\n"
+            "except e: E"
+        ).node() == MissingBodyErr(Span(3, 1, 11)));
     }
 
     SECTION("Tuple") {
-        // ()
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::GROUP, Comp(OpID::NOTHING, s2), s1
-        )) == Tuple(
-            {}, s1
+        REQUIRE(*capture(
+            "()"
+        ).node() == Tuple(
+            {}, Span(1, 1, 2)
         ));
 
-        // (a, b, c)
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::GROUP,
-            csv(
-                Comp(OpID::ID, "a", s2),
-                Comp(OpID::ID, "b", s4),
-                Comp(OpID::ID, "c", s6)
-            ),
-            s1
-        )) == Tuple(
+        REQUIRE(*capture(
+            "(a, b, c)"
+        ).node() == Tuple(
             vec(
-                NodePtr(new ID("a", s2)),
-                NodePtr(new ID("b", s4)),
-                NodePtr(new ID("c", s6))
+                NodePtr(new ID("a", Span(1, 2))),
+                NodePtr(new ID("b", Span(1, 5))),
+                NodePtr(new ID("c", Span(1, 8)))
             ),
-            s1
+            Span(1, 1, 9)
         ));
 
-        // a, b, c
-        REQUIRE(*interpreter.interpret(csv(
-            Comp(OpID::ID, "a", s1),
-            Comp(OpID::ID, "b", s3),
-            Comp(OpID::ID, "c", s5)
-        )) == Tuple(
+        REQUIRE(*capture(
+            "a, b, c"
+        ).node() == Tuple(
             vec(
-                NodePtr(new ID("a", s1)),
-                NodePtr(new ID("b", s3)),
-                NodePtr(new ID("c", s5))
+                NodePtr(new ID("a", Span(1, 1))),
+                NodePtr(new ID("b", Span(1, 4))),
+                NodePtr(new ID("c", Span(1, 7)))
             ),
-            s1
+            Span(1, 1, 7)
         ));
 
-
-        // (a, *args, b)
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::GROUP,
-            csv(
-                Comp(OpID::ID, "a", s2),
-                Comp(OpID::UNPACK_ARGS, Comp(OpID::ID, "args", s5), s4),
-                Comp(OpID::ID, "b", s7)
-            ),
-            s1
-        )) == Tuple(
+        REQUIRE(*capture(
+            "(a, *args, b)"
+        ).node() == Tuple(
             vec(
-                NodePtr(new ID("a", s2)),
+                NodePtr(new ID("a", Span(1, 2))),
                 NodePtr(new Expansion(
-                    NodePtr(new ID("args", s5)), s4
+                    NodePtr(new ID("args", Span(1, 6, 4))),
+                    Span(1, 5)
                 )),
-                NodePtr(new ID("b", s7))
+                NodePtr(new ID("b", Span(1, 12)))
             ),
-            s1
+            Span(1, 1, 13)
         ));
 
-        // a, *args, b
-        REQUIRE(*interpreter.interpret(csv(
-            Comp(OpID::ID, "a", s1),
-            Comp(OpID::UNPACK_ARGS, Comp(OpID::ID, "args", s4), s3),
-            Comp(OpID::ID, "b", s6)
-        )) == Tuple(
+        REQUIRE(*capture(
+            "a, *args, b"
+        ).node() == Tuple(
             vec(
-                NodePtr(new ID("a", s1)),
+                NodePtr(new ID("a", Span(1, 1))),
                 NodePtr(new Expansion(
-                    NodePtr(new ID("args", s4)), s3
+                    NodePtr(new ID("args", Span(1, 5, 4))),
+                    Span(1, 4)
                 )),
-                NodePtr(new ID("b", s6))
+                NodePtr(new ID("b", Span(1, 11)))
             ),
-            s1
+            Span(1, 1, 11)
         ));
 
-        // (*args)
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::GROUP,
-            Comp(
-                OpID::UNPACK_ARGS,
-                Comp(OpID::ID, "args", s3),
-                s2
-            ),
-            s1
-        )) == Tuple(
+        REQUIRE(*capture(
+            "(*args)"
+        ).node() == Tuple(
             vec(NodePtr(new Expansion(
-                NodePtr(new ID("args", s3)), s2
+                NodePtr(new ID("args", Span(1, 3, 4))),
+                Span(1, 2)
             ))),
-            s1
+            Span(1, 1, 7)
         ));
-    }
-
-    SECTION("Update") {
-        // a(i) = b
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::SET,
-            Comp(
-                OpID::CALL,
-                Comp(OpID::ID, "a", s1),
-                Comp(OpID::GROUP, Comp(OpID::ID, "i", s3), s2),
-                s2
-            ),
-            Comp(OpID::ID, "b", s6),
-            s5
-        )) == Update(
-            NodePtr(new ID("a", s1)),
-            Args(vec(NodePtr(new ID("i", s3))), {}, s2),
-            NodePtr(new ID("b", s6)),
-            s5
-        ));
-    }
-
-    SECTION("UpdateAttr") {
-        // a.b(i) = c
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::SET,
-            Comp(
-                OpID::CALL,
-                Comp(
-                    OpID::GET,
-                    Comp(OpID::ID, "a", s1),
-                    Comp(OpID::ID, "b", s3),
-                    s2
-                ),
-                Comp(
-                    OpID::GROUP,
-                    Comp(OpID::ID, "i", s5),
-                    s4
-                ),
-                s4
-            ),
-            Comp(OpID::ID, "c", s8),
-            s7
-        )) == UpdateAttr(
-            NodePtr(new ID("a", s1)),
-            NodePtr(new ID("b", s3)),
-            Args(vec(NodePtr(new ID("i", s5))), {}, s4),
-            NodePtr(new ID("c", s8)),
-            s7
-        ));
-
-        // a.3(i) = c
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::SET,
-            Comp(
-                OpID::CALL,
-                Comp(
-                    OpID::GET,
-                    Comp(OpID::ID, "a", s1),
-                    Comp(OpID::PLAIN_INT, "3", s3),
-                    s2
-                ),
-                Comp(
-                    OpID::GROUP,
-                    Comp(OpID::ID, "i", s5),
-                    s4
-                ),
-                s4
-            ),
-            Comp(OpID::ID, "c", s8),
-            s7
-        )) == UpdateAttr(
-            NodePtr(new ID("a", s1)),
-            NodePtr(new NumID(3, s3)),
-            Args(vec(NodePtr(new ID("i", s5))), {}, s4),
-            NodePtr(new ID("c", s8)),
-            s7
-        ));
-
-        // a.true(i) = c
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::SET,
-            Comp(
-                OpID::CALL,
-                Comp(
-                    OpID::GET,
-                    Comp(OpID::ID, "a", s1),
-                    Comp(OpID::TRUE, s3),
-                    s2
-                ),
-                Comp(
-                    OpID::GROUP,
-                    Comp(OpID::ID, "i", s5),
-                    s4
-                ),
-                s4
-            ),
-            Comp(OpID::ID, "c", s8),
-            s7
-        )) == ExpectedGeneralIDErr(s3));
     }
 
     SECTION("Var") {
-        // .1
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::UP, Comp(OpID::PLAIN_INT, "1", s2), s1
-        )) == Var(1, NodePtr(new NumID(1, s2)), s1));
+        REQUIRE(*capture(
+            ".1"
+        ).node() == Var(
+            1,
+            NodePtr(new NumID(1, Span(1, 2))),
+            Span(1, 1)
+        ));
 
-        // .a
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::UP, Comp(OpID::ID, "a", s2), s1
-        )) == Var(1, NodePtr(new ID("a", s2)), s1));
+        REQUIRE(*capture(
+            ".a"
+        ).node() == Var(
+            1,
+            NodePtr(new ID("a", Span(1, 2))),
+            Span(1, 1)
+        ));
 
-        // ...a
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::UP,
-            Comp(
-                OpID::UP,
-                Comp(
-                    OpID::UP,
-                    Comp(
-                        OpID::ID, "a", s4
-                    ),
-                    s3
-                ),
-                s2
-            ),
-            s1
-        )) == Var(3, NodePtr(new ID("a", s4)), s1));
+        REQUIRE(*capture(
+            "...a"
+        ).node() == Var(
+            3,
+            NodePtr(new ID("a", Span(1, 4))),
+            Span(1, 1, 3)
+        ));
     }
 
     SECTION("While") {
-        // while a:
-        //     f()
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::WHILE,
-                Comp(
-                    OpID::LABEL,
-                    Comp(OpID::ID, "a", s2),
-                    Comp(
-                        OpID::BLOCK,
-                        vec(Comp(
-                            OpID::CALL,
-                            Comp(OpID::ID, "f", s6),
-                            Comp(OpID::GROUP, Comp(OpID::NOTHING, s8), s7),
-                            s7
-                        )),
-                        s5
-                    ),
-                    s3
-                ),
-                s1
-            )),
-            s1
-        )) == While(
-            NodePtr(new ID("a", s2)),
+        REQUIRE(*capture(
+            "while a:\n"
+            "    f()"
+        ).node() == While(
+            NodePtr(new ID("a", Span(1, 7))),
             vec(NodePtr(new Call(
-                NodePtr(new ID("f", s6)), Args({}, {}, s7), s7
+                NodePtr(new ID("f", Span(2, 5))),
+                Args({}, {}, Span(2, 6, 2)),
+                Span(2, 6)
             ))),
-            {},
-            s1
+            Block(),
+            Span(1, 1, 5)
         ));
 
-        // while a:
-        //     f()
-        // else:
-        //     g()
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(
-                Comp(
-                    OpID::WHILE,
-                    Comp(
-                        OpID::LABEL,
-                        Comp(OpID::ID, "a", s2),
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::CALL,
-                                Comp(OpID::ID, "f", s6),
-                                Comp(OpID::GROUP, Comp(OpID::NOTHING, s8), s7),
-                                s7
-                            )),
-                            s5
-                        ),
-                        s3
-                    ),
-                    s1
-                ),
-                Comp(
-                    OpID::ELSE,
-                    Comp(
-                        OpID::BODY,
-                        Comp(
-                            OpID::BLOCK,
-                            vec(Comp(
-                                OpID::CALL,
-                                Comp(OpID::ID, "g", s14),
-                                Comp(
-                                    OpID::GROUP, Comp(OpID::NOTHING, s16), s15
-                                ),
-                                s15
-                            )),
-                            s13
-                        ),
-                        s11
-                    ),
-                    s10
-                )
+        REQUIRE(*capture(
+            "while a:\n"
+            "    f()\n"
+            "else:\n"
+            "    g()"
+        ).node() == While(
+            NodePtr(new ID("a", Span(1, 7))),
+            vec(NodePtr(new Call(
+                NodePtr(new ID("f", Span(2, 5))),
+                Args{{}, {}, Span(2, 6, 2)},
+                Span(2, 6)
+            ))),
+            Block(
+                vec(NodePtr(new Call(
+                    NodePtr(new ID("g", Span(4, 5))),
+                    Args({}, {}, Span(4, 6, 2)),
+                    Span(4, 6)
+                ))),
+                Span(3, 1, 4)
             ),
-            s1
-        )) == While(
-            NodePtr(new ID("a", s2)),
-            vec(NodePtr(new Call(
-                NodePtr(new ID("f", s6)), Args{{}, {}, s7}, s7
-            ))),
-            vec(NodePtr(new Call(
-                NodePtr(new ID("g", s14)), Args({}, {}, s15), s15
-            ))),
-            s1
+            Span(1, 1, 5)
         ));
 
-        // while a
-        REQUIRE(*interpreter.interpret(Comp(
-            OpID::CONSTRUCT,
-            vec(Comp(
-                OpID::WHILE,
-                Comp(OpID::ID, "a", s2),
-                s1
-            )),
-            s1
-        )) == MissingBodyErr(s2));
+        REQUIRE(*capture(
+            "while a"
+        ).node() == MissingBodyErr(Span(1, 1, 7)));
     }
 }

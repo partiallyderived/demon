@@ -18,13 +18,13 @@
 #include "dl/parse/parser.hpp"
 #include "dl/parse/tokeninfo.hpp"
 #include "dl/parse/tokenkind.hpp"
-#include "dl/pos.hpp"
+#include "dl/span.hpp"
 
 namespace dl {
 
 // Indicates that an indent was expected but not found.
 struct ExpectedIndentErr final: SourcedErr {
-    ExpectedIndentErr(Pos src) noexcept: SourcedErr(src) {}
+    ExpectedIndentErr(Span src) noexcept: SourcedErr(src) {}
 
     std::ostream& out_name(std::ostream& os) const override {
         return os << "ExpectedIndentErr";
@@ -33,7 +33,7 @@ struct ExpectedIndentErr final: SourcedErr {
 
 // Indicates that an indent which was not a multiple of four spaces was found.
 struct IncompleteIndentErr final: SourcedErr {
-    IncompleteIndentErr(Pos src) noexcept: SourcedErr(src) {}
+    IncompleteIndentErr(Span src) noexcept: SourcedErr(src) {}
 
     std::ostream& out_name(std::ostream& os) const override {
         return os << "IncompleteIndentErr";
@@ -43,7 +43,7 @@ struct IncompleteIndentErr final: SourcedErr {
 // Indicates that more space than the current block's indentation have been
 // found in a context that does not permit an indent.
 struct OverIndentErr final: SourcedErr {
-    OverIndentErr(Pos src) noexcept: SourcedErr(src) {}
+    OverIndentErr(Span src) noexcept: SourcedErr(src) {}
 
     std::ostream& out_name(std::ostream& os) const override {
         return os << "OverIndentErr";
@@ -52,7 +52,7 @@ struct OverIndentErr final: SourcedErr {
 
 // Indicates that the file has ended while a left bracket remains unclosed.
 struct UnclosedBracketErr final: SourcedErr {
-    UnclosedBracketErr(Pos src) noexcept: SourcedErr(src) {}
+    UnclosedBracketErr(Span src) noexcept: SourcedErr(src) {}
 
     std::ostream& out_name(std::ostream& os) const override {
         return os << "UnclosedBracketErr";
@@ -62,7 +62,7 @@ struct UnclosedBracketErr final: SourcedErr {
 // Indicates that less space than the current block's indentation have been
 // found in context that does not permit a dedent.
 struct UnderIndentErr final: SourcedErr {
-    UnderIndentErr(Pos src) noexcept: SourcedErr(src) {}
+    UnderIndentErr(Span src) noexcept: SourcedErr(src) {}
 
     std::ostream& out_name(std::ostream& os) const override {
         return os << "UnderIndentErr";
@@ -73,7 +73,7 @@ struct UnderIndentErr final: SourcedErr {
 struct UnexpectedTokenErr final: SourcedErr {
     TokenID token;
 
-    UnexpectedTokenErr(TokenID token, Pos src) noexcept:
+    UnexpectedTokenErr(TokenID token, Span src) noexcept:
     token(token), SourcedErr(src) {}
 
     bool equals(const Err& that) const noexcept override {
@@ -116,8 +116,8 @@ struct ParserImpl: Parser {
     // ambiguous.
     TokenID prev;
 
-    // Pos for the previous token.
-    Pos prev_src;
+    // Source for the previous token.
+    Span prev_src;
 
     ParserImpl():
     depth(0),
@@ -130,7 +130,7 @@ struct ParserImpl: Parser {
     // a token.
     // Note that this is the only case in which prev will be set to space.
     prev(TokenID::SPACE),
-    prev_src() {}
+    prev_src(Span(Pos())) {}
 
     // Determines whether a token continues the parsing of a construct in the
     // outermost block in which that construct is being parsed, such as `elif`
@@ -150,17 +150,29 @@ struct ParserImpl: Parser {
     // Convenience functions for pushing operators.
     // Return values are to make code more concise.
 
-    ErrPtr pushop(OpID id, Pos src) {
+    ErrPtr pushop(OpID id, Span src) {
         queue.push_back(Op(id, src));
         return nullptr;
     }
     
-    ErrPtr pushop1(TokenID token, Pos src) {
+    ErrPtr pushop1(TokenID token, Span src) {
     	return pushop(tokeninfo(token).op1, src);
     }
 
-    ErrPtr pushop2(TokenID token, Pos src) {
+    ErrPtr pushop2(TokenID token, Span src) {
         return pushop(tokeninfo(token).op2, src);
+    }
+
+    Span prev_end() {
+        return Span(prev_src.end_line, prev_src.end_col);
+    }
+
+    void close_ctx() {
+        contexts.pop_back();
+
+        // End the context, then treat as single statement.
+        queue.push_back(Op(OpID::END, prev_end()));
+        queue.push_back(Op(OpID::STMT, prev_end()));
     }
 
     // Check whether there is at least one context and that the top context is
@@ -171,16 +183,13 @@ struct ParserImpl: Parser {
 
     // Check if the incoming token implies that we are finished parsing a
     // construct.
-    void check_if_construct_ends(const Token& token, Pos src) {
+    void check_if_construct_ends(const Token& token) {
         if (
             orientation == Orientation::START &&
             ctx_is(Context::CONSTRUCT) &&
             !continues_construct(token.id)
-        ) {
-            contexts.pop_back();
-            queue.push_back(Op(OpID::END, src));
-            queue.push_back(Op(OpID::STMT, src));
-        }
+        )
+            close_ctx();
     }
 
     // Determine whether we are currently between brackets.
@@ -192,16 +201,12 @@ struct ParserImpl: Parser {
     }
 
     // Handle dedenting the specified number of times.
-    ErrPtr handle_dedents(std::uint32_t dedents, Pos src) {
+    ErrPtr handle_dedents(std::uint32_t dedents) {
         for (std::uint32_t i = 0; i < dedents; i++) {
             Context ctx = contexts.back();
             if (ctx == Context::CONSTRUCT || ctx == Context::CONSTRUCT_END) {
                 // Dedent implicitly closes a construct.
-                contexts.pop_back();
-                queue.push_back(Op(OpID::END, src));
-
-                // Construct considered a single statement.
-                queue.push_back(Op(OpID::STMT, src));
+                close_ctx();
                 ctx = contexts.back();
             }
             // There can be at most one unpushed construct at the end of
@@ -210,30 +215,19 @@ struct ParserImpl: Parser {
                 // Can't be in brackets because we are in START orientation.
                 // Therefore, something is amiss.
                 return ErrPtr(new AssertionFailedErr("Context was not BLOCK"));
-            contexts.pop_back();
+            close_ctx();
             depth--;
-
-            // Push an `END` to the queue to signal end of a block.
-            queue.push_back(Op(OpID::END, src));
-            
-            // Additionally, every block is implicitly treated as a statement
-            // in the enclosing block.
-            queue.push_back(Op(OpID::STMT, src));
         }
 
         // Additionally, if CONSTRUCT_END is on the context stack after
         // dedenting, pop that context too.
-        if (ctx_is(Context::CONSTRUCT_END)) {
-            contexts.pop_back();
-            queue.push_back(Op(OpID::END, src));
+        if (ctx_is(Context::CONSTRUCT_END))
+            close_ctx();
 
-            // Construct considered a single statement.
-            queue.push_back(Op(OpID::STMT, src));
-        }
         return nullptr;
     }
 
-    ErrPtr on_leading_space_start(std::uint32_t count, Pos src) {
+    ErrPtr on_leading_space_start(std::uint32_t count, Span src) {
         std::uint32_t indents = count / 4;
         std::uint32_t leftover = count % 4;
         if (leftover)
@@ -245,10 +239,10 @@ struct ParserImpl: Parser {
             // No indent/dedent, just return and keep orientation.
             return nullptr;
         // We now know `indents < depth`, so we're dedenting.
-        return handle_dedents(depth - indents, src);
+        return handle_dedents(depth - indents);
     }
 
-    ErrPtr on_leading_space_indenting(std::uint32_t count, Pos src) {
+    ErrPtr on_leading_space_indenting(std::uint32_t count, Span src) {
         std::uint32_t indents = count / 4;
         std::uint32_t leftover = count % 4;
         if (leftover)
@@ -263,16 +257,25 @@ struct ParserImpl: Parser {
             return ErrPtr(new ExpectedIndentErr(src));
         // We now know indents == depth + 1
         // When the number of indents is exactly one more than depth
-        // without extra space and the state is in the STMT orientation,
+        // without extra space and the state is in the INDENTING orientation,
         // an indent occurs.
         depth++;
         orientation = Orientation::START;
         contexts.push_back(Context::BLOCK);
-        queue.push_back(Op(OpID::BLOCK, src));
+        queue.push_back(Op(
+            OpID::BLOCK,
+            // Need span to be the start of the block.
+            Span(
+                src.start_line,
+                src.end_col + 1,
+                src.start_line,
+                src.end_col + 1
+            )
+        ));
         return nullptr;
     }
 
-    ErrPtr on_leading_space_before(std::uint32_t count, Pos src) {
+    ErrPtr on_leading_space_before(std::uint32_t count, Span src) {
         std::uint32_t indents = count / 4;
         std::uint32_t leftover = count % 4;
         if (indents < depth)
@@ -281,7 +284,7 @@ struct ParserImpl: Parser {
         return nullptr;
     }
 
-    ErrPtr on_leading_space_after(std::uint32_t count, Pos src) {
+    ErrPtr on_leading_space_after(std::uint32_t count, Span src) {
         std::uint32_t indents = count / 4;
         if (indents < depth)
             // Can only dedent in `START` orientation.
@@ -289,7 +292,7 @@ struct ParserImpl: Parser {
         return nullptr;
     }
 
-    ErrPtr on_leading_space(std::uint32_t count, Pos src) {
+    ErrPtr on_leading_space(std::uint32_t count, Span src) {
         // Note: since this is the start of a newline, we cannot be in the
         // `OPTIONAL` or `END` orientations. This is because we must either
         // be at the start of the file, or directly after a newline. We
@@ -327,17 +330,17 @@ struct ParserImpl: Parser {
         pushop(OpID::POS_KW_SEP, prev_src);
     }
 
-    ErrPtr on_nullary(TokenID token, Pos src) {
+    ErrPtr on_nullary(TokenID token, Span src) {
         orientation = Orientation::END;
         return pushop1(token, src);
     }
 
-    ErrPtr on_unary(TokenID token, Pos src) {
+    ErrPtr on_unary(TokenID token, Span src) {
         orientation = Orientation::BEFORE;
         return pushop1(token, src);
     }
 
-    ErrPtr on_binary(TokenID token, Pos src) {
+    ErrPtr on_binary(TokenID token, Span src) {
         // Expecting a value now.
         orientation = Orientation::BEFORE;
         if (token == TokenID::COMMA && parsing_loop_vars)
@@ -352,12 +355,12 @@ struct ParserImpl: Parser {
         return pushop2(token, src);
     }
 
-    ErrPtr on_postfix(TokenID token, Pos src) {
+    ErrPtr on_postfix(TokenID token, Span src) {
         orientation = Orientation::AFTER;
         return pushop2(token, src);
     }
 
-    ErrPtr on_value_before(Token&& token, Pos src) {
+    ErrPtr on_value_before(Token&& token, Span src) {
         // op1 is for values and unary operators.
         orientation = Orientation::AFTER;
         queue.push_back(
@@ -366,7 +369,7 @@ struct ParserImpl: Parser {
         return nullptr;
     }
 
-    ErrPtr on_value_after(Token&& token, Pos src) {
+    ErrPtr on_value_after(Token&& token, Span src) {
         // When an immediate appears directly after another value, this case is
         // treated as though there is an "invisible" operator between them.
         pushop2(token.id, src);
@@ -374,12 +377,12 @@ struct ParserImpl: Parser {
         return on_value_before(std::move(token), src);
     }
 
-    ErrPtr on_optional_stmt(TokenID token, Pos src) {
+    ErrPtr on_optional_stmt(TokenID token, Span src) {
         orientation = Orientation::OPTIONAL;
         return pushop1(token, src);
     }
 
-    ErrPtr on_left_before(TokenID token, Pos src) {
+    ErrPtr on_left_before(TokenID token, Span src) {
         contexts.push_back(tokeninfo(token).match);
         // A parenthetical or similar is "value-like", so we push `op1`.
         pushop1(token, src);
@@ -387,7 +390,7 @@ struct ParserImpl: Parser {
         return nullptr;
     }
 
-    ErrPtr on_left_after(TokenID token, Pos src) {
+    ErrPtr on_left_after(TokenID token, Span src) {
         // When a left bracket directly follows a value, this case is
         // treated as though there is an "invisible" binary operator between
         // them.
@@ -397,7 +400,7 @@ struct ParserImpl: Parser {
         return on_left_before(token, src);
     }
 
-    ErrPtr on_right_before(TokenID token, Pos src) {
+    ErrPtr on_right_before(TokenID token, Span src) {
         // A RIGHT is only valid in BEFORE orientation if the previous token was
         // it's matching left token (i.e. empty parentheses).
         if (
@@ -413,7 +416,7 @@ struct ParserImpl: Parser {
         return nullptr;
     }
 
-    ErrPtr on_right_after(TokenID token, Pos src) {
+    ErrPtr on_right_after(TokenID token, Span src) {
         if (!ctx_is(tokeninfo(token).match))
             return ErrPtr(new UnexpectedTokenErr(token, src));
         // Orientation stays `AFTER` after finding a right bracket.
@@ -422,7 +425,7 @@ struct ParserImpl: Parser {
         return nullptr;
     }
 
-    ErrPtr on_construct_first(TokenID token, Pos src) {
+    ErrPtr on_construct_first(TokenID token, Span src) {
         // `CONSTRUCT_FIRST` is for the first token in a construct, like `if` or
         // `for`, but not `elif` or `else`.
         // Constructs are handled by imagining there is a hidden "construct"
@@ -455,7 +458,7 @@ struct ParserImpl: Parser {
         return pushop1(token, src);
     }
 
-    ErrPtr on_construct_middle(TokenID token, Pos src) {
+    ErrPtr on_construct_middle(TokenID token, Span src) {
         // Here's a question: when do we know we're finished parsing a
         // construct?
         // Well, if we just parsed an `if`, we could already be done, or there
@@ -486,7 +489,7 @@ struct ParserImpl: Parser {
         return pushop1(token, src);
     }
 
-    ErrPtr on_construct_last(TokenID token, Pos src) {
+    ErrPtr on_construct_last(TokenID token, Span src) {
         // The `CONSTRUCT_LAST` token kind is for tokens that signify the last
         // construct component, like `else` or `finally`.
         // Functionally, they allow the parsing of a construct to be completed
@@ -519,7 +522,7 @@ struct ParserImpl: Parser {
         return nullptr;
     }
 
-    ErrPtr on_before0(Token&& token, Pos src) {
+    ErrPtr on_before0(Token&& token, Span src) {
         if (token.id == TokenID::COLON && !in_brackets()) {
             // Could be start of indent, don't push anything yet as different
             // operators need to be pushed depending on whether or not we are
@@ -552,7 +555,7 @@ struct ParserImpl: Parser {
         }
     }
 
-    ErrPtr on_before(Token&& token, Pos src) {
+    ErrPtr on_before(Token&& token, Span src) {
         using enum TokenKind;
 
         // on_before0 exists because we need a version of this function without
@@ -568,7 +571,7 @@ struct ParserImpl: Parser {
         return on_before0(std::move(token), src);
     }
 
-    ErrPtr on_start(Token&& token, Pos src) {
+    ErrPtr on_start(Token&& token, Span src) {
         using enum TokenKind;
 
         switch(tokeninfo(token.id).kind) {
@@ -589,7 +592,7 @@ struct ParserImpl: Parser {
         }
     }
 
-    ErrPtr on_after(Token&& token, Pos src) {
+    ErrPtr on_after(Token&& token, Span src) {
         using enum TokenKind;
 
         if (
@@ -632,11 +635,11 @@ struct ParserImpl: Parser {
         }
     }
 
-    ErrPtr on_after_not(Token&& token, Pos src) {
+    ErrPtr on_after_not(Token&& token, Span src) {
         if (token.id == TokenID::IN) {
             // "not" followed by "in" is a special case.
             orientation = Orientation::BEFORE;
-            return pushop(OpID::NOT_IN, prev_src);
+            return pushop(OpID::NOT_IN, Span(prev_src, src));
         }
         // Otherwise, push the not and default to "before" orientation
         // behavior.
@@ -644,7 +647,7 @@ struct ParserImpl: Parser {
         return on_before(std::move(token), src);
     }
 
-    ErrPtr on_after_star(Token&& token, Pos src) {
+    ErrPtr on_after_star(Token&& token, Span src) {
         using enum TokenKind;
 
         switch(tokeninfo(token.id).kind) {
@@ -671,7 +674,7 @@ struct ParserImpl: Parser {
         }
     }
 
-    ErrPtr on_hash(Pos src) {
+    ErrPtr on_hash(Span src) {
         if (line_start)
             // Still may dedent if comment found at start of line.
             return on_leading_space(0, src);
@@ -679,7 +682,7 @@ struct ParserImpl: Parser {
         return nullptr;
     }
 
-    ErrPtr on_end_of_file(Pos src) {
+    ErrPtr on_end_of_file(Span src) {
         // Treat EOF as though it is preceded by a newline.
         ErrPtr err = on_newline(TokenID::END_OF_FILE, src);
         if (err)
@@ -694,16 +697,13 @@ struct ParserImpl: Parser {
             return err;
 
         // EOF closes all constructs.
-        while (ctx_is(Context::CONSTRUCT)) {
-            contexts.pop_back();
-            queue.push_back(Op(OpID::END, src));
-            queue.push_back(Op(OpID::STMT, src));
-        }
+        while (ctx_is(Context::CONSTRUCT))
+            close_ctx();
 
         return nullptr;
     }
 
-    ErrPtr on_newline(TokenID token, Pos src) {
+    ErrPtr on_newline(TokenID token, Span src) {
         // The `TokenID` argument disambiguates between newline and EOF in case
         // an UnexpectedTokenErr is returned.
         line_start = true;
@@ -740,15 +740,10 @@ struct ParserImpl: Parser {
         case END: {
             orientation = Orientation::START;
             queue.push_back(Op(OpID::STMT, src));
-            if (ctx_is(Context::CONSTRUCT_END)) {
+            if (ctx_is(Context::CONSTRUCT_END))
                 // `CONSTRUCT_END` indicates that we should close a construct if
                 // we are in `START` and it resides on top of `contexts`.
-                contexts.pop_back();
-                queue.push_back(Op(OpID::END, src));
-
-                // Also, treat construct as a single statement.
-                queue.push_back(Op(OpID::STMT, src));
-            }
+                close_ctx();
             return nullptr;
         }
         default:
@@ -756,14 +751,14 @@ struct ParserImpl: Parser {
         }
     }
 
-    ErrPtr on_space(std::uint32_t count, Pos src) {
+    ErrPtr on_space(std::uint32_t count, Span src) {
         if (line_start)
             return on_leading_space(count, src);
         // Ignore non-leading space.
         return nullptr;
     }
 
-    ErrPtr feed(Token&& token, Pos src) override {
+    ErrPtr feed(Token&& token, Span src) override {
         // First, check for specific tokens that need special handling.
         switch(token.id) {
         case TokenID::HASH:
@@ -780,12 +775,14 @@ struct ParserImpl: Parser {
         parsing_loop_vars =
             parsing_loop_vars &&
             (token.id == TokenID::ID || token.id == TokenID::COMMA);
-        check_if_construct_ends(token, src);
+        check_if_construct_ends(token);
         ErrPtr res;
         if (line_start) {
             // Need to account for dedents when starting a new line without
             // leading spaces.
-            res = on_leading_space(0, src);
+            res = on_leading_space(
+                0, Span(src.start_line, 1, src.start_line, 1)
+            );
             if (res)
                 return res;
         }
@@ -823,7 +820,7 @@ struct ParserImpl: Parser {
         if (queue.empty())
             return Op(OpID::WAITING, Pos());
         Op op = std::move(queue.front());
-        queue.pop_back();
+        queue.pop_front();
         return op;
     }
 };

@@ -7,7 +7,7 @@
 #include <ostream>
 #include <typeinfo>
 
-#include "dl/pos.hpp"
+#include "dl/span.hpp"
 
 namespace dl {
 
@@ -31,7 +31,7 @@ struct Err {
         return os << "Err";
     }
 
-    std::ostream& out(std::ostream& os) const {
+    virtual std::ostream& out(std::ostream& os) const {
         out_name(os);
         os << "(";
         out_data(os);
@@ -70,16 +70,16 @@ struct AssertionFailedErr: Err {
 
 // Base class for errors with Sources.
 struct SourcedErr: Err {
-    Pos src;
+    Span src;
 
-    SourcedErr(Pos src) noexcept: src(src) {}
+    SourcedErr(Span src) noexcept: src(src) {}
 
     virtual bool equals(const Err& that) const noexcept override {
         return src == dynamic_cast<const SourcedErr&>(that).src;
     }
 
-    virtual std::ostream& out_data(std::ostream& os) const override {
-        return os << src;
+    virtual std::ostream& out(std::ostream& os) const override {
+        return Err::out(os) << "@" << src;
     }
 };
 

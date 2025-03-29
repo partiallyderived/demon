@@ -44,7 +44,7 @@ const auto SET_INFO_ = OpInfo(
     OpKind::BINARY, Precedence::LSET, Precedence::RSET
 );
 
-const OpInfo OP_INFO_[] = {
+const OpInfo OP_INFO_[static_cast<int>(OpID::WAITING) + 1] = {
     // ADD
     OpInfo(OpKind::BINARY, Precedence::ADD),
     // ADDR
@@ -231,8 +231,6 @@ const OpInfo OP_INFO_[] = {
     OpInfo(OpKind::SINGLETON),
     // TRY
     FLOW_INFO_,
-    // TYPE
-    FLOW_INFO_,
     // TYPE_LABEL
     OpInfo(OpKind::BINARY, Precedence::TYPE_LABEL),
     // UNPACK_ARGS
@@ -241,8 +239,6 @@ const OpInfo OP_INFO_[] = {
     PREFIX_INFO_,
     // UP
     PREFIX_INFO_,
-    // VARS
-    OpInfo(OpKind::SINGLETON),
     // WHILE
     FLOW_INFO_,
     // WAITING

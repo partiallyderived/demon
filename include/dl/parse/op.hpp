@@ -16,14 +16,23 @@ namespace dl {
 struct Op {
     OpID id;
     Data data;
-    Pos src;
+    Span src;
 
-    Op(OpID id, Pos src) noexcept: id(id), data(), src(src) {}
+    Op(const Op& that) = delete;
 
-    Op(OpID id, Data&& data, Pos src) noexcept:
+    Op(Op&& that) noexcept:
+    id(that.id), data(std::move(that.data)), src(that.src) {}
+
+    Op(OpID id, Span src) noexcept: id(id), data(), src(src) {}
+
+    Op(OpID id, Data&& data, Span src) noexcept:
     id(id), data(std::move(data)), src(src) {}
 
     bool operator==(const Op& that) const noexcept = default;
+
+    Op copy() const noexcept {
+        return Op(id, Data(data), src);
+    }
 };
 
 std::ostream& operator<<(std::ostream& os, const Op& o) {

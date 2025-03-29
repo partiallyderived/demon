@@ -5,6 +5,7 @@
 namespace dl {
 
 enum class NodeKind {
+    ADD,
     ADDR,
     ADDR_TYPE,
     AND,
@@ -12,8 +13,13 @@ enum class NodeKind {
     ARGS,
     AS,
     ASSIGN,
+    BAND,
+    BNOT,
+    BLOCK,
     BOOL,
+    BOR,
     BREAK,
+    BXOR,
     CACHED_CALL,
     CACHED_CALL_ATTR,
     CALL,
@@ -25,26 +31,44 @@ enum class NodeKind {
     DEF,
     DEF_CASE,
     DEFAULTED,
+    DIV,
     ENTRY,
+    EQ,
     EXPANSION,
     FLOAT32,
     FLOAT64,
     FOR,
     GET_ATTR,
+    GT,
+    GTE,
+    IADD,
+    IBAND,
+    IBOR,
+    IBXOR,
     ID,
+    IDIV,
     IF,
+    ILSH,
+    IMOD,
+    IMUL,
     IN,
     INIT,
     INT8,
     INT16,
     INT32,
     INT64,
+    IPOW,
+    IRSH,
+    ISUB,
     KWARG,
     LAMBDA,
     LAMBDA_ARGS,
     LAMBDA_KWARGS,
     LAMBDA_VAR,
     LIST,
+    LSH,
+    LT,
+    LTE,
     MAP,
     MATCH,
     MATCH_ARGS,
@@ -55,17 +79,24 @@ enum class NodeKind {
     MATCH_OBJECT,
     MATCH_OPTIONS,
     MATCH_TUPLE,
+    MOD,
+    MUL,
+    NEG,
+    NEQ,
     NONE,
     NOT,
     NULL_,
     NUM_ID,
     OR,
     PLACEHOLDER,
+    POW,
     RAISE,
     RETURN,
+    RSH,
     SEQ,
     SET,
     SET_ATTR,
+    SUB,
     STRING,
     SYMBOL,
     TERNARY,
@@ -88,6 +119,8 @@ std::ostream& operator<<(std::ostream& os, NodeKind x) {
     using enum NodeKind;
 
     switch(x) {
+    case ADD:
+        return os << "ADD";
     case ADDR:
         return os << "ADDR";
     case ADDR_TYPE:
@@ -102,10 +135,20 @@ std::ostream& operator<<(std::ostream& os, NodeKind x) {
         return os << "AS";
     case ASSIGN:
         return os << "ASSIGN";
+    case BAND:
+        return os << "BAND";
+    case BLOCK:
+        return os << "BLOCK";
+    case BNOT:
+        return os << "BNOT";
     case BOOL:
         return os << "BOOL";
+    case BOR:
+        return os << "BOR";
     case BREAK:
         return os << "BREAK";
+    case BXOR:
+        return os << "BXOR";
     case CACHED_CALL:
         return os << "CACHED_CALL";
     case CACHED_CALL_ATTR:
@@ -128,8 +171,12 @@ std::ostream& operator<<(std::ostream& os, NodeKind x) {
         return os << "DEF_CASE";
     case DEFAULTED:
         return os << "DEFAULTED";
+    case DIV:
+        return os << "DIV";
     case ENTRY:
         return os << "ENTRY";
+    case EQ:
+        return os << "EQ";
     case EXPANSION:
         return os << "EXPANSION";
     case FLOAT32:
@@ -140,10 +187,30 @@ std::ostream& operator<<(std::ostream& os, NodeKind x) {
         return os << "FOR";
     case GET_ATTR:
         return os << "GET_ATTR";
+    case GT:
+        return os << "GT";
+    case GTE:
+        return os << "GTE";
+    case IADD:
+        return os << "IADD";
+    case IBAND:
+        return os << "IBAND";
+    case IBOR:
+        return os << "IBOR";
+    case IBXOR:
+        return os << "IBXOR";
     case ID:
         return os << "ID";
+    case IDIV:
+        return os << "IDIV";
     case IF:
         return os << "IF";
+    case ILSH:
+        return os << "ILSH";
+    case IMOD:
+        return os << "IMOD";
+    case IMUL:
+        return os << "IMUL";
     case IN:
         return os << "IN";
     case INIT:
@@ -156,6 +223,12 @@ std::ostream& operator<<(std::ostream& os, NodeKind x) {
         return os << "INT32";
     case INT64:
         return os << "INT64";
+    case IPOW:
+        return os << "IPOW";
+    case IRSH:
+        return os << "IRSH";
+    case ISUB:
+        return os << "ISUB";
     case KWARG:
         return os << "KWARG";
     case LAMBDA:
@@ -168,6 +241,12 @@ std::ostream& operator<<(std::ostream& os, NodeKind x) {
         return os << "LAMBDA_VAR";
     case LIST:
         return os << "LIST";
+    case LSH:
+        return os << "LSH";
+    case LT:
+        return os << "LT";
+    case LTE:
+        return os << "LTE";
     case MAP:
         return os << "MAP";
     case MATCH:
@@ -188,28 +267,42 @@ std::ostream& operator<<(std::ostream& os, NodeKind x) {
         return os << "MATCH_OPTIONS";
     case MATCH_TUPLE:
         return os << "MATCH_TUPLE";
+    case MOD:
+        return os << "MOD";
+    case MUL:
+        return os << "MUL";
+    case NEG:
+        return os << "NEG";
+    case NEQ:
+        return os << "NEQ";
     case NONE:
         return os << "NONE";
     case NOT:
         return os << "NOT";
     case NULL_:
-        return os << "NULL";
+        return os << "NULL_";
     case NUM_ID:
         return os << "NUM_ID";
     case OR:
         return os << "OR";
     case PLACEHOLDER:
         return os << "PLACEHOLDER";
+    case POW:
+        return os << "POW";
     case RAISE:
         return os << "RAISE";
     case RETURN:
         return os << "RETURN";
+    case RSH:
+        return os << "RSH";
     case SEQ:
         return os << "SEQ";
     case SET:
         return os << "SET";
     case SET_ATTR:
         return os << "SET_ATTR";
+    case SUB:
+        return os << "SUB";
     case STRING:
         return os << "STRING";
     case SYMBOL:
@@ -243,6 +336,6 @@ std::ostream& operator<<(std::ostream& os, NodeKind x) {
     case WHILE:
         return os << "WHILE";
     }
-}
+};
 
 }
