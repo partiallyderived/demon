@@ -12,30 +12,22 @@
 namespace dl {
 
 struct While final: Node_<While> {
-    NodePtr predicate;
-    Nodes body;
-    Block orelse;
+    NodePtr content;
+    NodePtr orelse;
 
-    While(
-        NodePtr&& predicate, Nodes&& body, Block&& orelse, Span src
-    ) noexcept:
+    While(NodePtr&& content, NodePtr&& orelse, Span src) noexcept:
     Node_<While>(src),
-    predicate(std::move(predicate)),
-    body(std::move(body)),
+    content(std::move(content)),
     orelse(std::move(orelse)) {}
 
     virtual While copy() const override {
-        return While(
-            predicate->copy_ptr(), deep_copy_ptr(body), orelse.copy(), this->src
-        );
+        return While(copy_np(content), copy_np(orelse), this->src);
     }
 
     virtual bool equals(const Node& that) const noexcept override {
         const auto& casted = dynamic_cast<const While&>(that);
         return
-            npeq(predicate, casted.predicate) &&
-            nodes_eq(body, casted.body) &&
-            orelse == casted.orelse;
+            npeq(content, casted.content) && npeq(orelse, casted.orelse);
     }
 
     virtual NodeKind kind() const noexcept override {
@@ -43,13 +35,13 @@ struct While final: Node_<While> {
     }
 
     virtual std::ostream& out_data(std::ostream& os) const override {
-        return out_csv(os, predicate, body, orelse);
+        return out_csv(os, content, orelse);
     }
 
     virtual Span span() const noexcept override {
-        Span end = orelse.code.size() > 0 ?
-            orelse.code.back()->span(): body.back()->span();
-        return Span(this->src, end);
+        if (orelse != nullptr)
+            return Span(this->src, orelse->span());
+        return content->span();
     }
 };
 

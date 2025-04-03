@@ -14,6 +14,7 @@ enum class OpID {
     BAND,
     BIND,
     BLOCK,
+    BLOCKS,
     BNOT,
     BODY,
     BOR,
@@ -68,6 +69,7 @@ enum class OpID {
     LTE,
     MATCH,
     MATCH_OR,
+    MISSING,
     MOD,
     MUL,
     NEG,
@@ -126,6 +128,8 @@ std::ostream& operator<<(std::ostream& os, OpID id) {
         return os << "BIND";
     case BLOCK:
         return os << "BLOCK";
+    case BLOCKS:
+        return os << "BLOCKS";
     case BNOT:
         return os << "BNOT";
     case BODY:
@@ -234,6 +238,8 @@ std::ostream& operator<<(std::ostream& os, OpID id) {
         return os << "MATCH";
     case MATCH_OR:
         return os << "MATCH_OR";
+    case MISSING:
+        return os << "MISSING";
     case MOD:
         return os << "MOD";
     case MUL:

@@ -21,7 +21,7 @@ struct Counted final: Node_<Counted<KIND>> {
     Node_<Counted<KIND>>(src), count(count), arg(std::move(arg)) {}
 
     virtual Counted copy() const override {
-        return Counted(count, arg->copy_ptr(), this->src);
+        return Counted(count, copy_np(arg), this->src);
     }
 
     virtual bool equals(const Node& that) const noexcept override {

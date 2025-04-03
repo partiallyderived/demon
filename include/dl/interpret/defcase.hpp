@@ -12,16 +12,16 @@
 namespace dl {
 
 struct DefCase final: Node_<DefCase> {
-    MatchArgs spec;
+    NodePtr spec;
     NodePtr guard;
     NodePtr returns;
-    Nodes body;
+    NodePtr body;
 
     DefCase(
-        MatchArgs&& spec,
+        NodePtr&& spec,
         NodePtr&& guard,
         NodePtr&& returns,
-        Nodes&& body,
+        NodePtr&& body,
         Span src
     ) noexcept:
     Node_<DefCase>(src),
@@ -32,10 +32,10 @@ struct DefCase final: Node_<DefCase> {
 
     virtual DefCase copy() const override {
         return DefCase(
-            spec.copy(),
+            copy_np(spec),
             copy_np(guard),
             copy_np(returns),
-            deep_copy_ptr(body),
+            copy_np(body),
             this->src
         );
     }
@@ -43,10 +43,10 @@ struct DefCase final: Node_<DefCase> {
     virtual bool equals(const Node& that) const noexcept override {
         const auto& casted = dynamic_cast<const DefCase&>(that);
         return
-            spec == casted.spec &&
+            npeq(spec, casted.spec) &&
             npeq(guard, casted.guard) &&
             npeq(returns, casted.returns) &&
-            nodes_eq(body, casted.body);
+            npeq(body, casted.body);
     }
 
     virtual NodeKind kind() const noexcept override {
@@ -58,7 +58,7 @@ struct DefCase final: Node_<DefCase> {
     }
 
     virtual Span span() const noexcept override {
-        return Span(src, body.back()->span());
+        return Span(src, body->span());
     }
 };
 

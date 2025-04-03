@@ -14,18 +14,18 @@ namespace dl {
 
 struct MatchObject final: Node_<MatchObject> {
     NodePtr type;
-    MatchArgs args;
+    NodePtr args;
 
-    MatchObject(NodePtr&& type, MatchArgs&& args, Span src) noexcept:
+    MatchObject(NodePtr&& type, NodePtr&& args, Span src) noexcept:
     Node_<MatchObject>(src), type(std::move(type)), args(std::move(args)) {}
 
     virtual MatchObject copy() const override {
-        return MatchObject(type->copy_ptr(), args.copy(), this->src);
+        return MatchObject(copy_np(type), copy_np(args), this->src);
     }
 
     virtual bool equals(const Node& that) const noexcept override {
         const auto& casted = dynamic_cast<const MatchObject&>(that);
-        return npeq(type, casted.type) && args == casted.args;
+        return npeq(type, casted.type) && npeq(args, casted.args);
     }
 
     virtual NodeKind kind() const noexcept override {
@@ -37,7 +37,7 @@ struct MatchObject final: Node_<MatchObject> {
     }
 
     virtual Span span() const noexcept override {
-        return Span(type->span(), args.span());
+        return Span(type->span(), args->span());
     }
 };
 

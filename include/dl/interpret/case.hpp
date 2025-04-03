@@ -12,22 +12,24 @@ namespace dl {
 
 struct Case final: Node_<Case> {
     NodePtr predicate;
-    Nodes body;
+    NodePtr body;
 
-    Case(NodePtr&& predicate, Nodes&& body, Span src) noexcept:
+    Case(NodePtr&& predicate, NodePtr&& body, Span src) noexcept:
     Node_<Case>(src),
     predicate(std::move(predicate)),
     body(std::move(body)) {}
 
     virtual Case copy() const override {
-        return Case(predicate->copy_ptr(), deep_copy_ptr(body), this->src);
+        return Case(copy_np(predicate), copy_np(body), this->src);
     }
 
     virtual bool equals(const Node& that) const noexcept override {
         const auto& casted = dynamic_cast<const Case&>(that);
-        return 
-            npeq(predicate, casted.predicate) &&
-            nodes_eq(body, casted.body);
+        return npeq(predicate, casted.predicate) && npeq(body, casted.body);
+    }
+
+    bool exists() const noexcept {
+        return predicate != nullptr || body != nullptr;
     }
 
     virtual NodeKind kind() const noexcept override {
@@ -39,7 +41,11 @@ struct Case final: Node_<Case> {
     }
 
     virtual Span span() const noexcept override {
-        return Span(this->src, body.back()->span());
+        if (body)
+            return Span(this->src, body->span());
+        if (predicate)
+            return Span(this->src, predicate->span());
+        return this->src;
     }
 };
 

@@ -13,19 +13,19 @@
 namespace dl {
 
 struct If final: Node_<If> {
-    std::vector<Case> cases;
-    Block orelse;
+    Nodes cases;
+    NodePtr orelse;
 
-    If(std::vector<Case>&& cases, Block&& orelse, Span src) noexcept:
+    If(Nodes&& cases, NodePtr&& orelse, Span src) noexcept:
     Node_<If>(src), cases(std::move(cases)), orelse(std::move(orelse)) {}
 
     virtual If copy() const override {
-        return If(deep_copy(cases), orelse.copy(), this->src);
+        return If(deep_copy_ptr(cases), copy_np(orelse), this->src);
     }
 
     virtual bool equals(const Node& that) const noexcept override {
         const auto& casted = dynamic_cast<const If&>(that);
-        return cases == casted.cases && orelse == casted.orelse;
+        return nodes_eq(cases, casted.cases) && npeq(orelse, casted.orelse);
     }
 
     virtual NodeKind kind() const noexcept override {
@@ -37,9 +37,8 @@ struct If final: Node_<If> {
     }
 
     virtual Span span() const noexcept override {
-        Span end = orelse.code.size() > 0 ?
-            orelse.code.back()->span(): cases.back().span();
-        return Span(cases.front().span(), end);
+        Span end = orelse != nullptr ? orelse->span(): cases.back()->span();
+        return Span(cases.front()->span(), end);
     }
 };
 

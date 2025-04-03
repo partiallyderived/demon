@@ -154,11 +154,11 @@ TEST_CASE("interpret", "[interpret]") {
             "Vector[Int]"
         ).node() == CachedCall(
             NodePtr(new ID("Vector", Span(1, 1, 6))),
-            Args(
+            NodePtr(new Args(
                 vec(NodePtr(new ID("Int", Span(1, 8, 3)))),
                 {},
                 Span(1, 7, 5)
-            ),
+            )),
             Span(1, 7)
         ));
     }
@@ -187,7 +187,7 @@ TEST_CASE("interpret", "[interpret]") {
 
         REQUIRE(*cc.node() == Call(
             NodePtr(new ID("fn", Span(1, 1, 2))),
-            Args({}, {}, Span(1, 3, 2)),
+            NodePtr(new Args({}, {}, Span(1, 3, 2))),
             Span(1, 3)
         ));
 
@@ -195,14 +195,14 @@ TEST_CASE("interpret", "[interpret]") {
             "fn(1, 2)"
         ).node() == Call(
             NodePtr(new ID("fn", Span(1, 1, 2))),
-            Args(
+            NodePtr(new Args(
                 vec(
                     NodePtr(new Int32(1, Span(1, 4))),
                     NodePtr(new Int32(2, Span(1, 7)))
                 ),
                 {},
                 Span(1, 3, 6)
-            ),
+            )),
             Span(1, 3)
         ));
 
@@ -210,7 +210,7 @@ TEST_CASE("interpret", "[interpret]") {
             "fn(1, 2, *args)"
         ).node() == Call(
             NodePtr(new ID("fn", Span(1, 1, 2))),
-            Args(
+            NodePtr(new Args(
                 vec(
                     NodePtr(new Int32(1, Span(1, 4))),
                     NodePtr(new Int32(2, Span(1, 7))),
@@ -221,7 +221,7 @@ TEST_CASE("interpret", "[interpret]") {
                 ),
                 {},
                 Span(1, 3, 13)
-            ),
+            )),
             Span(1, 3)
         ));
 
@@ -230,7 +230,7 @@ TEST_CASE("interpret", "[interpret]") {
         ).node() ==
         Call(
             NodePtr(new ID("fn", Span(1, 1, 2))),
-            Args(
+            NodePtr(new Args(
                 vec(
                     NodePtr(new Int32(1, Span(1, 4))),
                     NodePtr(new Int32(2, Span(1, 7))),
@@ -241,18 +241,18 @@ TEST_CASE("interpret", "[interpret]") {
                 ),
                 vec(
                     NodePtr(new KeywordArg(
-                        ID("kw1", Span(1, 17, 3)),
+                        NodePtr(new ID("kw1", Span(1, 17, 3))),
                         NodePtr(new String("yes", Span(1, 21, 5))),
                         Span(1, 20)
                     )),
                     NodePtr(new KeywordArg{
-                        ID("kw2", Span(1, 28, 3)),
+                        NodePtr(new ID("kw2", Span(1, 28, 3))),
                         NodePtr(new Bool(true, Span(1, 32, 4))),
                         Span(1, 31)
                     })
                 ),
                 Span(1, 3, 1, 36)
-            ),
+            )),
             Span(1, 3)
         ));
 
@@ -262,7 +262,7 @@ TEST_CASE("interpret", "[interpret]") {
         ).node() ==
         Call(
             NodePtr(new ID("fn", Span(1, 1, 2))),
-            Args(
+            NodePtr(new Args(
                 vec(
                     NodePtr(new Int32(1, Span(1, 4))),
                     NodePtr(new Int32(2, Span(1, 7))),
@@ -273,12 +273,12 @@ TEST_CASE("interpret", "[interpret]") {
                 ),
                 vec(
                     NodePtr(new KeywordArg(
-                        ID("kw1", Span(1, 17, 3)),
+                        NodePtr(new ID("kw1", Span(1, 17, 3))),
                         NodePtr(new String("yes", Span(1, 21, 5))),
                         Span(1, 20)
                     )),
                     NodePtr(new KeywordArg{
-                        ID("kw2", Span(1, 28, 3)),
+                        NodePtr(new ID("kw2", Span(1, 28, 3))),
                         NodePtr(new Bool(true, Span(1, 32, 4))),
                         Span(1, 31)
                     }),
@@ -288,14 +288,32 @@ TEST_CASE("interpret", "[interpret]") {
                     ))
                 ),
                 Span(1, 3, 1, 46)
-            ),
+            )),
             Span(1, 3)
         ));
 
         REQUIRE(*capture(
             "fn(1, kw1=\"yes\", 2)"
         ).node() ==
-            PosAfterKeywordErr(Span(1, 18))
+            Call(
+                NodePtr(new ID("fn", Span(1, 1, 2))),
+                NodePtr(new Args(
+                    vec(NodePtr(new Int32(1, Span(1, 4)))),
+                    vec(
+                        NodePtr(new KeywordArg(
+                            NodePtr(new ID("kw1", Span(1, 7, 3))),
+                            NodePtr(new String("yes", Span(1, 11, 5))),
+                            Span(1, 10)
+                        )),
+                        NodePtr(new ErrorNode(
+                            ErrPtr(new ExpectedKeywordArgExprErr()),
+                            Comp(OpID::PLAIN_INT, "2", Span(1, 18))
+                        ))
+                    ),
+                    Span(1, 3, 1, 19)
+                )),
+                Span(1, 3)
+            )
         );
     }
 
@@ -326,9 +344,14 @@ TEST_CASE("interpret", "[interpret]") {
 
         REQUIRE(*capture(
             "true: Int"
-        ).node() ==
-            ExpectedGeneralIDErr(Span(1, 1, 4))
-        );
+        ).node() == Declare(
+            NodePtr(new ErrorNode(
+                ErrPtr(new ExpectedGeneralIDErr()),
+                Comp(OpID::TRUE, Span(1, 1, 4))
+            )),
+            NodePtr(new ID("Int", Span(1, 7, 3))),
+            Span(1, 5)
+        ));
     }
 
     SECTION("Def") {
@@ -390,16 +413,19 @@ TEST_CASE("interpret", "[interpret]") {
 
         REQUIRE(*cc.node() == Def(
             NodePtr(new ID("f", Span(1, 5))),
-            vec(DefCase(
-                MatchArgs({}, {}, Span(1, 6, 2)),
+            vec(NodePtr(new DefCase(
+                NodePtr(new MatchArgs({}, {}, Span(1, 6, 2))),
                 nullptr,
                 nullptr,
-                vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, Span(2, 12))),
-                    Span(2, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(2, 12))),
+                        Span(2, 5, 6)
+                    ))),
+                    Span(2, 5, 2, 12)
+                )),
                 Span(1, 1, 3)
-            )),
+            ))),
             Span(1, 1, 3)
         ));
 
@@ -408,16 +434,19 @@ TEST_CASE("interpret", "[interpret]") {
             "    return 0"
         ).node() == Def(
             NodePtr(new ID("f", Span(1, 5))),
-            vec(DefCase(
-                MatchArgs({}, {}, Span(1, 6, 2)),
+            vec(NodePtr(new DefCase(
+                NodePtr(new MatchArgs({}, {}, Span(1, 6, 2))),
                 nullptr,
                 NodePtr(new ID("Int", Span(1, 12, 3))),
-                vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, Span(2, 12))),
-                    Span(2, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(2, 12))),
+                        Span(2, 5, 6)
+                    ))),
+                    Span(2, 5, 2, 12)
+                )),
                 Span(1, 1, 3)
-            )),
+            ))),
             Span(1, 1, 3)
         ));
 
@@ -426,20 +455,23 @@ TEST_CASE("interpret", "[interpret]") {
             "    return 0"
         ).node() == Def(
             NodePtr(new ID("f", Span(1, 5))),
-            vec(DefCase(
-                MatchArgs(
+            vec(NodePtr(new DefCase(
+                NodePtr(new MatchArgs(
                     vec(NodePtr(new ID("arg", Span(1, 7, 3)))),
                     {},
                     Span(1, 6, 5)
-                ),
+                )),
                 nullptr,
                 NodePtr(new ID("Int", Span(1, 15, 3))),
-                vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, Span(2, 12))),
-                    Span(2, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(2, 12))),
+                        Span(2, 5, 6)
+                    ))),
+                    Span(2, 5, 2, 12)
+                )),
                 Span(1, 1, 3)
-            )),
+            ))),
             Span(1, 1, 3)
         ));
 
@@ -448,8 +480,8 @@ TEST_CASE("interpret", "[interpret]") {
             "    return 0"
         ).node() == Def(
             NodePtr(new ID("f", Span(1, 5))),
-            vec(DefCase(
-                MatchArgs(
+            vec(NodePtr(new DefCase(
+                NodePtr(new MatchArgs(
                     vec(
                         NodePtr(new ID("arg1", Span(1, 7, 4))),
                         NodePtr(new TypeMatch(
@@ -460,15 +492,18 @@ TEST_CASE("interpret", "[interpret]") {
                     ),
                     {},
                     Span(1, 6, 1, 22)
-                ),
+                )),
                 nullptr,
                 NodePtr(new ID("Int", Span(1, 27, 3))),
-                vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, Span(2, 12))),
-                    Span(2, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(2, 12))),
+                        Span(2, 5, 6)
+                    ))),
+                    Span(2, 5, 2, 12)
+                )),
                 Span(1, 1, 3)
-            )),
+            ))),
             Span(1, 1, 3)
         ));
 
@@ -477,8 +512,8 @@ TEST_CASE("interpret", "[interpret]") {
             "    return 0"
         ).node() == Def(
             NodePtr(new ID("f", Span(1, 5))),
-            vec(DefCase(
-                MatchArgs(
+            vec(NodePtr(new DefCase(
+                NodePtr(new MatchArgs(
                     vec(
                         NodePtr(new ID("arg1", Span(1, 7, 4))),
                         NodePtr(new TypeMatch(
@@ -493,15 +528,18 @@ TEST_CASE("interpret", "[interpret]") {
                     ),
                     {},
                     Span(1, 6, 1, 29)
-                ),
+                )),
                 nullptr,
                 NodePtr(new ID("Int", Span(1, 34, 3))),
-                vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, Span(2, 12))),
-                    Span(2, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(2, 12))),
+                        Span(2, 5, 6)
+                    ))),
+                    Span(2, 5, 2, 12)
+                )),
                 Span(1, 1, 3)
-            )),
+            ))),
             Span(1, 1, 3)
         ));
 
@@ -510,8 +548,8 @@ TEST_CASE("interpret", "[interpret]") {
             "    return 0"
         ).node() == Def(
             NodePtr(new ID("f", Span(1, 5))),
-            vec(DefCase(
-                MatchArgs(
+            vec(NodePtr(new DefCase(
+                NodePtr(new MatchArgs(
                     vec(
                         NodePtr(new ID("arg1", Span(1, 7, 4))),
                         NodePtr(new TypeMatch(
@@ -537,15 +575,18 @@ TEST_CASE("interpret", "[interpret]") {
                         ))
                     ),
                     Span(1, 6, 1, 50)
-                ),
+                )),
                 nullptr,
                 NodePtr(new ID("Int", Span(1, 55, 3))),
-                vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, Span(2, 12))),
-                    Span(2, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(2, 12))),
+                        Span(2, 5, 6)
+                    ))),
+                    Span(2, 5, 2, 12)
+                )),
                 Span(1, 1, 3)
-            )),
+            ))),
             Span(1, 1, 3)
         ));
 
@@ -556,8 +597,8 @@ TEST_CASE("interpret", "[interpret]") {
             "    return 0"
         ).node() == Def(
             NodePtr(new ID("f", Span(1, 5))),
-            vec(DefCase(
-                MatchArgs(
+            vec(NodePtr(new DefCase(
+                NodePtr(new MatchArgs(
                     vec(
                         NodePtr(new ID("arg1", Span(2, 5, 4))),
                         NodePtr(new TypeMatch(
@@ -587,15 +628,18 @@ TEST_CASE("interpret", "[interpret]") {
                         ))
                     ),
                     Span(1, 6, 3, 1)
-                ),
+                )),
                 nullptr,
                 NodePtr(new ID("Int", Span(3, 6, 3))),
-                vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, Span(4, 12))),
-                    Span(4, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(4, 12))),
+                        Span(4, 5, 6)
+                    ))),
+                    Span(4, 5, 4, 12)
+                )),
                 Span(1, 1, 3)
-            )),
+            ))),
             Span(1, 1, 3)
         ));
 
@@ -609,8 +653,8 @@ TEST_CASE("interpret", "[interpret]") {
         ).node() == Def(
             NodePtr(new ID("f", Span(1, 5))),
             vec(
-                DefCase(
-                    MatchArgs(
+                NodePtr(new DefCase(
+                    NodePtr(new MatchArgs(
                         vec(
                             NodePtr(new TypeMatch(
                                 NodePtr(new ID("a", Span(1, 7))),
@@ -625,17 +669,20 @@ TEST_CASE("interpret", "[interpret]") {
                         ),
                         {},
                         Span(1, 6, 1, 24)
-                    ),
+                    )),
                     nullptr,
                     nullptr,
-                    vec(NodePtr(new Return(
-                        NodePtr(new Int32(0, Span(2, 12))),
-                        Span(2, 5, 6)
-                    ))),
+                    NodePtr(new Block(
+                        vec(NodePtr(new Return(
+                            NodePtr(new Int32(0, Span(2, 12))),
+                            Span(2, 5, 6)
+                        ))),
+                        Span(2, 5, 2, 12)
+                    )),
                     Span(1, 1, 3)
-                ),
-                DefCase(
-                    MatchArgs(
+                )),
+                NodePtr(new DefCase(
+                    NodePtr(new MatchArgs(
                         vec(
                             NodePtr(new TypeMatch(
                                 NodePtr(new ID("c", Span(3, 7))),
@@ -646,17 +693,20 @@ TEST_CASE("interpret", "[interpret]") {
                         ),
                         {},
                         Span(3, 6, 3, 23)
-                    ),
+                    )),
                     nullptr,
                     NodePtr(new ID("Int64", Span(3, 28, 5))),
-                    vec(NodePtr(new Return(
-                        NodePtr(new Int64(3, Span(4, 12, 4))),
-                        Span(4, 5, 6)
-                    ))),
+                    NodePtr(new Block(
+                        vec(NodePtr(new Return(
+                            NodePtr(new Int64(3, Span(4, 12, 4))),
+                            Span(4, 5, 6)
+                        ))),
+                        Span(4, 5, 4, 15)
+                    )),
                     Span(3, 1, 4)
-                ),
-                DefCase(
-                    MatchArgs(
+                )),
+                NodePtr(new DefCase(
+                    NodePtr(new MatchArgs(
                         vec(NodePtr(new Int32(1, Span(5, 7)))),
                         vec(NodePtr(new As(
                             NodePtr(new Int32(2, Span(5, 13))),
@@ -664,15 +714,18 @@ TEST_CASE("interpret", "[interpret]") {
                             Span(5, 15, 2)
                         ))),
                         Span(5, 6, 5, 20)
-                    ),
+                    )),
                     nullptr,
                     nullptr,
-                    vec(NodePtr(new Return(
-                        NodePtr(new Int32(0, Span(6, 12))),
-                        Span(6, 5, 6)
-                    ))),
+                    NodePtr(new Block(
+                        vec(NodePtr(new Return(
+                            NodePtr(new Int32(0, Span(6, 12))),
+                            Span(6, 5, 6)
+                        ))),
+                        Span(6, 5, 6, 12)
+                    )),
                     Span(5, 1, 4)
-                )
+                ))
             ),
             Span(1, 1, 3)
         ));
@@ -682,16 +735,19 @@ TEST_CASE("interpret", "[interpret]") {
             "    return 0"
         ).node() == Def(
             NodePtr(new NumID(3, Span(1, 5))),
-            vec(DefCase(
-                MatchArgs({}, {}, Span(1, 6, 2)),
+            vec(NodePtr(new DefCase(
+                NodePtr(new MatchArgs({}, {}, Span(1, 6, 2))),
                 nullptr,
                 nullptr,
-                vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, Span(2, 12))),
-                    Span(2, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(2, 12))),
+                        Span(2, 5, 6)
+                    ))),
+                    Span(2, 5, 2, 12)
+                )),
                 Span(1, 1, 3)
-            )),
+            ))),
             Span(1, 1, 3)
         ));
 
@@ -700,8 +756,8 @@ TEST_CASE("interpret", "[interpret]") {
             "    return 0"
         ).node() == Def(
             NodePtr(new ID("f", Span(1, 5))),
-            vec(DefCase(
-                MatchArgs(
+            vec(NodePtr(new DefCase(
+                NodePtr(new MatchArgs(
                     vec(NodePtr(new Defaulted(
                         NodePtr(new TypeMatch(
                             NodePtr(new ID("x", Span(1, 7))),
@@ -713,15 +769,18 @@ TEST_CASE("interpret", "[interpret]") {
                     ))),
                     {},
                     Span(1, 6, 1, 17)
-                ),
+                )),
                 nullptr,
                 nullptr,
-                vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, Span(2, 12))),
-                    Span(2, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(2, 12))),
+                        Span(2, 5, 6)
+                    ))),
+                    Span(2, 5, 2, 12)
+                )),
                 Span(1, 1, 3)
-            )),
+            ))),
             Span(1, 1, 3)
         ));
 
@@ -730,8 +789,8 @@ TEST_CASE("interpret", "[interpret]") {
             "    return 0"
         ).node() == Def(
             NodePtr(new ID("f", Span(1, 5))),
-            vec(DefCase(
-                MatchArgs(
+            vec(NodePtr(new DefCase(
+                NodePtr(new MatchArgs(
                     vec(NodePtr(new TypeMatch(
                         NodePtr(new ID("x", Span(1, 7))),
                         NodePtr(new ID("Int", Span(1, 10, 3))),
@@ -739,19 +798,22 @@ TEST_CASE("interpret", "[interpret]") {
                     ))),
                     {},
                     Span(1, 6, 1, 13)
-                ),
+                )),
                 NodePtr(new GreaterThan(
                     NodePtr(new ID("x", Span(1, 18))),
                     NodePtr(new Int32(2, Span(1, 22))),
                     Span(1, 20)
                 )),
                 NodePtr(new ID("Int", Span(1, 27, 3))),
-                vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, Span(2, 12))),
-                    Span(2, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(2, 12))),
+                        Span(2, 5, 6)
+                    ))),
+                    Span(2, 5, 2, 12)
+                )),
                 Span(1, 1, 3)
-            )),
+            ))),
             Span(1, 1, 3)
         ));
 
@@ -760,8 +822,8 @@ TEST_CASE("interpret", "[interpret]") {
             "    return 0"
         ).node() == Def(
             NodePtr(new ID("f", Span(1, 5))),
-            vec(DefCase(
-                MatchArgs(
+            vec(NodePtr(new DefCase(
+                NodePtr(new MatchArgs(
                     vec(NodePtr(new Defaulted(
                         NodePtr(new As(
                             NodePtr(new MatchTuple(
@@ -785,73 +847,420 @@ TEST_CASE("interpret", "[interpret]") {
                     ))),
                     {},
                     Span(1, 6, 1, 27)
-                ),
+                )),
                 nullptr,
                 nullptr,
-                vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, Span(2, 12))),
-                    Span(2, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(2, 12))),
+                        Span(2, 5, 6)
+                    ))),
+                    Span(2, 5, 2, 12)
+                )),
                 Span(1, 1, 3)
-            )),
+            ))),
             Span(1, 1, 3)
         ));
 
         REQUIRE(*capture(
-            "def f()"
-        ).node() == MissingBodyErr(Span(1, 1, 7)));
+            "def f()\n"
+            "case (x)"
+        ).node() == Def(
+            NodePtr(new ID("f", Span(1, 5))),
+            vec(
+                NodePtr(new DefCase(
+                    NodePtr(new MatchArgs({}, {}, Span(1, 6, 2))),
+                    nullptr,
+                    nullptr,
+                    NodePtr(new ErrorNode(
+                        ErrPtr(new MissingBodyErr()),
+                        Comp(OpID::MISSING, Span(1, 8))
+                    )),
+                    Span(1, 1, 3)
+                )),
+                NodePtr(new DefCase(
+                    NodePtr(new MatchArgs(
+                        vec(NodePtr(new ID("x", Span(2, 7)))),
+                        {},
+                        Span(2, 6, 3)
+                    )),
+                    nullptr,
+                    nullptr,
+                    NodePtr(new ErrorNode(
+                        ErrPtr(new MissingBodyErr()),
+                        Comp(OpID::MISSING, Span(2, 9))
+                    )),
+                    Span(2, 1, 4)
+                ))
+            ),
+            Span(1, 1, 3)
+        ));
+
+        REQUIRE(*capture(
+            "def:\n"
+            "    return 0\n"
+            "case:\n"
+            "    return 1"
+        ).node() == Def(
+            NodePtr(new ErrorNode(
+                ErrPtr(new MissingIDErr()),
+                Comp(OpID::MISSING, Span(1, 4))
+            )),
+            vec(
+                NodePtr(new DefCase(
+                    NodePtr(new ErrorNode(
+                        ErrPtr(new MissingArgSpecErr()),
+                        Comp(OpID::MISSING, Span(1, 4))
+                    )),
+                    nullptr,
+                    nullptr,
+                    NodePtr(new Block(
+                        vec(NodePtr(new Return(
+                            NodePtr(new Int32(0, Span(2, 12))),
+                            Span(2, 5, 6)
+                        ))),
+                        Span(2, 5, 2, 12)
+                    )),
+                    Span(1, 1, 3)
+                )),
+                NodePtr(new DefCase(
+                    NodePtr(new ErrorNode(
+                        ErrPtr(new MissingArgSpecErr()),
+                        Comp(OpID::MISSING, Span(3, 5))
+                    )),
+                    nullptr,
+                    nullptr,
+                    NodePtr(new Block(
+                        vec(NodePtr(new Return(
+                            NodePtr(new Int32(1, Span(4, 12))),
+                            Span(4, 5, 6)
+                        ))),
+                        Span(4, 5, 4, 12)
+                    )),
+                    Span(3, 1, 4)
+                ))
+            ),
+            Span(1, 1, 3)
+        ));
 
         REQUIRE(*capture(
             "def f:\n"
+            "    return 0\n"
+        ).node() == Def(
+            NodePtr(new ID("f", Span(1, 5))),
+            vec(NodePtr(new DefCase(
+                NodePtr(new ErrorNode(
+                    ErrPtr(new MissingArgSpecErr()),
+                    Comp(OpID::ID, "f", Span(1, 6))
+                )),
+                nullptr,
+                nullptr,
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(2, 12))),
+                        Span(2, 5, 6)
+                    ))),
+                    Span(2, 5, 2, 12)
+                )),
+                Span(1, 1, 3)
+            ))),
+            Span(1, 1, 3)
+        ));
+
+        REQUIRE(*capture(
+            "def ():\n"
             "    return 0"
-        ).node() == ExpectedCallErr(Span(1, 5)));
+        ).node() == Def(
+            NodePtr(new ErrorNode(
+                ErrPtr(new MissingIDErr()),
+                Comp(OpID::MISSING, Span(1, 5))
+            )),
+            vec(NodePtr(new DefCase(
+                NodePtr(new MatchArgs({}, {}, Span(1, 5, 2))),
+                nullptr,
+                nullptr,
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(2, 12))),
+                        Span(2, 5, 6)
+                    ))),
+                    Span(2, 5, 2, 12)
+                )),
+                Span(1, 1, 3)
+            ))),
+            Span(1, 1, 3)
+        ));
 
         REQUIRE(*capture(
             "def true():\n"
             "    return 0"
-        ).node() == ExpectedGeneralIDErr(Span(1, 5, 4)));
+        ).node() == Def(
+            NodePtr(new ErrorNode(
+                ErrPtr(new ExpectedGeneralIDErr()),
+                Comp(OpID::TRUE, Span(1, 5, 4))
+            )),
+            vec(NodePtr(new DefCase(
+                NodePtr(new MatchArgs({}, {}, Span(1, 9, 2))),
+                nullptr,
+                nullptr,
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(2, 12))),
+                        Span(2, 5, 6)
+                    ))),
+                    Span(2, 5, 2, 12)
+                )),
+                Span(1, 1, 3)
+            ))),
+            Span(1, 1, 3)
+        ));
 
         REQUIRE(*capture(
             "def f[]:\n"
             "    return 0"
-        ).node() == ExpectedParentheticalErr(Span(1, 6, 2)));
+        ).node() == Def(
+            NodePtr(new ID("f", Span(1, 5))),
+            vec(NodePtr(new DefCase(
+                NodePtr(new ErrorNode(
+                    ErrPtr(new ExpectedParentheticalErr()),
+                    Comp(
+                        OpID::LIST,
+                        Comp(OpID::NOTHING, Span(1, 7)),
+                        Span(1, 6, 2)
+                    )
+                )),
+                nullptr,
+                nullptr,
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(2, 12))),
+                        Span(2, 5, 6)
+                    ))),
+                    Span(2, 5, 2, 12)
+                )),
+                Span(1, 1, 3)
+            ))),
+            Span(1, 1, 3)
+        ));
 
         REQUIRE(*capture(
             "def f(x, *, *, y):\n"
             "    return 0"
-        ).node() == ArgSepWhereKeywordArgExpectedErr(Span(1, 13)));
+        ).node() == Def(
+            NodePtr(new ID("f", Span(1, 5))),
+            vec(NodePtr(new DefCase(
+                NodePtr(new MatchArgs(
+                    vec(NodePtr(new ID("x", Span(1, 7)))),
+                    vec(
+                        NodePtr(new ErrorNode(
+                            ErrPtr(new ExpectedKeywordArgMatchExprErr()),
+                            Comp(OpID::POS_KW_SEP, Span(1, 13))
+                        )),
+                        NodePtr(new ID("y", Span(1, 16)))
+                    ),
+                    Span(1, 6, 1, 17)
+                )),
+                nullptr,
+                nullptr,
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(2, 12))),
+                        Span(2, 5, 6)
+                    ))),
+                    Span(2, 5, 2, 12)
+                )),
+                Span(1, 1, 3)
+            ))),
+            Span(1, 1, 3)
+        ));
 
         REQUIRE(*capture(
             "def f(*, *args):\n"
             "    return 0"
-        ).node() == VarArgsWhereKeywordArgExpectedErr(Span(1, 10, 5)));
+        ).node() == Def(
+            NodePtr(new ID("f", Span(1, 5))),
+            vec(NodePtr(new DefCase(
+                NodePtr(new MatchArgs(
+                    {},
+                    vec(NodePtr(new ErrorNode(
+                        ErrPtr(new ExpectedKeywordArgMatchExprErr()),
+                        Comp(
+                            OpID::UNPACK_ARGS,
+                            Comp(OpID::ID, "args", Span(1, 11, 4)),
+                            Span(1, 10)
+                        )
+                    ))),
+                    Span(1, 6, 1, 15)
+                )),
+                nullptr,
+                nullptr,
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(2, 12))),
+                        Span(2, 5, 6)
+                    ))),
+                    Span(2, 5, 2, 12)
+                )),
+                Span(1, 1, 3)
+            ))),
+            Span(1, 1, 3)
+        ));
 
         REQUIRE(*capture(
             "def f(a=1=2):\n"
             "    return 0"
-        ).node() == TwiceDefaultedErr(Span(1, 7, 5)));
+        ).node() == Def(
+            NodePtr(new ID("f", Span(1, 5))),
+            vec(NodePtr(new DefCase(
+                NodePtr(new MatchArgs(
+                    vec(NodePtr(new Defaulted(
+                        NodePtr(new ErrorNode(
+                            ErrPtr(new ExpectedDefaultableExprErr()),
+                            Comp(
+                                OpID::BIND,
+                                Comp(OpID::ID, "a", Span(1, 7)),
+                                Comp(OpID::PLAIN_INT, "1", Span(1, 9)),
+                                Span(1, 8)
+                            )
+                        )),
+                        NodePtr(new Int32(2, Span(1, 11))),
+                        Span(1, 10)
+                    ))),
+                    {},
+                    Span(1, 6, 1, 12)
+                )),
+                nullptr,
+                nullptr,
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(2, 12))),
+                        Span(2, 5, 6)
+                    ))),
+                    Span(2, 5, 2, 12)
+                )),
+                Span(1, 1, 3)
+            ))),
+            Span(1, 1, 3)
+        ));
 
         REQUIRE(*capture(
             "def f(*args=1):\n"
             "    return 0"
-        ).node() == DefaultedVarArgsErr(Span(1, 7, 7)));
+        ).node() == Def(
+            NodePtr(new ID("f", Span(1, 5))),
+            vec(NodePtr(new DefCase(
+                NodePtr(new MatchArgs(
+                    vec(NodePtr(new Defaulted(
+                        NodePtr(new ErrorNode(
+                            ErrPtr(new ExpectedDefaultableExprErr()),
+                            Comp(
+                                OpID::UNPACK_ARGS,
+                                Comp(OpID::ID, "args", Span(1, 8, 4)),
+                                Span(1, 7)
+                            )
+                        )),
+                        NodePtr(new Int32(1, Span(1, 13))),
+                        Span(1, 12)
+                    ))),
+                    {},
+                    Span(1, 6, 1, 14)
+                )),
+                nullptr,
+                nullptr,
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(2, 12))),
+                        Span(2, 5, 6)
+                    ))),
+                    Span(2, 5, 2, 12)
+                )),
+                Span(1, 1, 3)
+            ))),
+            Span(1, 1, 3)
+        ));
 
         REQUIRE(*capture(
             "def f(**kwargs=1):\n"
             "    return 0"
-        ).node() == DefaultedVarKeywordArgsErr(Span(1, 7, 10)));
-
-        REQUIRE(*capture(
-            "def f(3: Int):\n"
-            "    return 0"
-        ).node() == ExpectedIDOrVarArgsErr(Span(1, 7)));
+        ).node() == Def(
+            NodePtr(new ID("f", Span(1, 5))),
+            vec(NodePtr(new DefCase(
+                NodePtr(new MatchArgs(
+                    vec(NodePtr(new Defaulted(
+                        NodePtr(new ErrorNode(
+                            ErrPtr(new ExpectedDefaultableExprErr()),
+                            Comp(
+                                OpID::UNPACK_KWARGS,
+                                Comp(OpID::ID, "kwargs", Span(1, 9, 6)),
+                                Span(1, 7, 2)
+                            )
+                        )),
+                        NodePtr(new Int32(1, Span(1, 16))),
+                        Span(1, 15)
+                    ))),
+                    {},
+                    Span(1, 6, 1, 17)
+                )),
+                nullptr,
+                nullptr,
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(2, 12))),
+                        Span(2, 5, 6)
+                    ))),
+                    Span(2, 5, 2, 12)
+                )),
+                Span(1, 1, 3)
+            ))),
+            Span(1, 1, 3)
+        ));
 
         REQUIRE(*capture(
             "def f():\n"
             "    return 0\n"
             "elif true:\n"
             "    return 1"
-        ).node() == ExpectedCaseErr(Span(3, 1, 4)));
+        ).node() == Def(
+            NodePtr(new ID("f", Span(1, 5))),
+            vec(
+                NodePtr(new DefCase(
+                    NodePtr(new MatchArgs({}, {}, Span(1, 6, 2))),
+                    nullptr,
+                    nullptr,
+                    NodePtr(new Block(
+                        vec(NodePtr(new Return(
+                            NodePtr(new Int32(0, Span(2, 12))),
+                            Span(2, 5, 6)
+                        ))),
+                        Span(2, 5, 2, 12)
+                    )),
+                    Span(1, 1, 3)
+                )),
+                NodePtr(new ErrorNode(
+                    ErrPtr(new ExpectedCaseErr()),
+                    Comp(
+                        OpID::ELIF,
+                        Comp(
+                            OpID::LABEL,
+                            Comp(OpID::TRUE, Span(3, 6, 4)),
+                            Comp(
+                                OpID::BLOCK,
+                                vec(Comp(
+                                    OpID::RETURN,
+                                    Comp(OpID::PLAIN_INT, "1", Span(4, 12)),
+                                    Span(4, 5, 6)
+                                )),
+                                Span(4, 5, 4, 12)
+                            ),
+                            Span(3, 10)
+                        ),
+                        Span(3, 1, 4)
+                    ),
+                    Span(3, 1, 4)
+                ))
+            ),
+            Span(1, 1, 3)
+        ));
     }
 
     SECTION("DIV") {
@@ -881,12 +1290,15 @@ TEST_CASE("interpret", "[interpret]") {
         ).node() == For(
             vec(NodePtr(new ID("x", Span(1, 5)))),
             NodePtr(new ID("c", Span(1, 10))),
-            vec(NodePtr(new IAdd(
-                NodePtr(new ID("a", Span(2, 5))),
-                NodePtr(new ID("x", Span(2, 10))),
-                Span(2, 7, 2)
-            ))),
-            Block(),
+            NodePtr(new Block(
+                vec(NodePtr(new IAdd(
+                    NodePtr(new ID("a", Span(2, 5))),
+                    NodePtr(new ID("x", Span(2, 10))),
+                    Span(2, 7, 2)
+                ))),
+                Span(1, 1, 3)
+            )),
+            nullptr,
             Span(1, 1, 3)
         ));
 
@@ -899,16 +1311,19 @@ TEST_CASE("interpret", "[interpret]") {
                 NodePtr(new ID("y", Span(1, 8)))
             ),
             NodePtr(new ID("c", Span(1, 13))),
-            vec(NodePtr(new IAdd(
-                NodePtr(new ID("a", Span(2, 5))),
-                NodePtr(new Add(
-                    NodePtr(new ID("x", Span(2, 10))),
-                    NodePtr(new ID("y", Span(2, 14))),
-                    Span(2, 12)
-                )),
-                Span(2, 7, 2)
-            ))),
-            Block(),
+            NodePtr(new Block(
+                vec(NodePtr(new IAdd(
+                    NodePtr(new ID("a", Span(2, 5))),
+                    NodePtr(new Add(
+                        NodePtr(new ID("x", Span(2, 10))),
+                        NodePtr(new ID("y", Span(2, 14))),
+                        Span(2, 12)
+                    )),
+                    Span(2, 7, 2)
+                ))),
+                Span(1, 1, 3)
+            )),
+            nullptr,
             Span(1, 1, 3)
         ));
 
@@ -920,15 +1335,18 @@ TEST_CASE("interpret", "[interpret]") {
         ).node() == For(
             vec(NodePtr(new ID("x", Span(1, 5)))),
             NodePtr(new ID("c", Span(1, 10))),
-            vec(NodePtr(new Break(Span(2, 5, 5)))),
-            Block(
+            NodePtr(new Block(
+                vec(NodePtr(new Break(Span(2, 5, 5)))),
+                Span(1, 1, 3)
+            )),
+            NodePtr(new Block(
                 vec(NodePtr(new IAdd(
                     NodePtr(new ID("a", Span(4, 5))),
                     NodePtr(new Int32(1, Span(4, 10))),
                     Span(4, 7, 2)
                 ))),
                 Span(3, 1, 4)
-            ),
+            )),
             Span(1, 1, 3)
         ));
 
@@ -938,34 +1356,96 @@ TEST_CASE("interpret", "[interpret]") {
         ).node() == For(
             vec(NodePtr(new Placeholder(Span(1, 5)))),
             NodePtr(new ID("c", Span(1, 10))),
-            vec(NodePtr(new Call(
-                NodePtr(new ID("print", Span(2, 5, 5))),
-                Args(
-                    vec(NodePtr(new String("hi", Span(2, 11, 4)))),
-                    {},
-                    Span(2, 10, 6)
-                ),
-                Span(2, 10)
-            ))),
-            Block(),
+            NodePtr(new Block(
+                vec(NodePtr(new Call(
+                    NodePtr(new ID("print", Span(2, 5, 5))),
+                    NodePtr(new Args(
+                        vec(NodePtr(new String("hi", Span(2, 11, 4)))),
+                        {},
+                        Span(2, 10, 6)
+                    )),
+                    Span(2, 10)
+                ))),
+                Span(1, 1, 3)
+            )),
+            nullptr,
             Span(1, 1, 3)
         ));
 
         REQUIRE(*capture(
             "for x in c"
-        ).node() == MissingBodyErr(Span(1, 1, 10)));
+        ).node() == For(
+            vec(NodePtr(new ID("x", Span(1, 5)))),
+            NodePtr(new ID("c", Span(1, 10))),
+            NodePtr(new ErrorNode(
+                ErrPtr(new MissingBodyErr()),
+                Comp(OpID::MISSING, Span(1, 11))
+            )),
+            nullptr,
+            Span(1, 1, 3)
+        ));
 
         REQUIRE(*capture(
             "for 3 in c:\n"
             "    a += 1"
-        ).node() == ExpectedCommaSeparatedLoopVarsErr(Span(1, 5)));
+        ).node() == For(
+            vec(NodePtr(new ErrorNode(
+                ErrPtr(new ExpectedIDErr()),
+                Comp(OpID::PLAIN_INT, "3", Span(1, 5))
+            ))),
+            NodePtr(new ID("c", Span(1, 10))),
+            NodePtr(new Block(
+                vec(NodePtr(new IAdd(
+                    NodePtr(new ID("a", Span(2, 5))),
+                    NodePtr(new Int32(1, Span(2, 10))),
+                    Span(2, 7, 2)
+                ))),
+                Span(1, 1, 3)
+            )),
+            nullptr,
+            Span(1, 1, 3)
+        ));
 
         REQUIRE(*capture(
             "for x in c:\n"
             "    a += x\n"
             "elif true:\n"
             "    return 0"
-        ).node() == ExpectedElseErr(Span(3, 1, 4)));
+        ).node() == For(
+            vec(NodePtr(new ID("x", Span(1, 5)))),
+            NodePtr(new ID("c", Span(1, 10))),
+            NodePtr(new Block(
+                vec(NodePtr(new IAdd(
+                    NodePtr(new ID("a", Span(2, 5))),
+                    NodePtr(new ID("x", Span(2, 10))),
+                    Span(2, 7, 2)
+                ))),
+                Span(1, 1, 3)
+            )),
+            NodePtr(new ErrorNode(
+                ErrPtr(new ExpectedElseErr()),
+                Comp(
+                    OpID::ELIF,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(OpID::TRUE, Span(3, 6, 4)),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::PLAIN_INT, "0", Span(4, 12)),
+                                Span(4, 5, 6)
+                            )),
+                            Span(4, 5, 4, 10)
+                        ),
+                        Span(3, 10)
+                    ),
+                    Span(3, 1, 4)
+                ),
+                Span(3, 1, 4)
+            )),
+            Span(1, 1, 3)
+        ));
     }
 
     SECTION("GT") {
@@ -1007,7 +1487,14 @@ TEST_CASE("interpret", "[interpret]") {
 
         REQUIRE(*capture(
             "a.true"
-        ).node() == ExpectedGeneralIDErr(Span(1, 3, 4)));
+        ).node() == GetAttr(
+            NodePtr(new ID("a", Span(1, 1))),
+            NodePtr(new ErrorNode(
+                ErrPtr(new ExpectedGeneralIDErr()),
+                Comp(OpID::TRUE, Span(1, 3, 4))
+            )),
+            Span(1, 2)
+        ));
     }
 
     SECTION("IADD") {
@@ -1133,15 +1620,18 @@ TEST_CASE("interpret", "[interpret]") {
             "if x:\n"
             "    return 0"
         ).node() == If(
-            vec(Case(
+            vec(NodePtr(new Case(
                 NodePtr(new ID("x", Span(1, 4))),
-                vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, Span(2, 12))),
-                    Span(2, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(2, 12))),
+                        Span(2, 5, 6)
+                    ))),
+                    Span(2, 5, 2, 12)
+                )),
                 Span(1, 1, 2)
-            )),
-            Block(),
+            ))),
+            nullptr,
             Span(1, 1, 2)
         ));
 
@@ -1221,24 +1711,30 @@ TEST_CASE("interpret", "[interpret]") {
 
         REQUIRE(*cc.node() == If(
             vec(
-                Case(
+                NodePtr(new Case(
                     NodePtr(new ID("x", Span(1, 4))),
-                    vec(NodePtr(new Return(
-                        NodePtr(new Int32(0, Span(2, 12))),
-                        Span(2, 5, 6)
-                    ))),
+                    NodePtr(new Block(
+                        vec(NodePtr(new Return(
+                            NodePtr(new Int32(0, Span(2, 12))),
+                            Span(2, 5, 6)
+                        ))),
+                        Span(2, 5, 2, 12)
+                    )),
                     Span(1, 1, 2)
-                ),
-                Case(
+                )),
+                NodePtr(new Case(
                     NodePtr(new ID("y", Span(3, 6))),
-                    vec(NodePtr(new Return(
-                        NodePtr(new Int32(1, Span(4, 12))),
-                        Span(4, 5, 6)
-                    ))),
+                    NodePtr(new Block(
+                        vec(NodePtr(new Return(
+                            NodePtr(new Int32(1, Span(4, 12))),
+                            Span(4, 5, 6)
+                        ))),
+                        Span(4, 5, 4, 12)
+                    )),
                     Span(3, 1, 4)
-                )
+                ))
             ),
-            Block(),
+            nullptr,
             Span(1, 1, 2)
         ));
 
@@ -1251,30 +1747,36 @@ TEST_CASE("interpret", "[interpret]") {
             "    return 2"
         ).node() == If(
             vec(
-                Case(
+                NodePtr(new Case(
                     NodePtr(new ID("x", Span(1, 4))),
-                    vec(NodePtr(new Return(
-                        NodePtr(new Int32(0, Span(2, 12))),
-                        Span(2, 5, 6)
-                    ))),
+                    NodePtr(new Block(
+                        vec(NodePtr(new Return(
+                            NodePtr(new Int32(0, Span(2, 12))),
+                            Span(2, 5, 6)
+                        ))),
+                        Span(2, 5, 2, 12)
+                    )),
                     Span(1, 1, 2)
-                ),
-                Case(
+                )),
+                NodePtr(new Case(
                     NodePtr(new ID("y", Span(3, 6))),
-                    vec(NodePtr(new Return(
-                        NodePtr(new Int32(1, Span(4, 12))),
-                        Span(4, 5, 6)
-                    ))),
+                    NodePtr(new Block(
+                        vec(NodePtr(new Return(
+                            NodePtr(new Int32(1, Span(4, 12))),
+                            Span(4, 5, 6)
+                        ))),
+                        Span(4, 5, 4, 12)
+                    )),
                     Span(3, 1, 4)
-                )
+                ))
             ),
-            Block(
+            NodePtr(new Block(
                 vec(NodePtr(new Return(
                     NodePtr(new Int32(2, Span(6, 12))),
                     Span(6, 5, 6)
                 ))),
                 Span(5, 1, 4)
-            ),
+            )),
             Span(1, 1, 2)
         ));
 
@@ -1284,21 +1786,24 @@ TEST_CASE("interpret", "[interpret]") {
             "else:\n"
             "    return 1"
         ).node() == If(
-            vec(Case(
+            vec(NodePtr(new Case(
                 NodePtr(new ID("x", Span(1, 4))),
-                vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, Span(2, 12))),
-                    Span(2, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(2, 12))),
+                        Span(2, 5, 6)
+                    ))),
+                    Span(2, 5, 2, 12)
+                )),
                 Span(1, 1, 2)
-            )),
-            Block(
+            ))),
+            NodePtr(new Block(
                 vec(NodePtr(new Return(
                     NodePtr(new Int32(1, Span(4, 12))),
                     Span(4, 5, 6)
                 ))),
                 Span(3, 1, 4)
-            ),
+            )),
             Span(1, 1, 2)
         ));
 
@@ -1311,58 +1816,159 @@ TEST_CASE("interpret", "[interpret]") {
             "    return 2"
         ).node() == If(
             vec(
-                Case(
+                NodePtr(new Case(
                     NodePtr(new ID("x", Span(1, 4))),
+                    NodePtr(new Block(
+                        vec(NodePtr(new Return(
+                            NodePtr(new Int32(0, Span(2, 12))),
+                            Span(2, 5, 6)
+                        ))),
+                        Span(2, 5, 2, 12)
+                    )),
+                    Span(1, 1, 2)
+                )),
+                NodePtr(new Case(
+                    NodePtr(new ID("y", Span(3, 6))),
+                    NodePtr(new Block(
+                        vec(NodePtr(new Return(
+                            NodePtr(new Int32(1, Span(4, 12))),
+                            Span(4, 5, 6)
+                        ))),
+                        Span(4, 5, 4, 12)
+                    )),
+                    Span(3, 1, 4)
+                )),
+                NodePtr(new Case(
+                    NodePtr(new ID("z", Span(5, 6))),
+                    NodePtr(new Block(
+                        vec(NodePtr(new Return(
+                            NodePtr(new Int32(2, Span(6, 12))),
+                            Span(6, 5, 6)
+                        ))),
+                        Span(6, 5, 6, 12)
+                    )),
+                    Span(5, 1, 4)
+                ))
+            ),
+            nullptr,
+            Span(1, 1, 2)
+        ));
+
+        REQUIRE(*capture(
+            "if:\n"
+            "    return 0"
+        ).node() == If(
+            vec(NodePtr(new Case(
+                NodePtr(new ErrorNode(
+                    ErrPtr(new MissingPredicateErr()),
+                    Comp(OpID::MISSING, Span(1, 3))
+                )),
+                NodePtr(new Block(
                     vec(NodePtr(new Return(
                         NodePtr(new Int32(0, Span(2, 12))),
                         Span(2, 5, 6)
                     ))),
-                    Span(1, 1, 2)
-                ),
-                Case(
-                    NodePtr(new ID("y", Span(3, 6))),
-                    vec(NodePtr(new Return(
-                        NodePtr(new Int32(1, Span(4, 12))),
-                        Span(4, 5, 6)
-                    ))),
-                    Span(3, 1, 4)
-                ),
-                Case(
-                    NodePtr(new ID("z", Span(5, 6))),
-                    vec(NodePtr(new Return(
-                        NodePtr(new Int32(2, Span(6, 12))),
-                        Span(6, 5, 6)
-                    ))),
-                    Span(5, 1, 4)
-                )
-            ),
-            Block(),
+                    Span(2, 5, 2, 12)
+                )),
+                Span(1, 1, 2)
+            ))),
+            nullptr,
             Span(1, 1, 2)
         ));
 
         REQUIRE(*capture(
             "if x"
-        ).node() == MissingBodyErr(Span(1, 1, 4)));
-
-        REQUIRE(*capture(
-            "if x:\n"
-            "    return 0\n"
-            "elif y"
-        ).node() == MissingBodyErr(Span(3, 1, 6)));
+        ).node() == If(
+            vec(NodePtr(new Case(
+                NodePtr(new ID("x", Span(1, 4))),
+                NodePtr(new ErrorNode(
+                    ErrPtr(new MissingBodyErr()),
+                    Comp(OpID::MISSING, Span(1, 5))
+                )),
+                Span(1, 1, 2)
+            ))),
+            nullptr,
+            Span(1, 1, 2)
+        ));
 
         REQUIRE(*capture(
             "if x:\n"
             "    return 0\n"
             "else y:\n"
             "    return 1"
-        ).node() == UnexpectedPredicateErr(Span(3, 6)));
+        ).node() == If(
+            vec(NodePtr(new Case(
+                NodePtr(new ID("x", Span(1, 4))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(2, 12))),
+                        Span(2, 5, 6)
+                    ))),
+                    Span(2, 5, 2, 12)
+                )),
+                Span(1, 1, 2)
+            ))),
+            NodePtr(new Case(
+                NodePtr(new ErrorNode(
+                    ErrPtr(new UnexpectedPredicateErr()),
+                    Comp(OpID::ID, "y", Span(3, 6))
+                )),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(1, Span(4, 12))),
+                        Span(4, 5, 6)
+                    ))),
+                    Span(4, 5, 4, 12)
+                )),
+                Span(3, 1, 4)
+            )),
+            Span(1, 1, 2)
+        ));
 
         REQUIRE(*capture(
             "if x:\n"
             "    return 0\n"
             "case y:\n"
             "    return 1"
-        ).node() == ExpectedElifOrElseErr(Span(3, 1, 4)));
+        ).node() == If(
+            vec(
+                NodePtr(new Case(
+                    NodePtr(new ID("x", Span(1, 4))),
+                    NodePtr(new Block(
+                        vec(NodePtr(new Return(
+                            NodePtr(new Int32(0, Span(2, 12))),
+                            Span(2, 5, 6)
+                        ))),
+                        Span(2, 5, 2, 12)
+                    )),
+                    Span(1, 1, 2)
+                )),
+                NodePtr(new ErrorNode(
+                    ErrPtr(new ExpectedElifOrElseErr()),
+                    Comp(
+                        OpID::CASE,
+                        Comp(
+                            OpID::LABEL,
+                            Comp(OpID::ID, "y", Span(3, 6)),
+                            Comp(
+                                OpID::BLOCK,
+                                vec(Comp(
+                                    OpID::RETURN,
+                                    Comp(OpID::PLAIN_INT, "1", Span(4, 12)),
+                                    Span(4, 5, 6)
+                                )),
+                                Span(4, 5, 4, 12)
+                            ),
+                            Span(3, 7)
+                        ),
+                        Span(3, 1, 4)
+                    ),
+                    Span(3, 1, 4)
+                ))
+            ),
+            nullptr,
+            Span(1, 1, 2)
+        ));
     }
 
     SECTION("Init") {
@@ -1386,7 +1992,15 @@ TEST_CASE("interpret", "[interpret]") {
 
         REQUIRE(*capture(
             "true: Int = 3"
-        ).node() == ExpectedGeneralIDErr(Span(1, 1, 4)));
+        ).node() == Init(
+            NodePtr(new ErrorNode(
+                ErrPtr(new ExpectedGeneralIDErr()),
+                Comp(OpID::TRUE, Span(1, 1, 4))
+            )),
+            NodePtr(new ID("Int", Span(1, 7, 3))),
+            NodePtr(new Int32(3, Span(1, 13))),
+            Span(1, 11)
+        ));
     }
 
     SECTION("LSH") {
@@ -1441,11 +2055,59 @@ TEST_CASE("interpret", "[interpret]") {
 
         REQUIRE(*capture(
             "%%(%1 + %2)"
-        ).node() == ExpectedGeneralIDErr(Span(1, 3, 9)));
+        ).node() == LambdaVar(
+            2,
+            NodePtr(new ErrorNode(
+                ErrPtr(new ExpectedGeneralIDErr()),
+                Comp(
+                    OpID::GROUP,
+                    Comp(
+                        OpID::ADD,
+                        Comp(
+                            OpID::LAMBDA,
+                            Comp(OpID::PLAIN_INT, "1", Span(1, 5)),
+                            Span(1, 4)
+                        ),
+                        Comp(
+                            OpID::LAMBDA,
+                            Comp(OpID::PLAIN_INT, "2", Span(1, 10)),
+                            Span(1, 9)
+                        ),
+                        Span(1, 7)
+                    ),
+                    Span(1, 3, 1, 11)
+                )
+            )),
+            Span(1, 1, 2)
+        ));
 
         REQUIRE(*capture(
             "%[%1 + %2]"
-        ).node() == ExpectedGeneralIDErr(Span(1, 2, 9)));
+        ).node() == LambdaVar(
+            1,
+            NodePtr(new ErrorNode(
+                ErrPtr(new ExpectedGeneralIDErr()),
+                Comp(
+                    OpID::LIST,
+                    Comp(
+                        OpID::ADD,
+                        Comp(
+                            OpID::LAMBDA,
+                            Comp(OpID::PLAIN_INT, "1", Span(1, 4)),
+                            Span(1, 3)
+                        ),
+                        Comp(
+                            OpID::LAMBDA,
+                            Comp(OpID::PLAIN_INT, "2", Span(1, 9)),
+                            Span(1, 8)
+                        ),
+                        Span(1, 6)
+                    ),
+                    Span(1, 2, 1, 10)
+                )
+            )),
+            Span(1, 1)
+        ));
     }
 
     SECTION("Lambda Var") {
@@ -1659,11 +2321,18 @@ TEST_CASE("interpret", "[interpret]") {
 
         REQUIRE(*capture(
             "1e46f32"
-        ).node() == OutOfRangeErr(Span(1, 1, 7)));
+        ).node() == ErrorNode(
+            ErrPtr(new OutOfRangeErr(Span(1, 1, 7))),
+            Comp(OpID::FLOAT_TAIL, "1e46f32", Span(1, 1, 7))
+        ));
+
 
         REQUIRE(*capture(
             "1e309"
-        ).node() == OutOfRangeErr(Span(1, 1, 5)));
+        ).node() == ErrorNode(
+            ErrPtr(new OutOfRangeErr(Span(1, 1, 5))),
+            Comp(OpID::FLOAT_TAIL, "1e309", Span(1, 1, 5))
+        ));
 
         REQUIRE(*capture(
             "'\\0'"
@@ -1769,15 +2438,18 @@ TEST_CASE("interpret", "[interpret]") {
             "    return y"
         ).node() == Match(
             NodePtr(new ID("x", Span(1, 7))),
-            vec(MatchCase(
+            vec(NodePtr(new MatchCase(
                 NodePtr(new ID("y", Span(2, 6))),
                 nullptr,
-                vec(NodePtr(new Return(
-                    NodePtr(new ID("y", Span(3, 12))),
-                    Span(3, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new ID("y", Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
                 Span(2, 1, 4)
-            )),
+            ))),
             Span(1, 1, 5)
         ));
 
@@ -1787,19 +2459,22 @@ TEST_CASE("interpret", "[interpret]") {
             "    return y"
         ).node() == Match(
             NodePtr(new ID("x", Span(1, 7))),
-            vec(MatchCase(
+            vec(NodePtr(new MatchCase(
                 NodePtr(new TypeMatch(
                     NodePtr(new ID("y", Span(2, 6))),
                     NodePtr(new ID("Int", Span(2, 9, 3))),
                     Span(2, 7)
                 )),
                 nullptr,
-                vec(NodePtr(new Return(
-                    NodePtr(new ID("y", Span(3, 12))),
-                    Span(3, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new ID("y", Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
                 Span(2, 1, 4)
-            )),
+            ))),
             Span(1, 1, 5)
         ));
 
@@ -1809,19 +2484,22 @@ TEST_CASE("interpret", "[interpret]") {
             "    return y"
         ).node() == Match(
             NodePtr(new ID("x", Span(1, 7))),
-            vec(MatchCase(
+            vec(NodePtr(new MatchCase(
                 NodePtr(new ID("y", Span(2, 6))),
                 NodePtr(new GreaterThan(
                     NodePtr(new ID("y", Span(2, 11))),
                     NodePtr(new Int32(0, Span(2, 15))),
                     Span(2, 13)
                 )),
-                vec(NodePtr(new Return(
-                    NodePtr(new ID("y", Span(3, 12))),
-                    Span(3, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new ID("y", Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
                 Span(2, 1, 4)
-            )),
+            ))),
             Span(1, 1, 5)
         ));
 
@@ -1834,28 +2512,34 @@ TEST_CASE("interpret", "[interpret]") {
         ).node() == Match(
             NodePtr(new ID("x", Span(1, 7))),
             vec(
-                MatchCase(
+                NodePtr(new MatchCase(
                     NodePtr(new TypeMatch(
                         NodePtr(new ID("y", Span(2, 6))),
                         NodePtr(new ID("Int", Span(2, 9, 3))),
                         Span(2, 7)
                     )),
                     nullptr,
-                    vec(NodePtr(new Return(
-                        NodePtr(new ID("y", Span(3, 12))),
-                        Span(3, 5, 6)
-                    ))),
+                    NodePtr(new Block(
+                        vec(NodePtr(new Return(
+                            NodePtr(new ID("y", Span(3, 12))),
+                            Span(3, 5, 6)
+                        ))),
+                        Span(3, 5, 3, 12)
+                    )),
                     Span(2, 1, 4)
-                ),
-                MatchCase(
+                )),
+                NodePtr(new MatchCase(
                     NodePtr(new Placeholder(Span(4, 6))),
                     nullptr,
-                    vec(NodePtr(new Return(
-                        NodePtr(new Int32(0, Span(5, 12))),
-                        Span(5, 5, 6)
-                    ))),
+                    NodePtr(new Block(
+                        vec(NodePtr(new Return(
+                            NodePtr(new Int32(0, Span(5, 12))),
+                            Span(5, 5, 6)
+                        ))),
+                        Span(5, 5, 5, 12)
+                    )),
                     Span(4, 1, 4)
-                )
+                ))
             ),
             Span(1, 1, 5)
         ));
@@ -1864,18 +2548,20 @@ TEST_CASE("interpret", "[interpret]") {
             "match x\n"
             "case (y):\n"
             "    return y"
-
         ).node() == Match(
             NodePtr(new ID("x", Span(1, 7))),
-            vec(MatchCase(
+            vec(NodePtr(new MatchCase(
                 NodePtr(new ID("y", Span(2, 7))),
                 nullptr,
-                vec(NodePtr(new Return(
-                    NodePtr(new ID("y", Span(3, 12))),
-                    Span(3, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new ID("y", Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
                 Span(2, 1, 4)
-            )),
+            ))),
             Span(1, 1, 5)
         ));
 
@@ -1885,7 +2571,7 @@ TEST_CASE("interpret", "[interpret]") {
             "    return y"
         ).node() == Match(
             NodePtr(new ID("x", Span(1, 7))),
-            vec(MatchCase(
+            vec(NodePtr(new MatchCase(
                 NodePtr(new MatchTuple(
                     vec(
                         NodePtr(new ID("y", Span(2, 7))),
@@ -1894,12 +2580,15 @@ TEST_CASE("interpret", "[interpret]") {
                     Span(2, 6, 6)
                 )),
                 nullptr,
-                vec(NodePtr(new Return(
-                    NodePtr(new ID("y", Span(3, 12))),
-                    Span(3, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new ID("y", Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
                 Span(2, 1, 4)
-            )),
+            ))),
             Span(1, 1, 5)
         ));
 
@@ -1909,7 +2598,7 @@ TEST_CASE("interpret", "[interpret]") {
             "    return y"
         ).node() == Match(
             NodePtr(new ID("x", Span(1, 7))),
-            vec(MatchCase(
+            vec(NodePtr(new MatchCase(
                 NodePtr(new MatchTuple(
                     vec(
                         NodePtr(new ID("y", Span(2, 7))),
@@ -1922,12 +2611,15 @@ TEST_CASE("interpret", "[interpret]") {
                     Span(2, 6, 2, 18)
                 )),
                 nullptr,
-                vec(NodePtr(new Return(
-                    NodePtr(new ID("y", Span(3, 12))),
-                    Span(3, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new ID("y", Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
                 Span(2, 1, 4)
-            )),
+            ))),
             Span(1, 1, 5)
         ));
 
@@ -1937,7 +2629,7 @@ TEST_CASE("interpret", "[interpret]") {
             "    return y"
         ).node() == Match(
             NodePtr(new ID("x", Span(1, 7))),
-            vec(MatchCase(
+            vec(NodePtr(new MatchCase(
                 NodePtr(new MatchTuple(
                     vec(NodePtr(new Expansion(
                         NodePtr(new ID("args", Span(2, 8, 4))),
@@ -1946,12 +2638,15 @@ TEST_CASE("interpret", "[interpret]") {
                     Span(2, 6, 7)
                 )),
                 nullptr,
-                vec(NodePtr(new Return(
-                    NodePtr(new ID("y", Span(3, 12))),
-                    Span(3, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new ID("y", Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
                 Span(2, 1, 4)
-            )),
+            ))),
             Span(1, 1, 5)
         ));
 
@@ -1961,7 +2656,7 @@ TEST_CASE("interpret", "[interpret]") {
             "    return y"
         ).node() == Match(
             NodePtr(new ID("x", Span(1, 7))),
-            vec(MatchCase(
+            vec(NodePtr(new MatchCase(
                 NodePtr(new MatchList(
                     vec(
                         NodePtr(new ID("y", Span(2, 7))),
@@ -1970,12 +2665,15 @@ TEST_CASE("interpret", "[interpret]") {
                     Span(2, 6, 6)
                 )),
                 nullptr,
-                vec(NodePtr(new Return(
-                    NodePtr(new ID("y", Span(3, 12))),
-                    Span(3, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new ID("y", Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
                 Span(2, 1, 4)
-            )),
+            ))),
             Span(1, 1, 5)
         ));
 
@@ -1985,7 +2683,7 @@ TEST_CASE("interpret", "[interpret]") {
             "    return y"
         ).node() == Match(
             NodePtr(new ID("x", Span(1, 7))),
-            vec(MatchCase(
+            vec(NodePtr(new MatchCase(
                 NodePtr(new MatchList(
                     vec(
                         NodePtr(new ID("y", Span(2, 7))),
@@ -1998,12 +2696,15 @@ TEST_CASE("interpret", "[interpret]") {
                     Span(2, 6, 2, 18)
                 )),
                 nullptr,
-                vec(NodePtr(new Return(
-                    NodePtr(new ID("y", Span(3, 12))),
-                    Span(3, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new ID("y", Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
                 Span(2, 1, 4)
-            )),
+            ))),
             Span(1, 1, 5)
         ));
 
@@ -2013,7 +2714,7 @@ TEST_CASE("interpret", "[interpret]") {
             "    return y"
         ).node() == Match(
             NodePtr(new ID("x", Span(1, 7))),
-            vec(MatchCase(
+            vec(NodePtr(new MatchCase(
                 NodePtr(new MatchMap(
                     vec(
                         NodePtr(new Entry(
@@ -2030,12 +2731,15 @@ TEST_CASE("interpret", "[interpret]") {
                     Span(2, 6, 2, 19)
                 )),
                 nullptr,
-                vec(NodePtr(new Return(
-                    NodePtr(new ID("y", Span(3, 12))),
-                    Span(3, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new ID("y", Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
                 Span(2, 1, 4)
-            )),
+            ))),
             Span(1, 1, 5)
         ));
 
@@ -2045,7 +2749,7 @@ TEST_CASE("interpret", "[interpret]") {
             "    return y"
         ).node() == Match(
             NodePtr(new ID("x", Span(1, 7))),
-            vec(MatchCase(
+            vec(NodePtr(new MatchCase(
                 NodePtr(new MatchMap(
                     vec(NodePtr(new Entry(
                         NodePtr(new Int32(3, Span(2, 7))),
@@ -2059,12 +2763,15 @@ TEST_CASE("interpret", "[interpret]") {
                     Span(2, 6, 2, 17)
                 )),
                 nullptr,
-                vec(NodePtr(new Return(
-                    NodePtr(new ID("y", Span(3, 12))),
-                    Span(3, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new ID("y", Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
                 Span(2, 1, 4)
-            )),
+            ))),
             Span(1, 1, 5)
         ));
 
@@ -2074,7 +2781,7 @@ TEST_CASE("interpret", "[interpret]") {
             "    return y"
         ).node() == Match(
             NodePtr(new ID("x", Span(1, 7))),
-            vec(MatchCase(
+            vec(NodePtr(new MatchCase(
                 NodePtr(new MatchMap(
                     vec(
                         NodePtr(new Entry(
@@ -2095,12 +2802,15 @@ TEST_CASE("interpret", "[interpret]") {
                     Span(2, 6, 2, 29)
                 )),
                 nullptr,
-                vec(NodePtr(new Return(
-                    NodePtr(new ID("y", Span(3, 12))),
-                    Span(3, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new ID("y", Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
                 Span(2, 1, 4)
-            )),
+            ))),
             Span(1, 1, 5)
         ));
 
@@ -2110,27 +2820,30 @@ TEST_CASE("interpret", "[interpret]") {
             "    return y"
         ).node() == Match(
             NodePtr(new ID("x", Span(1, 7))),
-            vec(MatchCase(
+            vec(NodePtr(new MatchCase(
                 NodePtr(new MatchObject(
                     NodePtr(new ID("T", Span(2, 6))),
-                    MatchArgs(
+                    NodePtr(new MatchArgs(
                         vec(NodePtr(new ID("y", Span(2, 8)))),
                         vec(NodePtr(new MatchKeywordArg(
-                            ID("w", Span(2, 11)),
+                            NodePtr(new ID("w", Span(2, 11))),
                             NodePtr(new ID("z", Span(2, 13))),
                             Span(2, 12)
                         ))),
                         Span(2, 7, 2, 14)
-                    ),
+                    )),
                     Span(2, 7)
                 )),
                 nullptr,
-                vec(NodePtr(new Return(
-                    NodePtr(new ID("y", Span(3, 12))),
-                    Span(3, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new ID("y", Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
                 Span(2, 1, 4)
-            )),
+            ))),
             Span(1, 1, 5)
         ));
 
@@ -2140,10 +2853,10 @@ TEST_CASE("interpret", "[interpret]") {
             "    return y"
         ).node() == Match(
             NodePtr(new ID("x", Span(1, 7))),
-            vec(MatchCase(
+            vec(NodePtr(new MatchCase(
                 NodePtr(new MatchObject(
                     NodePtr(new ID("T", Span(2, 6))),
-                    MatchArgs(
+                    NodePtr(new MatchArgs(
                         vec(
                             NodePtr(new ID("y", Span(2, 8))),
                             NodePtr(new Expansion(
@@ -2156,16 +2869,19 @@ TEST_CASE("interpret", "[interpret]") {
                             Span(2, 18, 2)
                         ))),
                         Span(2, 7, 2, 26)
-                    ),
+                    )),
                     Span(2, 7)
                 )),
                 nullptr,
-                vec(NodePtr(new Return(
-                    NodePtr(new ID("y", Span(3, 12))),
-                    Span(3, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new ID("y", Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
                 Span(2, 1, 4)
-            )),
+            ))),
             Span(1, 1, 5)
         ));
 
@@ -2175,7 +2891,7 @@ TEST_CASE("interpret", "[interpret]") {
             "    return 0"
         ).node() == Match(
             NodePtr(new ID("x", Span(1, 7))),
-            vec(MatchCase(
+            vec(NodePtr(new MatchCase(
                 NodePtr(new MatchOptions(
                     vec(
                         NodePtr(new Int32(1, Span(2, 6))),
@@ -2184,12 +2900,15 @@ TEST_CASE("interpret", "[interpret]") {
                     Span(2, 6, 6)
                 )),
                 nullptr,
-                vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, Span(3, 12))),
-                    Span(3, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
                 Span(2, 1, 4)
-            )),
+            ))),
             Span(1, 1, 5)
         ));
 
@@ -2199,37 +2918,40 @@ TEST_CASE("interpret", "[interpret]") {
             "    return y"
         ).node() == Match(
             NodePtr(new ID("x", Span(1, 7))),
-            vec(MatchCase(
+            vec(NodePtr(new MatchCase(
                 NodePtr(new MatchOptions(
                     vec(
                         NodePtr(new MatchObject(
                             NodePtr(new ID("Int", Span(2, 6, 3))),
-                            MatchArgs(
+                            NodePtr(new MatchArgs(
                                 vec(NodePtr(new ID("y", Span(2, 10)))),
                                 {},
                                 Span(2, 9, 3)
-                            ),
+                            )),
                             Span(2, 9)
                         )),
                         NodePtr(new MatchObject(
                             NodePtr(new ID("String", Span(2, 16, 6))),
-                            MatchArgs(
+                            NodePtr(new MatchArgs(
                                 vec(NodePtr(new ID("y", Span(2, 23)))),
                                 {},
                                 Span(2, 22, 3)
-                            ),
+                            )),
                             Span(2, 22)
                         ))
                     ),
                     Span(2, 6, 2, 24)
                 )),
                 nullptr,
-                vec(NodePtr(new Return(
-                    NodePtr(new ID("y", Span(3, 12))),
-                    Span(3, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new ID("y", Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
                 Span(2, 1, 4)
-            )),
+            ))),
             Span(1, 1, 5)
         ));
 
@@ -2239,7 +2961,7 @@ TEST_CASE("interpret", "[interpret]") {
             "    return y"
         ).node() == Match(
             NodePtr(new ID("x", Span(1, 7))),
-            vec(MatchCase(
+            vec(NodePtr(new MatchCase(
                 NodePtr(new As(
                     NodePtr(new MatchOptions(
                         vec(
@@ -2252,12 +2974,15 @@ TEST_CASE("interpret", "[interpret]") {
                     Span(2, 13, 2)
                 )),
                 nullptr,
-                vec(NodePtr(new Return(
-                    NodePtr(new ID("y", Span(3, 12))),
-                    Span(3, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new ID("y", Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
                 Span(2, 1, 4)
-            )),
+            ))),
             Span(1, 1, 5)
         ));
 
@@ -2267,7 +2992,7 @@ TEST_CASE("interpret", "[interpret]") {
             "    return 0"
         ).node() == Match(
             NodePtr(new ID("x", Span(1, 7))),
-            vec(MatchCase(
+            vec(NodePtr(new MatchCase(
                 NodePtr(new MatchTuple(
                     vec(NodePtr(new As(
                         NodePtr(new Int32(3, Span(2, 7))),
@@ -2280,12 +3005,15 @@ TEST_CASE("interpret", "[interpret]") {
                     Span(2, 6, 2, 17)
                 )),
                 nullptr,
-                vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, Span(3, 12))),
-                    Span(3, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
                 Span(2, 1, 4)
-            )),
+            ))),
             Span(1, 1, 5)
         ));
 
@@ -2295,7 +3023,7 @@ TEST_CASE("interpret", "[interpret]") {
             "    return 0"
         ).node() == Match(
             NodePtr(new ID("x", Span(1, 7))),
-            vec(MatchCase(
+            vec(NodePtr(new MatchCase(
                 NodePtr(new MatchTuple(
                     vec(NodePtr(new TypeMatch(
                         NodePtr(new Expansion(
@@ -2308,12 +3036,15 @@ TEST_CASE("interpret", "[interpret]") {
                     Span(2, 6, 2, 17)
                 )),
                 nullptr,
-                vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, Span(3, 12))),
-                    Span(3, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
                 Span(2, 1, 4)
-            )),
+            ))),
             Span(1, 1, 5)
         ));
 
@@ -2323,7 +3054,7 @@ TEST_CASE("interpret", "[interpret]") {
             "    return 0"
         ).node() == Match(
             NodePtr(new ID("x", Span(1, 7))),
-            vec(MatchCase(
+            vec(NodePtr(new MatchCase(
                 NodePtr(new MatchMap(
                     vec(NodePtr(new As(
                         NodePtr(new Int32(3, Span(2, 7))),
@@ -2336,12 +3067,15 @@ TEST_CASE("interpret", "[interpret]") {
                     Span(2, 6, 2, 20)
                 )),
                 nullptr,
-                vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, Span(3, 12))),
-                    Span(3, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
                 Span(2, 1, 4)
-            )),
+            ))),
             Span(1, 1, 5)
         ));
 
@@ -2351,7 +3085,7 @@ TEST_CASE("interpret", "[interpret]") {
             "    return 0"
         ).node() == Match(
             NodePtr(new ID("x", Span(1, 7))),
-            vec(MatchCase(
+            vec(NodePtr(new MatchCase(
                 NodePtr(new MatchMap(
                     vec(NodePtr(new TypeMatch(
                         NodePtr(new Expansion(
@@ -2364,12 +3098,15 @@ TEST_CASE("interpret", "[interpret]") {
                     Span(2, 6, 2, 20)
                 )),
                 nullptr,
-                vec(NodePtr(new Return(
-                    NodePtr(new Int32(0, Span(3, 12))),
-                    Span(3, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
                 Span(2, 1, 4)
-            )),
+            ))),
             Span(1, 1, 5)
         ));
 
@@ -2379,142 +3116,649 @@ TEST_CASE("interpret", "[interpret]") {
             "    return y"
         ).node() == Match(
             NodePtr(new ID("x", Span(1, 7))),
-            vec(MatchCase(
+            vec(NodePtr(new MatchCase(
                 NodePtr(new Call(
                     NodePtr(new ID("f", Span(2, 7))),
-                    Args(
+                    NodePtr(new Args(
                         vec(NodePtr(new ID("y", Span(2, 9)))),
                         {},
                         Span(2, 8, 3)
-                    ),
+                    )),
                     Span(2, 8)
                 )),
                 nullptr,
-                vec(NodePtr(new Return(
-                    NodePtr(new ID("y", Span(3, 12))),
-                    Span(3, 5, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new ID("y", Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
                 Span(2, 1, 4)
-            )),
+            ))),
             Span(1, 1, 5)
         ));
 
         REQUIRE(*capture(
             "match x"
-        ).node() == NoMatchCasesErr(Span(1, 1, 7)));
+        ).node() == ErrorNode(
+            ErrPtr(new NoMatchCasesErr()),
+            Comp(
+                OpID::MATCH,
+                Comp(OpID::ID, "x", Span(1, 7)),
+                Span(1, 1, 5)
+            ),
+            Span(1, 1, 5)
+        ));
 
         REQUIRE(*capture(
             "match x\n"
             "case *args:\n"
             "    return 0"
-        ).node() == VarArgsNotAllowedHereErr(Span(2, 6, 5)));
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
+            vec(NodePtr(new MatchCase(
+                NodePtr(new ErrorNode(
+                    ErrPtr(new ExpectedMatchExprErr()),
+                    Comp(
+                        OpID::UNPACK_ARGS,
+                        Comp(OpID::ID, "args", Span(2, 7, 4)),
+                        Span(2, 6)
+                    )
+                )),
+                nullptr,
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
+                Span(2, 1, 4)
+            ))),
+            Span(1, 1, 5)
+        ));
 
         REQUIRE(*capture(
             "match x\n"
             "case **kwargs:\n"
             "    return 0"
-        ).node() == VarKeywordArgsNotAllowedHereErr(Span(2, 6, 8)));
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
+            vec(NodePtr(new MatchCase(
+                NodePtr(new ErrorNode(
+                    ErrPtr(new ExpectedMatchExprErr()),
+                    Comp(
+                        OpID::UNPACK_KWARGS,
+                        Comp(OpID::ID, "kwargs", Span(2, 8, 6)),
+                        Span(2, 6, 2)
+                    )
+                )),
+                nullptr,
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
+                Span(2, 1, 4)
+            ))),
+            Span(1, 1, 5)
+        ));
 
         REQUIRE(*capture(
             "match x\n"
             "case [**kwargs]:\n"
             "    return 0"
-        ).node() == VarKeywordArgsNotAllowedHereErr(Span(2, 7, 8)));
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
+            vec(NodePtr(new MatchCase(
+                NodePtr(new MatchList(
+                    vec(NodePtr(new ErrorNode(
+                        ErrPtr(new ExpectedElementMatchExprErr()),
+                        Comp(
+                            OpID::UNPACK_KWARGS,
+                            Comp(OpID::ID, "kwargs", Span(2, 9, 6)),
+                            Span(2, 7, 2)
+                        )
+                    ))),
+                    Span(2, 6, 2, 15)
+                )),
+                nullptr,
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
+                Span(2, 1, 4)
+            ))),
+            Span(1, 1, 5)
+        ));
 
         REQUIRE(*capture(
             "match x\n"
             "case {*args}:\n"
             "    return 0"
-        ).node() == ExpectedEntryOrVarKeywordArgsErr(Span(2, 7, 5)));
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
+            vec(NodePtr(new MatchCase(
+                NodePtr(new MatchMap(
+                    vec(NodePtr(new ErrorNode(
+                        ErrPtr(new ExpectedEntryMatchExprErr()),
+                        Comp(
+                            OpID::UNPACK_ARGS,
+                            Comp(OpID::ID, "args", Span(2, 8, 4)),
+                            Span(2, 7)
+                        )
+                    ))),
+                    Span(2, 6, 2, 12)
+                )),
+                nullptr,
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
+                Span(2, 1, 4)
+            ))),
+            Span(1, 1, 5)
+        ));
 
         REQUIRE(*capture(
             "match x\n"
             "case [y=2]:\n"
             "    return 0"
-        ).node() == UnexpectedOpErr(OpID::BIND, Span(2, 8)));
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
+            vec(NodePtr(new MatchCase(
+                NodePtr(new MatchList(
+                    vec(NodePtr(new ErrorNode(
+                        ErrPtr(new ExpectedElementMatchExprErr()),
+                        Comp(
+                            OpID::BIND,
+                            Comp(OpID::ID, "y", Span(2, 7)),
+                            Comp(OpID::PLAIN_INT, "2", Span(2, 9)),
+                            Span(2, 8)
+                        )
+                    ))),
+                    Span(2, 6, 5)
+                )),
+                nullptr,
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
+                Span(2, 1, 4)
+            ))),
+            Span(1, 1, 5)
+        ));
 
         REQUIRE(*capture(
             "match x\n"
             "case y as z as w:\n"
             "    return y"
-        ).node() == DoubleAsErr(Span(2, 6, 11)));
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
+            vec(NodePtr(new MatchCase(
+                NodePtr(new As(
+                    NodePtr(new ErrorNode(
+                        ErrPtr(new ExpectedAsLHSExprErr()),
+                        Comp(
+                            OpID::AS,
+                            Comp(OpID::ID, "y", Span(2, 6)),
+                            Comp(OpID::ID, "z", Span(2, 11)),
+                            Span(2, 8, 2)
+                        )
+                    )),
+                    NodePtr(new ID("w", Span(2, 16))),
+                    Span(2, 13, 2)
+                )),
+                nullptr,
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new ID("y", Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
+                Span(2, 1, 4)
+            ))),
+            Span(1, 1, 5)
+        ));
 
         REQUIRE(*capture(
             "match x\n"
             "case y: Int as z:\n"
             "    return y"
-        ).node() == TypeMatchWithAsErr(Span(2, 6, 11)));
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
+            vec(NodePtr(new MatchCase(
+                NodePtr(new As(
+                    NodePtr(new ErrorNode(
+                        ErrPtr(new ExpectedAsLHSExprErr()),
+                        Comp(
+                            OpID::TYPE_LABEL,
+                            Comp(OpID::ID, "y", Span(2, 6)),
+                            Comp(OpID::ID, "Int", Span(2, 9, 3)),
+                            Span(2, 7)
+                        )
+                    )),
+                    NodePtr(new ID("z", Span(2, 16))),
+                    Span(2, 13, 2)
+                )),
+                nullptr,
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new ID("y", Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
+                Span(2, 1, 4)
+            ))),
+            Span(1, 1, 5)
+        ));
 
         REQUIRE(*capture(
             "match x\n"
             "case [*args as y]:\n"
             "    return y"
-        ).node() == VarArgsWithAsErr(Span(2, 7, 10)));
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
+            vec(NodePtr(new MatchCase(
+                NodePtr(new MatchList(
+                    vec(NodePtr(new As(
+                        NodePtr(new ErrorNode(
+                            ErrPtr(new ExpectedAsLHSExprErr()),
+                            Comp(
+                                OpID::UNPACK_ARGS,
+                                Comp(OpID::ID, "args", Span(2, 8, 4)),
+                                Span(2, 7)
+                            )
+                        )),
+                        NodePtr(new ID("y", Span(2, 16))),
+                        Span(2, 13, 2)
+                    ))),
+                    Span(2, 6, 2, 17)
+                )),
+                nullptr,
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new ID("y", Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
+                Span(2, 1, 4)
+            ))),
+            Span(1, 1, 5)
+        ));
 
         REQUIRE(*capture(
             "match x\n"
             "case T(**kwargs as y):\n"
             "    return 0"
-        ).node() == VarArgsWithAsErr(Span(2, 8, 13)));
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
+            vec(NodePtr(new MatchCase(
+                NodePtr(new MatchObject(
+                    NodePtr(new ID("T", Span(2, 6))),
+                    NodePtr(new MatchArgs(
+                        vec(NodePtr(new As(
+                            NodePtr(new ErrorNode(
+                                ErrPtr(new ExpectedAsLHSExprErr()),
+                                Comp(
+                                    OpID::UNPACK_KWARGS,
+                                    Comp(OpID::ID, "kwargs", Span(2, 10, 6)),
+                                    Span(2, 8, 2)
+                                )
+                            )),
+                            NodePtr(new ID("y", Span(2, 20))),
+                            Span(2, 17, 2)
+                        ))),
+                        {},
+                        Span(2, 7, 2, 21)
+                    )),
+                    Span(2, 7)
+                )),
+                nullptr,
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
+                Span(2, 1, 4)
+            ))),
+            Span(1, 1, 5)
+        ));
 
         REQUIRE(*capture(
             "match x\n"
             "case (y: Int):\n"
             "    return 0"
-        ).node() == ExpectedExprErr(Span(2, 7, 6)));
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
+            vec(NodePtr(new MatchCase(
+                NodePtr(new ErrorNode(
+                    ErrPtr(new ExpectedExprErr()),
+                    Comp(
+                        OpID::TYPE_LABEL,
+                        Comp(OpID::ID, "y", Span(2, 7)),
+                        Comp(OpID::ID, "Int", Span(2, 10, 3)),
+                        Span(2, 8)
+                    )
+                )),
+                nullptr,
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
+                Span(2, 1, 4)
+            ))),
+            Span(1, 1, 5)
+        ));
 
         REQUIRE(*capture(
             "match x\n"
             "case (3 as y):\n"
             "    return 0"
-        ).node() == ExpectedExprErr(Span(2, 7, 6)));
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
+            vec(NodePtr(new MatchCase(
+                NodePtr(new ErrorNode(
+                    ErrPtr(new ExpectedExprErr()),
+                    Comp(
+                        OpID::AS,
+                        Comp(OpID::PLAIN_INT, "3", Span(2, 7)),
+                        Comp(OpID::ID, "y", Span(2, 12)),
+                        Span(2, 9, 2)
+                    )
+                )),
+                nullptr,
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
+                Span(2, 1, 4)
+            ))),
+            Span(1, 1, 5)
+        ));
 
         REQUIRE(*capture(
             "match x\n"
             "case {y: Int}:\n"
             "    return 0"
-        ).node() == ExpectedEntryOrVarKeywordArgsErr(Span(2, 7, 6)));
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
+            vec(NodePtr(new MatchCase(
+                NodePtr(new MatchMap(
+                    vec(NodePtr(new ErrorNode(
+                        ErrPtr(new ExpectedEntryMatchExprErr()),
+                        Comp(
+                            OpID::TYPE_LABEL,
+                            Comp(OpID::ID, "y", Span(2, 7)),
+                            Comp(OpID::ID, "Int", Span(2, 10, 3)),
+                            Span(2, 8)
+                        )
+                    ))),
+                    Span(2, 6, 2, 13)
+                )),
+                nullptr,
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
+                Span(2, 1, 4)
+            ))),
+            Span(1, 1, 5)
+        ));
 
         REQUIRE(*capture(
             "match x\n"
             "case {3 as y}:\n"
             "    return 0"
-        ).node() == ExpectedEntryOrVarKeywordArgsErr(Span(2, 7, 6)));
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
+            vec(NodePtr(new MatchCase(
+                NodePtr(new MatchMap(
+                    vec(NodePtr(new ErrorNode(
+                        ErrPtr(new ExpectedEntryMatchExprErr()),
+                        Comp(
+                            OpID::AS,
+                            Comp(OpID::PLAIN_INT, "3", Span(2, 7)),
+                            Comp(OpID::ID, "y", Span(2, 12)),
+                            Span(2, 9, 2)
+                        )
+                    ))),
+                    Span(2, 6, 2, 13)
+                )),
+                nullptr,
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
+                Span(2, 1, 4)
+            ))),
+            Span(1, 1, 5)
+        ));
 
         REQUIRE(*capture(
             "match x\n"
             "case [*3: Int]:\n"
             "    return 0"
-        ).node() == ExpectedIDErr(Span(2, 8)));
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
+            vec(NodePtr(new MatchCase(
+                NodePtr(new MatchList(
+                    vec(NodePtr(new TypeMatch(
+                        NodePtr(new ErrorNode(
+                            ErrPtr(new ExpectedIDErr()),
+                            Comp(OpID::PLAIN_INT, "3", Span(2, 8))
+                        )),
+                        NodePtr(new ID("Int", Span(2, 11, 3))),
+                        Span(2, 9)
+                    ))),
+                    Span(2, 6, 2, 14)
+                )),
+                nullptr,
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
+                Span(2, 1, 4)
+            ))),
+            Span(1, 1, 5)
+        ));
 
         REQUIRE(*capture(
             "match x\n"
             "case {**3: Int}:\n"
             "    return 0"
-        ).node() == ExpectedIDErr(Span(2, 9)));
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
+            vec(NodePtr(new MatchCase(
+                NodePtr(new MatchMap(
+                    vec(NodePtr(new TypeMatch(
+                        NodePtr(new ErrorNode(
+                            ErrPtr(new ExpectedIDErr()),
+                            Comp(OpID::PLAIN_INT, "3", Span(2, 9))
+                        )),
+                        NodePtr(new ID("Int", Span(2, 12, 3))),
+                        Span(2, 10)
+                    ))),
+                    Span(2, 6, 2, 15)
+                )),
+                nullptr,
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
+                Span(2, 1, 4)
+            ))),
+            Span(1, 1, 5)
+        ));
 
         REQUIRE(*capture(
             "match x\n"
             "case [y as *3]:\n"
             "    return 0"
-        ).node() == ExpectedIDErr(Span(2, 13)));
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
+            vec(NodePtr(new MatchCase(
+                NodePtr(new MatchList(
+                    vec(NodePtr(new As(
+                        NodePtr(new ID("y", Span(2, 7))),
+                        NodePtr(new ErrorNode(
+                            ErrPtr(new ExpectedIDErr()),
+                            Comp(OpID::PLAIN_INT, "3", Span(2, 13))
+                        )),
+                        Span(2, 9, 2)
+                    ))),
+                    Span(2, 6, 2, 14)
+                )),
+                nullptr,
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
+                Span(2, 1, 4)
+            ))),
+            Span(1, 1, 5)
+        ));
 
         REQUIRE(*capture(
             "match x\n"
             "case {y as **3}:\n"
             "    return 0"
-        ).node() == ExpectedIDErr(Span(2, 14)));
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
+            vec(NodePtr(new MatchCase(
+                NodePtr(new MatchMap(
+                    vec(NodePtr(new As(
+                        NodePtr(new ID("y", Span(2, 7))),
+                        NodePtr(new ErrorNode(
+                            ErrPtr(new ExpectedIDErr()),
+                            Comp(OpID::PLAIN_INT, "3", Span(2, 14))
+                        )),
+                        Span(2, 9, 2)
+                    ))),
+                    Span(2, 6, 2, 15)
+                )),
+                nullptr,
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
+                Span(2, 1, 4)
+            ))),
+            Span(1, 1, 5)
+        ));
+
+        REQUIRE(*capture(
+            "match x\n"
+            "case:\n"
+            "    return 0"
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
+            vec(NodePtr(new MatchCase(
+                NodePtr(new ErrorNode(
+                    ErrPtr(new MissingPredicateErr()),
+                    Comp(OpID::MISSING, Span(2, 5))
+                )),
+                nullptr,
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new Int32(0, Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
+                Span(2, 1, 4)
+            ))),
+            Span(1, 1, 5)
+        ));
 
         REQUIRE(*capture(
             "match x\n"
             "case y"
-        ).node() == MissingBodyErr(Span(2, 1, 6)));
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
+            vec(NodePtr(new MatchCase(
+                NodePtr(new ID("y", Span(2, 6))),
+                nullptr,
+                NodePtr(new ErrorNode(
+                    ErrPtr(new MissingBodyErr()),
+                    Comp(OpID::MISSING, Span(2, 7))
+                )),
+                Span(2, 1, 4)
+            ))),
+            Span(1, 1, 5)
+        ));
 
         REQUIRE(*capture(
             "match x\n"
             "elif y:\n"
             "    return y"
-        ).node() == ExpectedCaseErr(Span(2, 1, 4)));
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
+            vec(NodePtr(new ErrorNode(
+                ErrPtr(new ExpectedCaseErr()),
+                Comp(
+                    OpID::ELIF,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(OpID::ID, "y", Span(2, 6)),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::RETURN,
+                                Comp(OpID::ID, "y", Span(3, 12)),
+                                Span(3, 5, 6)
+                            )),
+                            Span(3, 5, 3, 12)
+                        ),
+                        Span(2, 7)
+                    ),
+                    Span(2, 1, 4)
+                ),
+                Span(2, 1, 4)
+            ))),
+            Span(1, 1, 5)
+        ));
     }
 
     SECTION("NEG") {
@@ -2682,11 +3926,27 @@ TEST_CASE("interpret", "[interpret]") {
 
         REQUIRE(*capture(
             "x if y"
-        ).node() == ExpectedExprErr(Span(1, 1, 6)));
+        ).node() == ErrorNode(
+            ErrPtr(new ExpectedExprErr()),
+            Comp(
+                OpID::TERNARY_IF,
+                Comp(OpID::ID, "x", Span(1, 1)),
+                Comp(OpID::ID, "y", Span(1, 6)),
+                Span(1, 3, 2)
+            )
+        ));
 
         REQUIRE(*capture(
             "x else y"
-        ).node() == ExpectedTernaryIfErr(Span(1, 1)));
+        ).node() == ErrorNode(
+            ErrPtr(new ExpectedExprErr()),
+            Comp(
+                OpID::TERNARY_ELSE,
+                Comp(OpID::ID, "x", Span(1, 1)),
+                Comp(OpID::ID, "y", Span(1, 8)),
+                Span(1, 3, 4)
+            )
+        ));
     }
 
     SECTION("This") {
@@ -2702,29 +3962,32 @@ TEST_CASE("interpret", "[interpret]") {
             "except e: E:\n"
             "    g()"
         ).node() == Try(
-            Block(
+            NodePtr(new Block(
                 vec(NodePtr(new Call(
                     NodePtr(new ID("f", Span(2, 5))),
-                    Args({}, {}, Span(2, 6, 2)),
+                    NodePtr(new Args({}, {}, Span(2, 6, 2))),
                     Span(2, 6)
                 ))),
                 Span(1, 1, 3)
-            ),
-            vec(MatchCase(
+            )),
+            vec(NodePtr(new MatchCase(
                 NodePtr(new TypeMatch(
                     NodePtr(new ID("e", Span(3, 8))),
                     NodePtr(new ID("E", Span(3, 11))),
                     Span(3, 9)
                 )),
                 nullptr,
-                vec(NodePtr(new Call(
-                    NodePtr(new ID("g", Span(4, 5))),
-                    Args({}, {}, Span(4, 6, 2)),
-                    Span(4, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Call(
+                        NodePtr(new ID("g", Span(4, 5))),
+                        NodePtr(new Args({}, {}, Span(4, 6, 2))),
+                        Span(4, 6)
+                    ))),
+                    Span(4, 5, 3)
+                )),
                 Span(3, 1, 6)
-            )),
-            Block(),
+            ))),
+            nullptr,
             Span(1, 1, 3)
         ));
 
@@ -2736,36 +3999,39 @@ TEST_CASE("interpret", "[interpret]") {
             "finally:\n"
             "    h()"
         ).node() == Try(
-            Block(
+            NodePtr(new Block(
                 vec(NodePtr(new Call(
                     NodePtr(new ID("f", Span(2, 5))),
-                    Args({}, {}, Span(2, 6, 2)),
+                    NodePtr(new Args({}, {}, Span(2, 6, 2))),
                     Span(2, 6)
                 ))),
                 Span(1, 1, 3)
-            ),
-            vec(MatchCase(
+            )),
+            vec(NodePtr(new MatchCase(
                 NodePtr(new TypeMatch(
                     NodePtr(new ID("e", Span(3, 8))),
                     NodePtr(new ID("E", Span(3, 11))),
                     Span(3, 9)
                 )),
                 nullptr,
-                vec(NodePtr(new Call(
-                    NodePtr(new ID("g", Span(4, 5))),
-                    Args({}, {}, Span(4, 6, 2)),
-                    Span(4, 6)
-                ))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Call(
+                        NodePtr(new ID("g", Span(4, 5))),
+                        NodePtr(new Args({}, {}, Span(4, 6, 2))),
+                        Span(4, 6)
+                    ))),
+                    Span(4, 5, 3)
+                )),
                 Span(3, 1, 6)
-            )),
-            Block(
+            ))),
+            NodePtr(new Block(
                 vec(NodePtr(new Call(
                     NodePtr(new ID("h", Span(6, 5))),
-                    Args({}, {}, Span(6, 6, 2)),
+                    NodePtr(new Args({}, {}, Span(6, 6, 2))),
                     Span(6, 6)
                 ))),
                 Span(5, 1, 7)
-            ),
+            )),
             Span(1, 1, 3)
         ));
 
@@ -2775,23 +4041,23 @@ TEST_CASE("interpret", "[interpret]") {
             "finally:\n"
             "    g()"
         ).node() == Try(
-            Block(
+            NodePtr(new Block(
                 vec(NodePtr(new Call(
                     NodePtr(new ID("f", Span(2, 5))),
-                    Args({}, {}, Span(2, 6, 2)),
+                    NodePtr(new Args({}, {}, Span(2, 6, 2))),
                     Span(2, 6)
                 ))),
                 Span(1, 1, 3)
-            ),
+            )),
             {},
-            Block(
+            NodePtr(new Block(
                 vec(NodePtr(new Call(
                     NodePtr(new ID("g", Span(4, 5))),
-                    Args({}, {}, Span(4, 6, 2)),
+                    NodePtr(new Args({}, {}, Span(4, 6, 2))),
                     Span(4, 6)
                 ))),
                 Span(3, 1, 7)
-            ),
+            )),
             Span(1, 1, 3)
         ));
 
@@ -2803,72 +4069,133 @@ TEST_CASE("interpret", "[interpret]") {
             "except e: E2:\n"
             "    h()"
         ).node() == Try(
-            Block(
+            NodePtr(new Block(
                 vec(NodePtr(new Call(
                     NodePtr(new ID("f", Span(2, 5))),
-                    Args({}, {}, Span(2, 6, 2)),
+                    NodePtr(new Args({}, {}, Span(2, 6, 2))),
                     Span(2, 6)
                 ))),
                 Span(1, 1, 3)
-            ),
+            )),
             vec(
-                MatchCase(
+                NodePtr(new MatchCase(
                     NodePtr(new TypeMatch(
                         NodePtr(new ID("e", Span(3, 8))),
                         NodePtr(new ID("E1", Span(3, 11, 2))),
                         Span(3, 9)
                     )),
                     nullptr,
-                    vec(NodePtr(new Call(
-                        NodePtr(new ID("g", Span(4, 5))),
-                        Args({}, {}, Span(4, 6, 2)),
-                        Span(4, 6)
-                    ))),
+                    NodePtr(new Block(
+                        vec(NodePtr(new Call(
+                            NodePtr(new ID("g", Span(4, 5))),
+                            NodePtr(new Args({}, {}, Span(4, 6, 2))),
+                            Span(4, 6)
+                        ))),
+                        Span(4, 5, 3)
+                    )),
                     Span(3, 1, 6)
-                ),
-                MatchCase(
+                )),
+                NodePtr(new MatchCase(
                     NodePtr(new TypeMatch(
                         NodePtr(new ID("e", Span(5, 8))),
                         NodePtr(new ID("E2", Span(5, 11, 2))),
                         Span(5, 9)
                     )),
                     nullptr,
-                    vec(NodePtr(new Call(
-                        NodePtr(new ID("h", Span(6, 5))),
-                        Args({}, {}, Span(6, 6, 2)),
-                        Span(6, 6)
-                    ))),
+                    NodePtr(new Block(
+                        vec(NodePtr(new Call(
+                            NodePtr(new ID("h", Span(6, 5))),
+                            NodePtr(new Args({}, {}, Span(6, 6, 2))),
+                            Span(6, 6)
+                        ))),
+                        Span(6, 5, 3)
+                    )),
                     Span(5, 1, 6)
-                )
+                ))
             ),
-            Block(),
+            nullptr,
             Span(1, 1, 3)
         ));
 
         REQUIRE(*capture(
             "try:\n"
             "    f()"
-        ).node() == IsolatedTryErr(Span(1, 1, 2, 7)));
-
-        REQUIRE(*capture(
-            "try a:\n"
-            "    f()\n"
-            "except e: E:\n"
-            "    g()"
-        ).node() == UnexpectedPredicateErr(Span(1, 5)));
+        ).node() == ErrorNode(
+            ErrPtr(new NoExceptsOrFinallyErr()),
+            Comp(
+                OpID::TRY,
+                Comp(
+                    OpID::BODY,
+                    Comp(
+                        OpID::BLOCK,
+                        vec(Comp(
+                            OpID::CALL,
+                            Comp(OpID::ID, "f", Span(2, 5)),
+                            Comp(
+                                OpID::GROUP,
+                                Comp(OpID::NOTHING, Span(2, 7)),
+                                Span(2, 6, 2)
+                            ),
+                            Span(2, 6)
+                        )),
+                        Span(2, 5, 3)
+                    ),
+                    Span(1, 4)
+                ),
+                Span(1, 1, 3)
+            ),
+            Span(1, 1, 3)
+        ));
 
         REQUIRE(*capture(
             "try:\n"
             "    f()\n"
-            "finally a:\n"
+            "elif e: E1:\n"
             "    g()"
-        ).node() == UnexpectedPredicateErr(Span(3, 9)));
-
-        REQUIRE(*capture(
-            "try:\n"
-            "    f()\n"
-            "except e: E"
-        ).node() == MissingBodyErr(Span(3, 1, 11)));
+        ).node() == Try(
+            NodePtr(new Block(
+                vec(NodePtr(new Call(
+                    NodePtr(new ID("f", Span(2, 5))),
+                    NodePtr(new Args({}, {}, Span(2, 6, 2))),
+                    Span(2, 6)
+                ))),
+                Span(1, 1, 3)
+            )),
+            vec(NodePtr(new ErrorNode(
+                ErrPtr(new ExpectedExceptOrFinallyErr()),
+                Comp(
+                    OpID::ELIF,
+                    Comp(
+                        OpID::LABEL,
+                        Comp(
+                            OpID::TYPE_LABEL,
+                            Comp(OpID::ID, "e", Span(3, 6)),
+                            Comp(OpID::ID, "E1", Span(3, 9, 2)),
+                            Span(3, 7)
+                        ),
+                        Comp(
+                            OpID::BLOCK,
+                            vec(Comp(
+                                OpID::CALL,
+                                Comp(OpID::ID, "g", Span(4, 5)),
+                                Comp(
+                                    OpID::GROUP,
+                                    Comp(OpID::NOTHING, Span(4, 7)),
+                                    Span(4, 6, 2)
+                                ),
+                                Span(4, 6)
+                            )),
+                            Span(4, 5, 3)
+                        ),
+                        Span(3, 11)
+                    ),
+                    Span(3, 1, 4)
+                ),
+                Span(3, 1, 4)
+            ))),
+            nullptr,
+            Span(1, 1, 3)
+        ));
     }
 
     SECTION("Tuple") {
@@ -2970,13 +4297,19 @@ TEST_CASE("interpret", "[interpret]") {
             "while a:\n"
             "    f()"
         ).node() == While(
-            NodePtr(new ID("a", Span(1, 7))),
-            vec(NodePtr(new Call(
-                NodePtr(new ID("f", Span(2, 5))),
-                Args({}, {}, Span(2, 6, 2)),
-                Span(2, 6)
-            ))),
-            Block(),
+            NodePtr(new Case(
+                NodePtr(new ID("a", Span(1, 7))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Call(
+                        NodePtr(new ID("f", Span(2, 5))),
+                        NodePtr(new Args({}, {}, Span(2, 6, 2))),
+                        Span(2, 6)
+                    ))),
+                    Span(2, 5, 3)
+                )),
+                Span(1, 1, 5)
+            )),
+            nullptr,
             Span(1, 1, 5)
         ));
 
@@ -2986,25 +4319,104 @@ TEST_CASE("interpret", "[interpret]") {
             "else:\n"
             "    g()"
         ).node() == While(
-            NodePtr(new ID("a", Span(1, 7))),
-            vec(NodePtr(new Call(
-                NodePtr(new ID("f", Span(2, 5))),
-                Args{{}, {}, Span(2, 6, 2)},
-                Span(2, 6)
-            ))),
-            Block(
+            NodePtr(new Case(
+                NodePtr(new ID("a", Span(1, 7))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Call(
+                        NodePtr(new ID("f", Span(2, 5))),
+                        NodePtr(new Args({}, {}, Span(2, 6, 2))),
+                        Span(2, 6)
+                    ))),
+                    Span(2, 5, 3)
+                )),
+                Span(1, 1, 5)
+            )),
+            NodePtr(new Block(
                 vec(NodePtr(new Call(
                     NodePtr(new ID("g", Span(4, 5))),
-                    Args({}, {}, Span(4, 6, 2)),
+                    NodePtr(new Args({}, {}, Span(4, 6, 2))),
                     Span(4, 6)
                 ))),
                 Span(3, 1, 4)
-            ),
+            )),
             Span(1, 1, 5)
         ));
 
         REQUIRE(*capture(
-            "while a"
-        ).node() == MissingBodyErr(Span(1, 1, 7)));
+            "while a:\n"
+            "    f()\n"
+            "elif b:\n"
+            "    g()\n"
+            "else:\n"
+            "    h()"
+        ).node() == While(
+            NodePtr(new Case(
+                NodePtr(new ID("a", Span(1, 7))),
+                NodePtr(new Block(
+                    vec(NodePtr(new Call(
+                        NodePtr(new ID("f", Span(2, 5))),
+                        NodePtr(new Args({}, {}, Span(2, 6, 2))),
+                        Span(2, 6)
+                    ))),
+                    Span(2, 5, 3)
+                )),
+                Span(1, 1, 5)
+            )),
+            NodePtr(new ErrorNode(
+                ErrPtr(new UnexpectedBlocksErr()),
+                Comp(
+                    OpID::BLOCKS,
+                    vec(
+                        Comp(
+                            OpID::ELIF,
+                            Comp(
+                                OpID::LABEL,
+                                Comp(OpID::ID, "b", Span(3, 6)),
+                                Comp(
+                                    OpID::BLOCK,
+                                    vec(Comp(
+                                        OpID::CALL,
+                                        Comp(OpID::ID, "g", Span(4, 5)),
+                                        Comp(
+                                            OpID::GROUP,
+                                            Comp(OpID::NOTHING, Span(4, 7)),
+                                            Span(4, 6, 2)
+                                        ),
+                                        Span(4, 6)
+                                    )),
+                                    Span(4, 5, 3)
+                                ),
+                                Span(3, 7)
+                            ),
+                            Span(3, 1, 4)
+                        ),
+                        Comp(
+                            OpID::ELSE,
+                            Comp(
+                                OpID::BODY,
+                                Comp(
+                                    OpID::BLOCK,
+                                    vec(Comp(
+                                        OpID::CALL,
+                                        Comp(OpID::ID, "h", Span(3, 5)),
+                                        Comp(
+                                            OpID::GROUP,
+                                            Comp(OpID::NOTHING, Span(6, 7)),
+                                            Span(6, 6, 2)
+                                        ),
+                                        Span(6, 6)
+                                    )),
+                                    Span(6, 5, 3)
+                                ),
+                                Span(5, 5)
+                            ),
+                            Span(5, 1, 4)
+                        )
+                    ),
+                    Span(3, 1, 6, 7)
+                )
+            )),
+            Span(1, 1, 5)
+        ));
     }
 }

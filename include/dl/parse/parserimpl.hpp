@@ -26,6 +26,10 @@ namespace dl {
 struct ExpectedIndentErr final: SourcedErr {
     ExpectedIndentErr(Span src) noexcept: SourcedErr(src) {}
 
+    virtual ErrPtr copy() const override {
+        return ErrPtr(new ExpectedIndentErr(*this));
+    }
+
     std::ostream& out_name(std::ostream& os) const override {
         return os << "ExpectedIndentErr";
     }
@@ -34,6 +38,10 @@ struct ExpectedIndentErr final: SourcedErr {
 // Indicates that an indent which was not a multiple of four spaces was found.
 struct IncompleteIndentErr final: SourcedErr {
     IncompleteIndentErr(Span src) noexcept: SourcedErr(src) {}
+
+    virtual ErrPtr copy() const override {
+        return ErrPtr(new IncompleteIndentErr(*this));
+    }
 
     std::ostream& out_name(std::ostream& os) const override {
         return os << "IncompleteIndentErr";
@@ -45,6 +53,10 @@ struct IncompleteIndentErr final: SourcedErr {
 struct OverIndentErr final: SourcedErr {
     OverIndentErr(Span src) noexcept: SourcedErr(src) {}
 
+    virtual ErrPtr copy() const override {
+        return ErrPtr(new OverIndentErr(*this));
+    }
+
     std::ostream& out_name(std::ostream& os) const override {
         return os << "OverIndentErr";
     }
@@ -53,6 +65,10 @@ struct OverIndentErr final: SourcedErr {
 // Indicates that the file has ended while a left bracket remains unclosed.
 struct UnclosedBracketErr final: SourcedErr {
     UnclosedBracketErr(Span src) noexcept: SourcedErr(src) {}
+
+    virtual ErrPtr copy() const override {
+        return ErrPtr(new UnclosedBracketErr(*this));
+    }
 
     std::ostream& out_name(std::ostream& os) const override {
         return os << "UnclosedBracketErr";
@@ -63,6 +79,10 @@ struct UnclosedBracketErr final: SourcedErr {
 // found in context that does not permit a dedent.
 struct UnderIndentErr final: SourcedErr {
     UnderIndentErr(Span src) noexcept: SourcedErr(src) {}
+
+    virtual ErrPtr copy() const override {
+        return ErrPtr(new UnderIndentErr(*this));
+    }
 
     std::ostream& out_name(std::ostream& os) const override {
         return os << "UnderIndentErr";
@@ -75,6 +95,10 @@ struct UnexpectedTokenErr final: SourcedErr {
 
     UnexpectedTokenErr(TokenID token, Span src) noexcept:
     token(token), SourcedErr(src) {}
+
+    virtual ErrPtr copy() const override {
+        return ErrPtr(new UnexpectedTokenErr(*this));
+    }
 
     bool equals(const Err& that) const noexcept override {
         return SourcedErr::equals(that) &&

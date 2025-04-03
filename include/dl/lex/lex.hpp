@@ -57,6 +57,10 @@ const std::locale LOCALE("C");
 struct InvalidCharErr final: SourcedErr {
     InvalidCharErr(Span src) noexcept: SourcedErr(src) {}
 
+    virtual ErrPtr copy() const override {
+        return ErrPtr(new InvalidCharErr(*this));
+    }
+
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "InvalidCharErr";
     }
@@ -66,6 +70,10 @@ struct InvalidCharErr final: SourcedErr {
 struct InvalidEscapeErr final: SourcedErr {
     InvalidEscapeErr(Span src) noexcept: SourcedErr(src) {}
 
+    virtual ErrPtr copy() const override {
+        return ErrPtr(new InvalidEscapeErr(*this));
+    }
+
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "InvalidEscapeErr";
     }
@@ -73,6 +81,10 @@ struct InvalidEscapeErr final: SourcedErr {
 
 struct InvalidFloatTailErr final: SourcedErr {
     InvalidFloatTailErr(Span src) noexcept: SourcedErr(src) {}
+
+    virtual ErrPtr copy() const override {
+        return ErrPtr(new InvalidFloatTailErr(*this));
+    }
 
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "InvalidFloatTailErr";
@@ -82,6 +94,10 @@ struct InvalidFloatTailErr final: SourcedErr {
 struct InvalidHexDigitErr final: SourcedErr {
     InvalidHexDigitErr(Span src) noexcept: SourcedErr(src) {}
 
+    virtual ErrPtr copy() const override {
+        return ErrPtr(new InvalidHexDigitErr(*this));
+    }
+
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "InvalidHexDigitErr";
     }
@@ -89,6 +105,10 @@ struct InvalidHexDigitErr final: SourcedErr {
 
 struct InvalidUnicodeCodePointErr final: SourcedErr {
     InvalidUnicodeCodePointErr(Span src) noexcept: SourcedErr(src) {}
+
+    virtual ErrPtr copy() const override {
+        return ErrPtr(new InvalidUnicodeCodePointErr(*this));
+    }
 
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "InvalidUnicodeCodePointErr";
@@ -98,6 +118,10 @@ struct InvalidUnicodeCodePointErr final: SourcedErr {
 struct LeadingZeroesErr final: SourcedErr {
     LeadingZeroesErr(Span src) noexcept: SourcedErr(src) {}
 
+    virtual ErrPtr copy() const override {
+        return ErrPtr(new LeadingZeroesErr(*this));
+    }
+
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "LeadingZeroesErr";
     }
@@ -106,6 +130,10 @@ struct LeadingZeroesErr final: SourcedErr {
 // Indicates that a line ended with space which was unassociated with a string.
 struct TrailingSpaceErr final: SourcedErr {
     TrailingSpaceErr(Span src) noexcept: SourcedErr(src) {}
+
+    virtual ErrPtr copy() const override {
+        return ErrPtr(new TrailingSpaceErr(*this));
+    }
 
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "TrailingSpaceErr";
@@ -117,6 +145,10 @@ struct TrailingSpaceErr final: SourcedErr {
 struct UnclosedCharErr final: SourcedErr {
     UnclosedCharErr(Span src) noexcept: SourcedErr(src) {}
 
+    virtual ErrPtr copy() const override {
+        return ErrPtr(new UnclosedCharErr(*this));
+    }
+
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "UnclosedCharErr";
     }
@@ -126,6 +158,10 @@ struct UnclosedCharErr final: SourcedErr {
 // before the closing " was found.
 struct UnclosedStrErr final: SourcedErr {
     UnclosedStrErr(Span src) noexcept: SourcedErr(src) {}
+
+    virtual ErrPtr copy() const override {
+        return ErrPtr(new UnclosedStrErr(*this));
+    }
 
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "UnclosedStrErr";
@@ -138,6 +174,10 @@ struct UnexpectedCharErr final: SourcedErr {
 
     UnexpectedCharErr(std::int32_t c, Span src)
     noexcept: SourcedErr(src), c(c) {}
+
+    virtual ErrPtr copy() const override {
+        return ErrPtr(new UnexpectedCharErr(*this));
+    }
 
     virtual bool equals(const Err& that) const noexcept override {
         return SourcedErr::equals(that) &&

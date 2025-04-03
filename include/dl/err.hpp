@@ -23,6 +23,8 @@ struct Err {
 
     bool operator!=(const Err&) const noexcept = default;
 
+    virtual std::unique_ptr<Err> copy() const=0;
+
     virtual std::ostream& out_data(std::ostream& os) const {
         return os;
     }
@@ -48,10 +50,14 @@ std::ostream& operator<<(std::ostream& os, const Err& err) {
 using ErrPtr = std::unique_ptr<Err>;
 
 // Indicate that an assertion failed.
-struct AssertionFailedErr: Err {
+struct AssertionFailedErr final: Err {
     const char* what;
 
     AssertionFailedErr(const char* what) noexcept: what(what) {}
+
+    ErrPtr copy() const override {
+        return ErrPtr(new AssertionFailedErr(*this));
+    }
 
     bool equals(const Err& that) const noexcept override {
         return !std::strcmp(

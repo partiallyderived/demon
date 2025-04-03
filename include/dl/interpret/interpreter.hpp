@@ -6,7 +6,7 @@
 namespace dl {
 
 struct Interpreter {
-    virtual NodeRes interpret(Comp&& comp)=0;
+    virtual NodePtr interpret(Comp&& comp)=0;
 };
 
 }

@@ -23,9 +23,7 @@ struct Init final: Node_<Init> {
     val(std::move(val)) {}
 
     virtual Init copy() const override {
-        return Init(
-            attr->copy_ptr(), type->copy_ptr(), val->copy_ptr(), this->src
-        );
+        return Init(copy_np(attr), copy_np(type), copy_np(val), this->src);
     }
 
     virtual bool equals(const Node& that) const noexcept override {

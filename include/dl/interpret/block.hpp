@@ -14,8 +14,6 @@ namespace dl {
 struct Block final: Node_<Block> {
     Nodes code;
 
-    Block() noexcept: Node_(Span(Pos())), code() {}
-
     Block(Nodes&& code, Span src) noexcept:
     Node_<Block>(src), code(std::move(code)) {}
 
@@ -37,7 +35,7 @@ struct Block final: Node_<Block> {
     }
 
     virtual Span span() const noexcept override {
-        return Span(this->src, code.back()->span());
+        return Span(this->src);
     }
 };
 

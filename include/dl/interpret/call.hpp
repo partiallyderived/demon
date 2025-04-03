@@ -14,14 +14,14 @@ namespace dl {
 template<NodeKind KIND>
 struct CallNode final: Node_<CallNode<KIND>> {
     NodePtr callee;
-    Args args;
+    NodePtr args;
 
-    CallNode(NodePtr&& callee, Args&& args, Span src) noexcept: 
+    CallNode(NodePtr&& callee, NodePtr&& args, Span src) noexcept: 
     Node_<CallNode<KIND>>(src), callee(std::move(callee)), args(std::move(args))
     {}
 
     virtual CallNode copy() const override {
-        return CallNode(callee->copy_ptr(), args.copy(), this->src);
+        return CallNode(copy_np(callee), copy_np(args), this->src);
     }
 
     virtual NodeKind kind() const noexcept override {
@@ -32,7 +32,7 @@ struct CallNode final: Node_<CallNode<KIND>> {
         const auto& casted = dynamic_cast<const CallNode&>(that);
         return
             npeq(callee, casted.callee) &&
-            args == casted.args;
+            npeq(args, casted.args);
     }
 
     virtual std::ostream& out_data(std::ostream& os) const override {
@@ -40,7 +40,7 @@ struct CallNode final: Node_<CallNode<KIND>> {
     }
 
     virtual Span span() const noexcept override {
-        return Span(callee->span(), args.span());
+        return Span(callee->span(), args->span());
     }
 };
 

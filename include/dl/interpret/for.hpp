@@ -4,7 +4,6 @@
 #include <utility>
 #include <vector>
 
-#include "dl/interpret/block.hpp"
 #include "dl/interpret/node.hpp"
 #include "dl/interpret/nodekind.hpp"
 #include "dl/span.hpp"
@@ -15,14 +14,14 @@ namespace dl {
 struct For final: Node_<For> {
     Nodes vars;
     NodePtr iterable;
-    Nodes body;
-    Block orelse;
+    NodePtr body;
+    NodePtr orelse;
 
     For(
         Nodes&& vars,
         NodePtr&& iterable,
-        Nodes&& body,
-        Block&& orelse,
+        NodePtr&& body,
+        NodePtr&& orelse,
         Span src
     ) noexcept:
     Node_<For>(src),
@@ -34,9 +33,9 @@ struct For final: Node_<For> {
     virtual For copy() const override {
         return For(
             deep_copy_ptr(vars),
-            iterable->copy_ptr(),
-            deep_copy_ptr(body),
-            orelse.copy(),
+            copy_np(iterable),
+            copy_np(body),
+            copy_np(orelse),
             this->src
         );
     }
@@ -46,8 +45,8 @@ struct For final: Node_<For> {
         return
             nodes_eq(vars, casted.vars) &&
             npeq(iterable, casted.iterable) &&
-            nodes_eq(body, casted.body) &&
-            orelse == casted.orelse;
+            npeq(body, casted.body) &&
+            npeq(orelse, casted.orelse);
     }
 
     virtual NodeKind kind() const noexcept override {
@@ -59,9 +58,8 @@ struct For final: Node_<For> {
     }
 
     virtual Span span() const noexcept override {
-        Span end = orelse.code.size() > 0 ?
-            orelse.code.back()->span(): body.back()->span();
-        return Span(src, end);
+        Span end = orelse != nullptr ? orelse->span(): body->span();
+        return Span(this->src, end);
     }
 };
 

@@ -93,13 +93,7 @@ struct CapturingController {
             if (c.op == OpID::WAITING)
                 break;
             comps_.push_back(c.copy());
-            NodeRes n = interpreter.interpret(std::move(c));
-            if (n.is_err) {
-                err = std::move(n.err);
-                err_stage = Stage::INTERPRET;
-                return;
-            }
-            nodes_.push_back(std::move(n.res));
+            nodes_.push_back(interpreter.interpret(std::move(c)));
         }
     }
 
@@ -135,7 +129,7 @@ struct CapturingController {
         return comps_[0].copy();
     }
 
-    NodeRes node() {
+    Res<NodePtr> node() {
         if (err_stage <= Stage::INTERPRET)
             return std::move(err);
         if (nodes_.size() != 1)

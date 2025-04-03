@@ -13,19 +13,19 @@ namespace dl {
 
 template<NodeKind KIND>
 struct KeywordArgNode final: Node_<KeywordArgNode<KIND>> {
-    ID id;
+    NodePtr id;
     NodePtr arg;
 
-    KeywordArgNode(ID&& id, NodePtr&& arg, Span src) noexcept:
+    KeywordArgNode(NodePtr&& id, NodePtr&& arg, Span src) noexcept:
     Node_<KeywordArgNode<KIND>>(src), id(std::move(id)), arg(std::move(arg)) {}
 
     virtual KeywordArgNode copy() const override {
-        return KeywordArgNode(id.copy(), arg->copy_ptr(), this->src);
+        return KeywordArgNode(copy_np(id), copy_np(arg), this->src);
     }
 
     virtual bool equals(const Node& that) const noexcept override {
         const auto& casted = dynamic_cast<const KeywordArgNode&>(that);
-        return id == casted.id && npeq(arg, casted.arg);
+        return npeq(id, casted.id) && npeq(arg, casted.arg);
     }
 
     virtual NodeKind kind() const noexcept override {
@@ -37,7 +37,7 @@ struct KeywordArgNode final: Node_<KeywordArgNode<KIND>> {
     }
 
     virtual Span span() const noexcept override {
-        return Span(id.src, arg->span());
+        return Span(id->src, arg->span());
     }
 };
 

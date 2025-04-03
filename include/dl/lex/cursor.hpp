@@ -13,6 +13,10 @@
 namespace dl {
 
 struct UngetOverflowErr: Err {
+    virtual ErrPtr copy() const override {
+        return ErrPtr(new UngetOverflowErr(*this));
+    }
+
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "UngetOverflowErr";
     }

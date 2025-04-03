@@ -14,22 +14,20 @@ namespace dl {
 
 struct Match final: Node_<Match> {
     NodePtr matchee;
-    std::vector<MatchCase> cases;
+    Nodes cases;
 
-    Match(
-        NodePtr&& matchee, std::vector<MatchCase>&& cases, Span src
-    ) noexcept:
+    Match(NodePtr&& matchee, Nodes&& cases, Span src) noexcept:
     Node_<Match>(src),
     matchee(std::move(matchee)),
     cases(std::move(cases)) {}
 
     virtual Match copy() const override {
-        return Match(matchee->copy_ptr(), deep_copy(cases), this->src);
+        return Match(copy_np(matchee), deep_copy_ptr(cases), this->src);
     }
 
     virtual bool equals(const Node& that) const noexcept override {
         const auto& casted = dynamic_cast<const Match&>(that);
-        return npeq(matchee, casted.matchee) && cases == casted.cases;
+        return npeq(matchee, casted.matchee) && nodes_eq(cases, casted.cases);
     }
 
     virtual NodeKind kind() const noexcept override {
@@ -37,11 +35,11 @@ struct Match final: Node_<Match> {
     }
 
     virtual std::ostream& out_data(std::ostream& os) const override {
-        return os << matchee << ", " << OutContainerManip(cases);
+        return out_csv(os, matchee, cases);
     }
 
     virtual Span span() const noexcept override {
-        return Span(this->src, cases.back().span());
+        return Span(this->src, cases.back()->span());
     }
 };
 

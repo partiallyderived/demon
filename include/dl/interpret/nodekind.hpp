@@ -33,11 +33,13 @@ enum class NodeKind {
     DEFAULTED,
     DIV,
     ENTRY,
+    ERROR,
     EQ,
     EXPANSION,
     FLOAT32,
     FLOAT64,
     FOR,
+    FOR_VARS,
     GET_ATTR,
     GT,
     GTE,
@@ -175,6 +177,8 @@ std::ostream& operator<<(std::ostream& os, NodeKind x) {
         return os << "DIV";
     case ENTRY:
         return os << "ENTRY";
+    case ERROR:
+        return os << "ERROR";
     case EQ:
         return os << "EQ";
     case EXPANSION:
@@ -185,6 +189,8 @@ std::ostream& operator<<(std::ostream& os, NodeKind x) {
         return os << "FLOAT64";
     case FOR:
         return os << "FOR";
+    case FOR_VARS:
+        return os << "FOR_VARS";
     case GET_ATTR:
         return os << "GET_ATTR";
     case GT:

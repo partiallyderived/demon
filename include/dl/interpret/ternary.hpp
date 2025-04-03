@@ -25,9 +25,9 @@ struct Ternary final: Node_<Ternary> {
 
     virtual Ternary copy() const override {
         return Ternary(
-            predicate->copy_ptr(),
-            if_case->copy_ptr(),
-            else_case->copy_ptr(),
+            copy_np(predicate),
+            copy_np(if_case),
+            copy_np(else_case),
             this->src
         );
     }

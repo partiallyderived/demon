@@ -61,6 +61,8 @@ const OpInfo OP_INFO_[static_cast<int>(OpID::WAITING) + 1] = {
     OpInfo(OpKind::BINARY, Precedence::BIND),
     // BLOCK
     OpInfo(OpKind::AGGREGATE, Precedence::START, Precedence::UNARY),
+    // BLOCKS
+    OpInfo(OpKind::AGGREGATE, Precedence::START, Precedence::UNARY),
     // BNOT
     PREFIX_INFO_,
     // BODY
@@ -169,6 +171,8 @@ const OpInfo OP_INFO_[static_cast<int>(OpID::WAITING) + 1] = {
     FLOW_INFO_,
     // MATCH_OR
     OpInfo(OpKind::BINARY, Precedence::MATCH_OR),
+    // MISSING
+    OpInfo(OpKind::SINGLETON),
     // MOD
     OpInfo(OpKind::BINARY, Precedence::MUL),
     // MUL

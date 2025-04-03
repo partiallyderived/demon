@@ -19,7 +19,7 @@ struct Binary final: Node_<Binary<KIND>> {
     Node_<Binary<KIND>>(src), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
     virtual Binary copy() const override {
-        return Binary(lhs->copy_ptr(), rhs->copy_ptr(), this->src);
+        return Binary(copy_np(lhs), copy_np(rhs), this->src);
     }
 
     virtual NodeKind kind() const noexcept override {

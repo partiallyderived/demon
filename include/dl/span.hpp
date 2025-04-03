@@ -63,6 +63,10 @@ struct Span {
         return Pos(end_line, end_col);
     }
 
+    static Span after(Span s) {
+        return Span(s.end() + 1);
+    }
+
     bool operator==(const Span&) const noexcept = default;
     bool operator!=(const Span&) const noexcept = default;
 };

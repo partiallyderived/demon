@@ -13,9 +13,9 @@ namespace dl {
 struct MatchCase final: Node_<MatchCase> {
     NodePtr matcher;
     NodePtr guard;
-    Nodes body;
+    NodePtr body;
 
-    MatchCase(NodePtr&& matcher, NodePtr&& guard, Nodes&& body, Span src)
+    MatchCase(NodePtr&& matcher, NodePtr&& guard, NodePtr&& body, Span src)
     noexcept:
     Node_<MatchCase>(src),
     matcher(std::move(matcher)),
@@ -24,9 +24,9 @@ struct MatchCase final: Node_<MatchCase> {
 
     MatchCase copy() const override {
         return MatchCase(
-            matcher->copy_ptr(),
+            copy_np(matcher),
             copy_np(guard),
-            deep_copy_ptr(body),
+            copy_np(body),
             this->src
         );
     }
@@ -36,7 +36,7 @@ struct MatchCase final: Node_<MatchCase> {
         return
             npeq(matcher, casted.matcher) &&
             npeq(guard, casted.guard) &&
-            nodes_eq(body, casted.body);
+            npeq(body, casted.body);
     }
 
     virtual NodeKind kind() const noexcept override {
@@ -48,7 +48,7 @@ struct MatchCase final: Node_<MatchCase> {
     }
 
     virtual Span span() const noexcept override {
-        return Span(this->src, body.back()->span());
+        return Span(this->src, body->span());
     }
 };
 

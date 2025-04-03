@@ -6,7 +6,6 @@
 #include <ostream>
 
 #include "dl/interpret/nodekind.hpp"
-#include "dl/res.hpp"
 #include "dl/span.hpp"
 #include "dl/util.hpp"
 
@@ -52,7 +51,6 @@ struct Node_: Node {
 };
 
 using NodePtr = std::unique_ptr<Node>;
-using NodeRes = Res<NodePtr>;
 using Nodes = std::vector<NodePtr>;
 
 NodePtr copy_np(const NodePtr& x) {

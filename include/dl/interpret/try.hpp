@@ -13,14 +13,14 @@
 namespace dl {
 
 struct Try final: Node_<Try> {
-    Block body;
-    std::vector<MatchCase> excepts;
-    Block finally;
+    NodePtr body;
+    Nodes excepts;
+    NodePtr finally;
 
     Try(
-        Block&& body,
-        std::vector<MatchCase>&& excepts,
-        Block&& finally,
+        NodePtr&& body,
+        Nodes&& excepts,
+        NodePtr&& finally,
         Span src
     )
     noexcept:
@@ -30,15 +30,17 @@ struct Try final: Node_<Try> {
     finally(std::move(finally)) {}
 
     virtual Try copy() const override {
-        return Try(body.copy(), deep_copy(excepts), finally.copy(), this->src);
+        return Try(
+            copy_np(body), deep_copy_ptr(excepts), copy_np(finally), this->src
+        );
     }
 
     virtual bool equals(const Node& that) const noexcept override {
         const auto& casted = dynamic_cast<const Try&>(that);
         return
-            body == casted.body &&
-            excepts == casted.excepts &&
-            finally == casted.finally;
+            npeq(body, casted.body) &&
+            nodes_eq(excepts, casted.excepts) &&
+            npeq(finally, casted.finally);
     }
 
     virtual NodeKind kind() const noexcept override {
@@ -46,14 +48,15 @@ struct Try final: Node_<Try> {
     }
 
     virtual std::ostream& out_data(std::ostream& os) const override {
-        return os <<
-            body << ", " << OutContainerManip(excepts) << ", " << finally;
+        return out_csv(os, body, excepts, finally);
     }
 
     virtual Span span() const noexcept override {
-        Span end = finally.code.size() > 0 ?
-            finally.code.back()->span(): excepts.back().span();
-        return Span(body.src, end);
+        if (finally != nullptr)
+            return Span(this->src, finally->span());
+        if (excepts.size() > 0)
+            return Span(this->src, excepts.back()->span());
+        return body->span();
     }
 };
 

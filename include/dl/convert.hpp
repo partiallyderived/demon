@@ -14,6 +14,10 @@ namespace dl {
 struct InvalidNumericLiteralErr final: SourcedErr {
     InvalidNumericLiteralErr(Span src) noexcept: SourcedErr(src) {}
 
+    virtual ErrPtr copy() const override {
+        return ErrPtr(new InvalidNumericLiteralErr(*this));
+    }
+
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "InvalidNumericLiteralErr";
     }
@@ -21,6 +25,10 @@ struct InvalidNumericLiteralErr final: SourcedErr {
 
 struct OutOfRangeErr final: SourcedErr {
     OutOfRangeErr(Span src) noexcept: SourcedErr(src) {}
+
+    virtual ErrPtr copy() const override {
+        return ErrPtr(new OutOfRangeErr(*this));
+    }
 
     virtual std::ostream& out_name(std::ostream& os) const override {
         return os << "OutOfRangeErr";
