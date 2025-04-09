@@ -101,6 +101,8 @@ const OpInfo OP_INFO_[static_cast<int>(OpID::WAITING) + 1] = {
     OpInfo(OpKind::END, Precedence::END),
     // EQ
     CMP_INFO_,
+    // ERROR
+    OpInfo(OpKind::DATA),
     // EXCEPT
     FLOW_INFO_,
     // FALSE

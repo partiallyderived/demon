@@ -16,12 +16,12 @@ struct While final: Node_<While> {
     NodePtr orelse;
 
     While(NodePtr&& content, NodePtr&& orelse, Span src) noexcept:
-    Node_<While>(src),
+    Node_(src),
     content(std::move(content)),
     orelse(std::move(orelse)) {}
 
     virtual While copy() const override {
-        return While(copy_np(content), copy_np(orelse), this->src);
+        return While(copy_np(content), copy_np(orelse), src);
     }
 
     virtual bool equals(const Node& that) const noexcept override {
@@ -40,7 +40,7 @@ struct While final: Node_<While> {
 
     virtual Span span() const noexcept override {
         if (orelse != nullptr)
-            return Span(this->src, orelse->span());
+            return Span(src, orelse->span());
         return content->span();
     }
 };

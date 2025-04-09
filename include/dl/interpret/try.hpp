@@ -24,14 +24,14 @@ struct Try final: Node_<Try> {
         Span src
     )
     noexcept:
-    Node_<Try>(src),
+    Node_(src),
     body(std::move(body)),
     excepts(std::move(excepts)),
     finally(std::move(finally)) {}
 
     virtual Try copy() const override {
         return Try(
-            copy_np(body), deep_copy_ptr(excepts), copy_np(finally), this->src
+            copy_np(body), deep_copy_ptr(excepts), copy_np(finally), src
         );
     }
 
@@ -53,9 +53,9 @@ struct Try final: Node_<Try> {
 
     virtual Span span() const noexcept override {
         if (finally != nullptr)
-            return Span(this->src, finally->span());
+            return Span(src, finally->span());
         if (excepts.size() > 0)
-            return Span(this->src, excepts.back()->span());
+            return Span(src, excepts.back()->span());
         return body->span();
     }
 };

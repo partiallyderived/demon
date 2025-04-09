@@ -8,6 +8,7 @@
 
 namespace dl {
 
+/*
 template<typename T, typename... Ts>
 struct vec_ {
     static std::vector<T> fn(Ts&&... args, T&& last) {
@@ -29,6 +30,15 @@ struct vec_<T> {
 template<typename... Ts>
 auto vec(Ts&&... args) {
     return vec_<Ts...>::fn(std::move(args)...);
+}
+*/
+
+template<typename T, typename... Ts>
+auto vec(T&& arg, Ts&&... args) {
+    std::vector<T> res;
+    res.push_back(std::move(arg));
+    (res.push_back(std::move(args)), ...);
+    return res;
 }
 
 std::ostream& operator<<(std::ostream& os, const std::pair<Token, Span>& x) {

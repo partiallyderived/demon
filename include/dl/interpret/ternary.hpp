@@ -18,7 +18,7 @@ struct Ternary final: Node_<Ternary> {
     Ternary(
         NodePtr&& predicate, NodePtr&& if_case, NodePtr&& else_case, Span src
     ) noexcept:
-    Node_<Ternary>(src),
+    Node_(src),
     predicate(std::move(predicate)),
     if_case(std::move(if_case)),
     else_case(std::move(else_case)) {}
@@ -28,7 +28,7 @@ struct Ternary final: Node_<Ternary> {
             copy_np(predicate),
             copy_np(if_case),
             copy_np(else_case),
-            this->src
+            src
         );
     }
 

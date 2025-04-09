@@ -17,10 +17,10 @@ struct MatchObject final: Node_<MatchObject> {
     NodePtr args;
 
     MatchObject(NodePtr&& type, NodePtr&& args, Span src) noexcept:
-    Node_<MatchObject>(src), type(std::move(type)), args(std::move(args)) {}
+    Node_(src), type(std::move(type)), args(std::move(args)) {}
 
     virtual MatchObject copy() const override {
-        return MatchObject(copy_np(type), copy_np(args), this->src);
+        return MatchObject(copy_np(type), copy_np(args), src);
     }
 
     virtual bool equals(const Node& that) const noexcept override {

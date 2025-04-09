@@ -54,9 +54,7 @@ std::unordered_map<std::string_view, TokenID> KEYWORDS {
 // Locale to use (C default).
 const std::locale LOCALE("C");
 
-struct InvalidCharErr final: SourcedErr {
-    InvalidCharErr(Span src) noexcept: SourcedErr(src) {}
-
+struct InvalidCharErr final: Err {
     virtual ErrPtr copy() const override {
         return ErrPtr(new InvalidCharErr(*this));
     }
@@ -79,9 +77,7 @@ struct InvalidEscapeErr final: SourcedErr {
     }
 };
 
-struct InvalidFloatTailErr final: SourcedErr {
-    InvalidFloatTailErr(Span src) noexcept: SourcedErr(src) {}
-
+struct InvalidFloatTailErr final: Err {
     virtual ErrPtr copy() const override {
         return ErrPtr(new InvalidFloatTailErr(*this));
     }
@@ -115,9 +111,7 @@ struct InvalidUnicodeCodePointErr final: SourcedErr {
     }
 };
 
-struct LeadingZeroesErr final: SourcedErr {
-    LeadingZeroesErr(Span src) noexcept: SourcedErr(src) {}
-
+struct LeadingZeroesErr final: Err {
     virtual ErrPtr copy() const override {
         return ErrPtr(new LeadingZeroesErr(*this));
     }
@@ -129,7 +123,7 @@ struct LeadingZeroesErr final: SourcedErr {
 
 // Indicates that a line ended with space which was unassociated with a string.
 struct TrailingSpaceErr final: SourcedErr {
-    TrailingSpaceErr(Span src) noexcept: SourcedErr(src) {}
+    TrailingSpaceErr(Span src): SourcedErr(src) {}
 
     virtual ErrPtr copy() const override {
         return ErrPtr(new TrailingSpaceErr(*this));
@@ -142,9 +136,7 @@ struct TrailingSpaceErr final: SourcedErr {
 
 // Indicates that a char was started but was unclosed: the statement ended
 // before the closing ' was found.
-struct UnclosedCharErr final: SourcedErr {
-    UnclosedCharErr(Span src) noexcept: SourcedErr(src) {}
-
+struct UnclosedCharErr final: Err {
     virtual ErrPtr copy() const override {
         return ErrPtr(new UnclosedCharErr(*this));
     }
@@ -156,9 +148,7 @@ struct UnclosedCharErr final: SourcedErr {
 
 // Indicates that a string was started but was unclosed: the statement ended
 // before the closing " was found.
-struct UnclosedStrErr final: SourcedErr {
-    UnclosedStrErr(Span src) noexcept: SourcedErr(src) {}
-
+struct UnclosedStrErr final: Err {
     virtual ErrPtr copy() const override {
         return ErrPtr(new UnclosedStrErr(*this));
     }
@@ -304,7 +294,7 @@ void encode_unicode(std::int32_t code_point, std::string& s) noexcept {
     s += char(code_point & 0x3F | 0x80);
 }
 
-// Read 1 to 8 hexadecimal digits into an std::uint32_t.
+// Read 1 to 8 hexadecimal digits into an std::int32_t.
 Res<std::int32_t> read_hex_digits(Cursor& cursor, int n) {
     std::int32_t res = 0;
     for (int j = 0; j < n; j++) {
@@ -352,7 +342,7 @@ Res<std::int32_t> escaped_char(Cursor& cursor) {
         if (res.res >= 0xD800 && res.res <= 0xDFFF)
             // Surrogate
             return ErrPtr(new InvalidUnicodeCodePointErr(
-                Span(Pos(cursor.pos.line, cursor.pos.col - 6), 6)
+                Span(cursor.pos.line, cursor.pos.col - 6, 6)
             ));
         return res;
     }
@@ -365,7 +355,7 @@ Res<std::int32_t> escaped_char(Cursor& cursor) {
         if (res.res > 0x10FFFF || (res.res >= 0xD800 && res.res <= 0xDFFF))
             // Surrogate or code point too large.
             return ErrPtr(new InvalidUnicodeCodePointErr(
-                Span(Pos(cursor.pos.line, cursor.pos.col - 10), 10)
+                Span(cursor.pos.line, cursor.pos.col - 10, 10)
             ));
         return res;
     }
@@ -378,7 +368,7 @@ Res<std::int32_t> escaped_char(Cursor& cursor) {
     default:
         // An invalid character was escaped.
         return ErrPtr(new InvalidEscapeErr(Span(
-            Pos(cursor.pos.line, cursor.pos.col - 2), 2
+            cursor.pos.line, cursor.pos.col - 2, 2
         )));
     }
 }
@@ -391,9 +381,7 @@ void read_alnum(std::int32_t c, Cursor& cursor, std::string& res) {
     cursor.ungetc();
 }
 
-Res<Token> read_float_tail(
-    Cursor& cursor, std::string&& res, Pos start
-) noexcept {
+Token read_float_tail(Cursor& cursor, std::string&& res) noexcept {
     std::int32_t c = cursor.getc();
     if (c == '-') {
         res += char(c);
@@ -403,7 +391,7 @@ Res<Token> read_float_tail(
     if (!is_digit(c)) {
         // Invalid: floating point literal can't end with e or -.
         read_alnum(c, cursor, res);
-        return ErrPtr(new InvalidFloatTailErr(Span(start, res.size())));
+        return Token(TokenID::ERROR, ErrPtr(new InvalidFloatTailErr()));
     }
 
     while(is_digit(c)) {
@@ -416,7 +404,7 @@ Res<Token> read_float_tail(
         read_alnum(c, cursor, res);
         LiteralSuffix suffix = lit_suffix(res);
         if (res.size() - alnum_start != lit_suffix_len(suffix)) 
-            return ErrPtr(new InvalidFloatTailErr(Span(start, res.size())));
+            return Token(TokenID::ERROR, ErrPtr(new InvalidFloatTailErr()));
     } else
         // Got one extra character, put it back.
         cursor.ungetc();
@@ -425,12 +413,12 @@ Res<Token> read_float_tail(
 }
 
 template<typename T>
-Res<Token> read_number_token(
-    const std::string& s, const char* expected_end, int base, Pos start
+Token read_number_token(
+    const char* begin, const char* expected_end, int base
 ) {
-    Res<T> res = read_number<T>(s, expected_end, base, start);
+    Res<T> res = read_number<T>(begin, expected_end, base);
     if (res.is_err)
-        return std::move(res.err);
+        return Token(TokenID::ERROR, std::move(res.err));
     return Token(TokenID::NUMBER, res.res);
 }
 
@@ -446,21 +434,19 @@ bool seek_quote(Cursor& cursor, std::int32_t quote) {
     }
 }
 
-Res<Token> next_char(Cursor& cursor) {
-    // Start at first single-quote.
-    Pos start = Pos(cursor.pos.line, cursor.pos.col - 1);
+Token next_char(Cursor& cursor) {
     std::int32_t c = cursor.getc();
 
     switch(c) {
     case '\'':
-        return ErrPtr(new InvalidCharErr(Span(start, 2)));
+        return Token(TokenID::ERROR, ErrPtr(new InvalidCharErr()));
     case '\\': {
         Res<std::int32_t> res = escaped_char(cursor);
         if (res.is_err) {
             // Prioritize UnclosedCharErr if it applies
             if (seek_quote(cursor, '\''))
-                return std::move(res.err);
-            return ErrPtr(new UnclosedCharErr(Span(start, cursor.pos - 1)));
+                return Token(TokenID::ERROR, std::move(res.err));
+            return Token(TokenID::ERROR, ErrPtr(new UnclosedCharErr()));
         }
         c = res.res;
         break;
@@ -468,7 +454,7 @@ Res<Token> next_char(Cursor& cursor) {
     case '\n':
     case EOF:
         cursor.ungetc();
-        return ErrPtr(new UnclosedCharErr(Span(start, cursor.pos - 1))); 
+        return Token(TokenID::ERROR, ErrPtr(new UnclosedCharErr()));
     }
     
     switch(cursor.getc()) {
@@ -477,11 +463,11 @@ Res<Token> next_char(Cursor& cursor) {
     case '\n':
     case EOF:
         cursor.ungetc();
-        return ErrPtr(new UnclosedCharErr(Span(start, cursor.pos - 1)));
+        return Token(TokenID::ERROR, ErrPtr(new UnclosedCharErr()));
     default:
         if (seek_quote(cursor, '\''))
-            return ErrPtr(new InvalidCharErr(Span(start, cursor.pos - 1)));
-        return ErrPtr(new UnclosedCharErr(Span(start, cursor.pos - 1)));
+            return Token(TokenID::ERROR, ErrPtr(new InvalidCharErr()));
+        return Token(TokenID::ERROR, ErrPtr(new UnclosedCharErr()));
     }
 }
 
@@ -505,8 +491,7 @@ Token next_id(int c, Cursor& cursor) {
 // characters thus far indiciate a valid floating point literal.
 // Additionally, any concatenated alphanumeric or underscore characters are
 // read, not just digits, even if the result is invalid.
-Res<Token> next_number(std::int32_t c, Cursor& cursor) {
-    Pos start = Pos(cursor.pos.line, cursor.pos.col - 1);
+Token next_number(std::int32_t c, Cursor& cursor) {
     std::string res;
 
     int base = 10;
@@ -540,7 +525,7 @@ Res<Token> next_number(std::int32_t c, Cursor& cursor) {
             // missing the integral part, like 89.123e45. These parts are
             // combined into a floating-point number later by the interpreter.
             res += char(c);
-            return read_float_tail(cursor, std::move(res), start);
+            return read_float_tail(cursor, std::move(res));
         }
     }
 
@@ -553,7 +538,7 @@ Res<Token> next_number(std::int32_t c, Cursor& cursor) {
         // Put back the character we read.
         cursor.ungetc();
     if (res.size() > 1 && res[0] == '0' && is_digit(res[1]))
-        return ErrPtr(new LeadingZeroesErr(Span(start, cursor.pos - 1)));
+        return Token(TokenID::ERROR, ErrPtr(new LeadingZeroesErr()));
 
     LiteralSuffix suffix = lit_suffix(res);
     const char* begin = &res[0];
@@ -567,41 +552,41 @@ Res<Token> next_number(std::int32_t c, Cursor& cursor) {
             return Token(TokenID::PLAIN_INT, std::move(res));
         }
         return read_number_token<std::int32_t>(
-            res, expected_end, base, start
+            begin, expected_end, base
         );
     case LiteralSuffix::S:
     case LiteralSuffix::S32:
         return read_number_token<std::int32_t>(
-            res, expected_end, base, start
+            begin, expected_end, base
         );
     case LiteralSuffix::S8:
         return read_number_token<std::int8_t>(
-            res, expected_end, base, start
+            begin, expected_end, base
         );
     case LiteralSuffix::S16:
         return read_number_token<std::int16_t>(
-            res, expected_end, base, start
+            begin, expected_end, base
         );
     case LiteralSuffix::S64:
         return read_number_token<std::int64_t>(
-            res, expected_end, base, start
+            begin, expected_end, base
         );
     case LiteralSuffix::U:
     case LiteralSuffix::U32:
         return read_number_token<std::uint32_t>(
-            res, expected_end, base, start
+            begin, expected_end, base
         );
     case LiteralSuffix::U8:
         return read_number_token<std::uint8_t>(
-            res, expected_end, base, start
+            begin, expected_end, base
         );
     case LiteralSuffix::U16:
         return read_number_token<std::uint16_t>(
-            res, expected_end, base, start
+            begin, expected_end, base
         );
     case LiteralSuffix::U64:
         return read_number_token<std::uint64_t>(
-            res, expected_end, base, start
+            begin, expected_end, base
         );
     case LiteralSuffix::F:
     case LiteralSuffix::F64:
@@ -609,33 +594,33 @@ Res<Token> next_number(std::int32_t c, Cursor& cursor) {
             // Suffix is valid hex, let it be read as such.
             expected_end += lit_suffix_len(suffix);
             return read_number_token<std::int32_t>(
-                res, expected_end, base, start
+                begin, expected_end, base
             );
         }
         else if (base == 8)
             // Octal floating point not allowed.
-            return ErrPtr(new InvalidNumericLiteralErr(Span(
-                start, cursor.pos
-            )));
+            return Token(
+                TokenID::ERROR, ErrPtr(new InvalidNumericLiteralErr())
+            );
         // May not be the entire float, since the lexer splits on . always.
         return Token(TokenID::FLOAT_TAIL, std::move(res));
     case LiteralSuffix::F32:
         if (base == 16) {
             expected_end += 3;
             return read_number_token<std::int32_t>(
-                res, expected_end, base, start
+                begin, expected_end, base
             );
         }
         else if (base == 8)
-            return ErrPtr(new InvalidNumericLiteralErr(Span(
-                start, cursor.pos
-            )));
+            return Token(
+                TokenID::ERROR, ErrPtr(new InvalidNumericLiteralErr())
+            );
         return Token(TokenID::FLOAT_TAIL, std::move(res));
     }
 }
 
 // Read a string.
-Res<Token> next_str(Cursor& cursor) {
+Token next_str(Cursor& cursor) {
     Pos start = Pos(cursor.pos.line, cursor.pos.col - 1);
     std::string s;
 
@@ -647,8 +632,8 @@ Res<Token> next_str(Cursor& cursor) {
             if (code_point.is_err) {
                 // Prioritize UnclosedStrErr
                 if (seek_quote(cursor, '"'))
-                    return std::move(code_point.err);
-                return ErrPtr(new UnclosedStrErr(Span(start, cursor.pos - 1)));
+                    return Token(TokenID::ERROR, std::move(code_point.err));
+                return Token(TokenID::ERROR, ErrPtr(new UnclosedStrErr()));
             }
             encode_unicode(code_point.res, s);
             break;
@@ -658,7 +643,7 @@ Res<Token> next_str(Cursor& cursor) {
         case '\n':
         case EOF:
             cursor.ungetc();
-            return ErrPtr(new UnclosedStrErr(Span(start, cursor.pos - 1)));
+            return Token(TokenID::ERROR, ErrPtr(new UnclosedStrErr()));
         default:
             encode_unicode(c, s);
         }

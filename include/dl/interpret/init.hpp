@@ -17,13 +17,13 @@ struct Init final: Node_<Init> {
     NodePtr val;
 
     Init(NodePtr&& attr, NodePtr&& type, NodePtr&& val, Span src) noexcept:
-    Node_<Init>(src),
+    Node_(src),
     attr(std::move(attr)),
     type(std::move(type)),
     val(std::move(val)) {}
 
     virtual Init copy() const override {
-        return Init(copy_np(attr), copy_np(type), copy_np(val), this->src);
+        return Init(copy_np(attr), copy_np(type), copy_np(val), src);
     }
 
     virtual bool equals(const Node& that) const noexcept override {

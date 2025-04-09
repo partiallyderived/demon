@@ -11,9 +11,7 @@
 
 namespace dl {
 
-struct InvalidNumericLiteralErr final: SourcedErr {
-    InvalidNumericLiteralErr(Span src) noexcept: SourcedErr(src) {}
-
+struct InvalidNumericLiteralErr final: Err {
     virtual ErrPtr copy() const override {
         return ErrPtr(new InvalidNumericLiteralErr(*this));
     }
@@ -23,9 +21,7 @@ struct InvalidNumericLiteralErr final: SourcedErr {
     }
 };
 
-struct OutOfRangeErr final: SourcedErr {
-    OutOfRangeErr(Span src) noexcept: SourcedErr(src) {}
-
+struct OutOfRangeErr final: Err {
     virtual ErrPtr copy() const override {
         return ErrPtr(new OutOfRangeErr(*this));
     }
@@ -74,19 +70,15 @@ T strto(const char* str, char** str_end, int base = 10) {
 
 template<typename T>
 Res<T> read_number(
-    const std::string& str,
-    const char* expected_end,
-    int base,
-    Pos start
+    const char* begin, const char* expected_end, int base
 ) noexcept {
-    const char* begin = &str[0];
     char* end;
     errno = 0;
     T res = strto<T>(begin, &end, base);
     if (errno == ERANGE)
-        return ErrPtr(new OutOfRangeErr(Span(start, str.size())));
+        return ErrPtr(new OutOfRangeErr());
     if (end < expected_end)
-        return ErrPtr(new InvalidNumericLiteralErr(Span(start, str.size())));
+        return ErrPtr(new InvalidNumericLiteralErr());
     return res;
 }
 

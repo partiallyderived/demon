@@ -21,13 +21,6 @@
 
 namespace dl {
 
-enum class Stage {
-    LEX,
-    PARSE,
-    INTERPRET,
-    NONE
-};
-
 struct CapturingController {
     Cursor cursor;
     std::vector<std::pair<Token, Span>> tokens_;
@@ -35,11 +28,11 @@ struct CapturingController {
     std::vector<Comp> comps_;
     Nodes nodes_;
 
-    ErrPtr err;
-    Stage err_stage;
+    std::vector<ErrPtr> lex_errs;
+    std::vector<ErrPtr> parse_errs;
 
     CapturingController(File* file) noexcept: 
-    cursor(file), err_stage(Stage::NONE) {}
+    cursor(file) {}
 
     void capture(const char* str) {
         auto& f = dynamic_cast<StreamFile&>(*cursor.file);
@@ -48,9 +41,8 @@ struct CapturingController {
             Pos start = cursor.pos;
             Res<Token> t = next_token(cursor);
             if (t.is_err) {
-                err = std::move(t.err);
-                err_stage = Stage::LEX;
-                return;
+                lex_errs.push_back(std::move(t.err));
+                continue;
             }
             Pos end;
             if (t.res.id == TokenID::END_OF_FILE)
@@ -69,22 +61,20 @@ struct CapturingController {
         }
 
         auto parser = ParserImpl();
-        for (std::pair<Token, Span>& t: tokens_) {
-            ErrPtr e = parser.feed(t.first.copy(), t.second);
-            if (e) {
-                err = std::move(e);
-                err_stage = Stage::PARSE;
-                return;
-            }
-        }
+        for (std::pair<Token, Span>& t: tokens_)
+            parser.feed(t.first.copy(), t.second);
 
         auto composer = ComposerImpl();
         while (true) {
-            Op o = parser.next();
-            if (o.id == OpID::WAITING)
+            Res<Op> o = parser.next();
+            if (o.is_err) {
+                parse_errs.push_back(std::move(o.err));
+                continue;
+            }
+            if (o.res.id == OpID::WAITING)
                 break;
-            ops_.push_back(o.copy());
-            composer.feed(std::move(o));
+            ops_.push_back(o.res.copy());
+            composer.feed(std::move(o.res));
         }
 
         auto interpreter = InterpreterImpl();
@@ -97,45 +87,32 @@ struct CapturingController {
         }
     }
 
-    Res<std::vector<std::pair<Token, Span>>> tokens() {
-        if (err_stage == Stage::LEX)
-            return std::move(err);
+    std::vector<std::pair<Token, Span>> tokens() {
         return std::move(tokens_);
     }
 
-    Res<std::vector<Op>> ops() {
-        if (err_stage <= Stage::PARSE)
-            return std::move(err);
+    std::vector<Op> ops() {
         return std::move(ops_);
     }
 
-    Res<std::vector<Comp>> comps() {
-        if (err_stage <= Stage::PARSE)
-            return std::move(err);
+    std::vector<Comp> comps() {
         return std::move(comps_);
     }
 
-    Res<Nodes> nodes() {
-        if (err_stage <= Stage::INTERPRET)
-            return std::move(err);
+    Nodes nodes() {
         return std::move(nodes_);
     }
 
     Res<Comp> comp() {
-        if (err_stage <= Stage::PARSE)
-            return std::move(err);
         if (comps_.size() != 1)
             return ErrPtr(new AssertionFailedErr("# Comps is not exactly 1"));
         return comps_[0].copy();
     }
 
     Res<NodePtr> node() {
-        if (err_stage <= Stage::INTERPRET)
-            return std::move(err);
         if (nodes_.size() != 1)
             return ErrPtr(new AssertionFailedErr("# Nodes is not exactly 1"));
-        NodePtr res = nodes_[0]->copy_ptr();
-        return res;
+        return nodes_[0]->copy_ptr();
     }
 };
 

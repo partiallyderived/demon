@@ -24,7 +24,7 @@ struct For final: Node_<For> {
         NodePtr&& orelse,
         Span src
     ) noexcept:
-    Node_<For>(src),
+    Node_(src),
     vars(std::move(vars)),
     iterable(std::move(iterable)),
     body(std::move(body)),
@@ -36,7 +36,7 @@ struct For final: Node_<For> {
             copy_np(iterable),
             copy_np(body),
             copy_np(orelse),
-            this->src
+            src
         );
     }
 
@@ -59,7 +59,7 @@ struct For final: Node_<For> {
 
     virtual Span span() const noexcept override {
         Span end = orelse != nullptr ? orelse->span(): body->span();
-        return Span(this->src, end);
+        return Span(src, end);
     }
 };
 

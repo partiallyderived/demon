@@ -156,6 +156,8 @@ const TokenInfo TOKEN_INFO_[static_cast<int>(TokenID::WHILE) + 1] = {
     no_info_(),
     // EQUALS
     binary_info_(OpID::SET),
+    // ERROR
+    value_info_(OpID::ERROR, OpID::SUFFIX),
     // EXCEPT
     construct_middle_info_(OpID::EXCEPT),
     // FALSE

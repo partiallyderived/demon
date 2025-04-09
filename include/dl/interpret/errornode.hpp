@@ -3,35 +3,33 @@
 #include <ostream>
 #include <utility>
 
+#include "dl/err.hpp"
 #include "dl/interpret/node.hpp"
 #include "dl/interpret/nodekind.hpp"
-#include "dl/pos.hpp"
 #include "dl/span.hpp"
-#include "dl/util.hpp"
 
 namespace dl {
 
-struct Block final: Node_<Block> {
-    Nodes code;
+struct ErrorNode final: Node_<ErrorNode> {
+    ErrPtr err;
 
-    Block(Nodes&& code, Span src) noexcept:
-    Node_(src), code(std::move(code)) {}
+    ErrorNode(ErrPtr&& err, Span src) noexcept:
+    Node_(src), err(std::move(err)) {}
 
-    virtual Block copy() const override {
-        return Block(deep_copy_ptr(code), src);
+    virtual ErrorNode copy() const override {
+        return ErrorNode(err->copy(), this->src);
     }
 
     virtual bool equals(const Node& that) const noexcept override {
-        const auto& casted = dynamic_cast<const Block&>(that);
-        return nodes_eq(code, casted.code);
+        return *err == *dynamic_cast<const ErrorNode&>(that).err;
     }
 
     virtual NodeKind kind() const noexcept override {
-        return NodeKind::BLOCK;
+        return NodeKind::ERROR;
     }
 
     virtual std::ostream& out_data(std::ostream& os) const override {
-        return os << code;
+        return os << *err;
     }
 
     virtual Span span() const noexcept override {

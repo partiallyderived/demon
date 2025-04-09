@@ -17,12 +17,12 @@ struct Match final: Node_<Match> {
     Nodes cases;
 
     Match(NodePtr&& matchee, Nodes&& cases, Span src) noexcept:
-    Node_<Match>(src),
+    Node_(src),
     matchee(std::move(matchee)),
     cases(std::move(cases)) {}
 
     virtual Match copy() const override {
-        return Match(copy_np(matchee), deep_copy_ptr(cases), this->src);
+        return Match(copy_np(matchee), deep_copy_ptr(cases), src);
     }
 
     virtual bool equals(const Node& that) const noexcept override {
@@ -39,7 +39,7 @@ struct Match final: Node_<Match> {
     }
 
     virtual Span span() const noexcept override {
-        return Span(this->src, cases.back()->span());
+        return Span(src, cases.back()->span());
     }
 };
 

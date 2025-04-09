@@ -28,10 +28,16 @@ struct Op {
     Op(OpID id, Data&& data, Span src) noexcept:
     id(id), data(std::move(data)), src(src) {}
 
-    bool operator==(const Op& that) const noexcept = default;
+    bool operator==(const Op& that) const noexcept {
+        if (src != that.src)
+            return false;
+        if (id == OpID::ERROR && that.id == OpID::ERROR)
+            return *std::get<ErrPtr>(data) == *std::get<ErrPtr>(that.data);
+        return id == that.id && data == that.data;
+    }
 
     Op copy() const noexcept {
-        return Op(id, Data(data), src);
+        return Op(id, copy_data(data), src);
     }
 };
 

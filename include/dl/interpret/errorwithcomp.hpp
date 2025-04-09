@@ -11,26 +11,27 @@
 
 namespace dl {
 
-struct ErrorNode final: Node_<ErrorNode> {
+struct ErrorWithComp final: Node_<ErrorWithComp> {
     ErrPtr err;
     Comp comp;
 
-    ErrorNode(ErrPtr&& err, Comp&& comp) noexcept:
+    ErrorWithComp(ErrPtr&& err, Comp&& comp) noexcept:
     Node_(comp.span()), err(std::move(err)), comp(std::move(comp)) {}
 
-    ErrorNode(ErrPtr&& err, Comp&& comp, Span src) noexcept:
+    ErrorWithComp(ErrPtr&& err, Comp&& comp, Span src) noexcept:
     Node_(src), err(std::move(err)), comp(std::move(comp)) {}
 
-    virtual ErrorNode copy() const override {
-        return ErrorNode(err->copy(), comp.copy(), this->src);
+    virtual ErrorWithComp copy() const override {
+        return ErrorWithComp(err->copy(), comp.copy(), this->src);
     }
 
     virtual bool equals(const Node& that) const noexcept override {
-        return *err == *dynamic_cast<const ErrorNode&>(that).err;
+        const auto& casted = dynamic_cast<const ErrorWithComp&>(that);
+        return *err == *casted.err && comp == casted.comp;
     }
 
     virtual NodeKind kind() const noexcept override {
-        return NodeKind::ERROR;
+        return NodeKind::ERROR_WITH_COMP;
     }
 
     virtual std::ostream& out_data(std::ostream& os) const override {

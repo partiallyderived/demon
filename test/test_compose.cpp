@@ -7,6 +7,7 @@
 
 #include "dl/compose/comp.hpp"
 #include "dl/compose/composerimpl.hpp"
+#include "dl/lex/lex.hpp"
 #include "dl/parse/op.hpp"
 #include "dl/parse/opid.hpp"
 #include "dl/res.hpp"
@@ -153,13 +154,14 @@ TEST_CASE("Composer Core", "[compose]") {
     SECTION("Data Operators") {
         for (Op& o: vec(
             Op(OpID::CHAR, 50, s1),
+            Op(OpID::ERROR, ErrPtr(new UnclosedStrErr()), s1),
             Op(OpID::FLOAT_TAIL, "1e7", s1),
             Op(OpID::ID, "asdf", s1),
             Op(OpID::PLAIN_INT, 3, s1),
             Op(OpID::STRING, "a string", s1)
         )) {
             // Copy data for verification since it will be moved.
-            Data d = o.data;
+            Data d = copy_data(o.data);
             REQUIRE(
                 feed_all(vec(std::move(o))) == Comp(o.id, std::move(d), s1)
             );

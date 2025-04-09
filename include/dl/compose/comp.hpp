@@ -39,21 +39,20 @@ struct Comp {
         switch(opinfo(that.op).kind) {
         case UNARY:
             new(&comp) (Comp*)(that.comp);
-            that.comp = nullptr;
-            return;
+            break;
         case BINARY:
             new(&bin) (BinaryData*)(that.bin);
-            that.bin = nullptr;
-            return;
+            break;
         case DATA:
             new(&data) Data(std::move(that.data));
-            return;
+            break;
         case AGGREGATE:
             new(&comps) std::vector<Comp>(std::move(that.comps));
-            return;
-        default: 
-            return;
+            break;
+        default:;
         }
+        that.op = OpID::NOTHING;
+        that.src = Span(1, 1);
     }
 
     // Nullary constructor
@@ -106,6 +105,8 @@ bool Comp::operator==(const Comp& that) const noexcept {
     case BINARY:
         return bin->lhs == that.bin->lhs && bin->rhs == that.bin->rhs;
     case DATA:
+        if (op == OpID::ERROR)
+            return *std::get<ErrPtr>(data) == *std::get<ErrPtr>(that.data);
         return data == that.data;
     case AGGREGATE:
         return comps == that.comps;
@@ -141,7 +142,7 @@ Comp Comp::copy() const noexcept {
     case BINARY:
         return Comp(op, bin->lhs.copy(), bin->rhs.copy(), src);
     case DATA:
-        return Comp(op, Data(data), src);
+        return Comp(op, copy_data(data), src);
     case AGGREGATE:
         return Comp(op, deep_copy(comps), src);
     default:

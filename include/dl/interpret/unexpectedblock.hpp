@@ -11,23 +11,22 @@
 
 namespace dl {
 
-struct Block final: Node_<Block> {
+struct UnexpectedBlock final: Node_<UnexpectedBlock> {
     Nodes code;
 
-    Block(Nodes&& code, Span src) noexcept:
+    UnexpectedBlock(Nodes&& code, Span src) noexcept:
     Node_(src), code(std::move(code)) {}
 
-    virtual Block copy() const override {
-        return Block(deep_copy_ptr(code), src);
+    virtual UnexpectedBlock copy() const override {
+        return UnexpectedBlock(deep_copy_ptr(code), src);
     }
 
     virtual bool equals(const Node& that) const noexcept override {
-        const auto& casted = dynamic_cast<const Block&>(that);
-        return nodes_eq(code, casted.code);
+        return nodes_eq(code, dynamic_cast<const UnexpectedBlock&>(that).code);
     }
 
     virtual NodeKind kind() const noexcept override {
-        return NodeKind::BLOCK;
+        return NodeKind::UNEXPECTED_BLOCK;
     }
 
     virtual std::ostream& out_data(std::ostream& os) const override {
@@ -35,7 +34,7 @@ struct Block final: Node_<Block> {
     }
 
     virtual Span span() const noexcept override {
-        return src;
+        return Span(code.front()->span(), code.back()->span());
     }
 };
 

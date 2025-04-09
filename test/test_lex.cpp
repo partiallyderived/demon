@@ -320,31 +320,59 @@ TEST_CASE("lex", "[lex]") {
 
         SECTION("Invalid Escape Error") {
             REQUIRE(
-                *result(c, "'\\c'") == InvalidEscapeErr(Span(1, 2, 2))
+                result(c, "'\\c'") == Token(
+                    TokenID::ERROR, ErrPtr(new InvalidEscapeErr(Span(1, 2, 2)))
+                )
             );
         }
 
         SECTION("Unclosed Char Error") {
-            REQUIRE(*result(c, "'a") == UnclosedCharErr(Span(1, 1, 2)));
+            REQUIRE(
+                result(c, "'a") == Token(
+                    TokenID::ERROR, ErrPtr(new UnclosedCharErr())
+                )
+            );
 
-            REQUIRE(*result(c, "'a\n'") == UnclosedCharErr(Span(1, 1, 2)));
+            REQUIRE(
+                result(c, "'a\n'") == Token(
+                    TokenID::ERROR, ErrPtr(new UnclosedCharErr())
+                )
+            );
 
             // Should take precedence over any other error.
-            REQUIRE(*result(c, "'\\c") == UnclosedCharErr(Span(1, 1, 3)));
+            REQUIRE(
+                result(c, "'\\c") == Token(
+                    TokenID::ERROR, ErrPtr(new UnclosedCharErr())
+                )
+            );
         }
 
         SECTION("Empty") {
-            REQUIRE(*result(c, "''") == InvalidCharErr(Span(1, 1, 2)));
+            REQUIRE(
+                result(c, "''") == Token(
+                    TokenID::ERROR, ErrPtr(new InvalidCharErr())
+                )
+            );
         }
 
         SECTION("More Than One Character") {
-            REQUIRE(*result(c, "'ab'") == InvalidCharErr(Span(1, 1, 4)));
+            REQUIRE(
+                result(c, "'ab'") == Token(
+                    TokenID::ERROR, ErrPtr(new InvalidCharErr())
+                )
+            );
 
-            REQUIRE(*result(c, "'\\ab'") == InvalidCharErr(Span(1, 1, 5)));
+            REQUIRE(
+                result(c, "'\\ab'") == Token(
+                    TokenID::ERROR, ErrPtr(new InvalidCharErr())
+                )
+            );
 
             // UTF-8 2 byte character, then a.
             REQUIRE(
-                *result(c, "'\xDF\xBF\a'") == InvalidCharErr(Span(1, 1, 4))
+                result(c, "'\xDF\xBF\a'") == Token(
+                    TokenID::ERROR, ErrPtr(new InvalidCharErr())
+                )
             );
         }
 
@@ -356,7 +384,9 @@ TEST_CASE("lex", "[lex]") {
 
         SECTION("Bad Byte Escape") {
             REQUIRE(
-                *result(c, "'\\xk9'") == InvalidHexDigitErr(Span(1, 4))
+                result(c, "'\\xk9'") == Token(
+                    TokenID::ERROR, ErrPtr(new InvalidHexDigitErr(Span(1, 4)))
+                )
             );
         }
 
@@ -379,13 +409,18 @@ TEST_CASE("lex", "[lex]") {
 
         SECTION("Bad Unicode Escape") {
             REQUIRE(
-                *result(c, "'\\u0x1y'") == InvalidHexDigitErr(Span(1, 5))
+                result(c, "'\\u0x1y'") == Token(
+                    TokenID::ERROR, ErrPtr(new InvalidHexDigitErr(Span(1, 5)))
+                )
             );
 
             // Invalid UTF-8 (Surrogate)
             REQUIRE(
-                *result(c, "'\\uDEAD'") ==
-                InvalidUnicodeCodePointErr(Span(1, 2, 6))
+                result(c, "'\\uDEAD'") ==
+                Token(
+                    TokenID::ERROR,
+                    ErrPtr(new InvalidUnicodeCodePointErr(Span(1, 2, 6)))
+                )
             );
         }
 
@@ -398,20 +433,25 @@ TEST_CASE("lex", "[lex]") {
 
         SECTION("Bad Long Unicode Escape") {
             REQUIRE(
-                *result(c, "'\\U0001x2yz'") ==
-                InvalidHexDigitErr(Span(1, 8))
+                result(c, "'\\U0001x2yz'") == Token(
+                    TokenID::ERROR, ErrPtr(new InvalidHexDigitErr(Span(1, 8)))
+                )
             );
 
             // Invalid UTF-8 (Surrogate)
             REQUIRE(
-                *result(c, "'\\U0000DEAD'") ==
-                InvalidUnicodeCodePointErr(Span(1, 2, 10))
+                result(c, "'\\U0000DEAD'") == Token(
+                    TokenID::ERROR,
+                    ErrPtr(new InvalidUnicodeCodePointErr(Span(1, 2, 10)))
+                )
             );
 
             // Invalid UTF-8 (Code point exceeds 0x0010FFFF)
             REQUIRE(
-                *result(c, "'\\U00110000'") ==
-                InvalidUnicodeCodePointErr(Span(1, 2, 10))
+                result(c, "'\\U00110000'") == Token(
+                    TokenID::ERROR,
+                    ErrPtr(new InvalidUnicodeCodePointErr(Span(1, 2, 10)))
+                )
             );
         }
 
@@ -479,18 +519,23 @@ TEST_CASE("lex", "[lex]") {
             // Results in two errors so invalid character due to length because
             // it consists of two replacement characters.
             REQUIRE(
-                *result(c, "'\xDF\xFF'") == InvalidCharErr(Span(1, 1, 4))
+                *result(c, "'\xDF\xFF'") == Token(
+                    TokenID::ERROR, ErrPtr(new InvalidCharErr())
+                )
             );
 
             // 3 Bytes, third byte has all bits on.
             REQUIRE(
-                *result(c, "'\xEF\x80\xFF'") == InvalidCharErr(Span(1, 1, 4))
+                result(c, "'\xEF\x80\xFF'") == Token(
+                    TokenID::ERROR, ErrPtr(new InvalidCharErr())
+                )
             );
 
             // 4 Bytes, fourth byte has all bits on.
             REQUIRE(
-                *result(c, "'\xF7\x80\x80\xFF'") ==
-                InvalidCharErr(Span(1, 1, 4))
+                *result(c, "'\xF7\x80\x80\xFF'") == Token(
+                    TokenID::ERROR, ErrPtr(new InvalidCharErr())
+                )
             );
         }
     }
@@ -510,18 +555,31 @@ TEST_CASE("lex", "[lex]") {
 
         SECTION("Invalid Escape Error") {
             REQUIRE(
-                *result(c, "\"asdf\\c\"") ==
-                InvalidEscapeErr(Span(1, 6, 2))
+                result(c, "\"asdf\\c\"") == Token(
+                    TokenID::ERROR, ErrPtr(new InvalidEscapeErr(Span(1, 6, 2)))
+                )
             );
         }
 
         SECTION("Unclosed String Error") {
-            REQUIRE(*result(c, "\"asdf") == UnclosedStrErr(Span(1, 1, 5)));
+            REQUIRE(
+                result(c, "\"asdf") == Token(
+                    TokenID::ERROR, ErrPtr(new UnclosedStrErr())
+                )
+            );
 
-            REQUIRE(*result(c, "\"asdf\n\"") == UnclosedStrErr(Span(1, 1, 5)));
+            REQUIRE(
+                result(c, "\"asdf\n\"") == Token(
+                    TokenID::ERROR, ErrPtr(new UnclosedStrErr())
+                )
+            );
 
             // Should take precedence over any other error.
-            REQUIRE(*result(c, "\"asdf\\c") == UnclosedStrErr(Span(1, 1, 7)));
+            REQUIRE(
+                result(c, "\"asdf\\c") == Token(
+                    TokenID::ERROR, ErrPtr(new UnclosedStrErr())
+                )
+            );
         }
 
         SECTION("Byte Escape") {
@@ -533,8 +591,9 @@ TEST_CASE("lex", "[lex]") {
 
         SECTION("Bad Byte Escape") {
             REQUIRE(
-                *result(c, "\"asdf\\xyz\"") ==
-                InvalidHexDigitErr(Span(1, 8))
+                result(c, "\"asdf\\xyz\"") == Token(
+                    TokenID::ERROR, ErrPtr(new InvalidHexDigitErr(Span(1, 8)))
+                )
             );
         }
 
@@ -557,14 +616,17 @@ TEST_CASE("lex", "[lex]") {
 
         SECTION("Bad Unicode Escape") {
             REQUIRE(
-                *result(c, "\"asdf\\u0x1y\"") ==
-                InvalidHexDigitErr(Span(1, 9))
+                result(c, "\"asdf\\u0x1y\"") == Token(
+                    TokenID::ERROR, ErrPtr(new InvalidHexDigitErr(Span(1, 9)))
+                )
             );
 
             // Invalid UTF-8 (surrogate)
             REQUIRE(
-                *result(c, "\"asdf\\uDEAD\"") ==
-                InvalidUnicodeCodePointErr(Span(1, 6, 6))
+                result(c, "\"asdf\\uDEAD\"") == Token(
+                    TokenID::ERROR,
+                    ErrPtr(new InvalidUnicodeCodePointErr(Span(1, 6, 6)))
+                )
             );
         }
 
@@ -578,20 +640,25 @@ TEST_CASE("lex", "[lex]") {
         SECTION("Bad Long Unicode Escape") {
             // Contains non-hex characters.
             REQUIRE(
-                *result(c, "\"asdf\\U000axbyz\"") ==
-                InvalidHexDigitErr(Span(1, 12))
+                result(c, "\"asdf\\U000axbyz\"") == Token(
+                    TokenID::ERROR, ErrPtr(new InvalidHexDigitErr(Span(1, 12)))
+                )
             );
 
             // Invalid UTF-8 (surrogate)
             REQUIRE(
-                *result(c, "\"asdf\\U0000DEAD\"") ==
-                InvalidUnicodeCodePointErr(Span(1, 6, 10))
+                result(c, "\"asdf\\U0000DEAD\"") == Token(
+                    TokenID::ERROR,
+                    ErrPtr(new InvalidUnicodeCodePointErr(Span(1, 6, 10)))
+                )
             );
 
             // Code point is too big
             REQUIRE(
-                *result(c, "\"asdf\\U00110000\"") ==
-                InvalidUnicodeCodePointErr(Span(1, 6, 10))
+                result(c, "\"asdf\\U00110000\"") == Token(
+                    TokenID::ERROR,
+                    ErrPtr(new InvalidUnicodeCodePointErr(Span(1, 6, 10)))
+                )
             );
         }
 
@@ -901,57 +968,86 @@ TEST_CASE("lex", "[lex]") {
             }
 
             SECTION("Leading Zeroes Error") {
-                REQUIRE(*result(c, "00") == LeadingZeroesErr(Span(1, 1, 2)));
-
-                REQUIRE(*result(c, "01") == LeadingZeroesErr(Span(1, 1, 2)));
+                REQUIRE(
+                    result(c, "00") == Token(
+                        TokenID::ERROR, ErrPtr(new LeadingZeroesErr())
+                    )
+                );
 
                 REQUIRE(
-                    *result(c, "001234") == LeadingZeroesErr(Span(1, 1, 6))
+                    result(c, "01") == Token(
+                        TokenID::ERROR, ErrPtr(new LeadingZeroesErr())
+                    )
+                );
+
+                REQUIRE(
+                    result(c, "001234") == Token(
+                        TokenID::ERROR, ErrPtr(new LeadingZeroesErr())
+                    )
                 );
             }
 
             SECTION("Invalid Numeric Literal Error") {
                 REQUIRE(
-                    *result(c, "0h") ==
-                    InvalidNumericLiteralErr(Span(1, 1, 2))
+                    result(c, "0h") == Token(
+                        TokenID::ERROR, ErrPtr(new InvalidNumericLiteralErr())
+                    )
                 );
 
                 REQUIRE(
-                    *result(c, "123g") ==
-                    InvalidNumericLiteralErr(Span(1, 1, 4))
+                    result(c, "123g") == Token(
+                        TokenID::ERROR, ErrPtr(new InvalidNumericLiteralErr())
+                    )
                 );
             }
 
             SECTION("Out Of Range Error") {
                 REQUIRE(
-                    *result(c, "3000000000s32") ==
-                    OutOfRangeErr(Span(1, 1, 13))
-                );
-
-                REQUIRE(*result(c, "200s8") == OutOfRangeErr(Span(1, 1, 5)));
-
-                REQUIRE(
-                    *result(c, "33000s16") == OutOfRangeErr(Span(1, 1, 8))
+                    result(c, "3000000000s32") == Token(
+                        TokenID::ERROR, ErrPtr(new OutOfRangeErr())
+                    )
                 );
 
                 REQUIRE(
-                    *result(c, "9300000000000000000s64") ==
-                    OutOfRangeErr(Span(1, 1, 22))
+                    result(c, "200s8") == Token(
+                        TokenID::ERROR, ErrPtr(new OutOfRangeErr())
+                    )
                 );
 
                 REQUIRE(
-                    *result(c, "5000000000u") == OutOfRangeErr(Span(1, 1, 11))
-                );
-
-                REQUIRE(*result(c, "300u8") == OutOfRangeErr(Span(1, 1, 5)));
-
-                REQUIRE(
-                    *result(c, "70000u16") == OutOfRangeErr(Span(1, 1, 8))
+                    result(c, "33000s16") == Token(
+                        TokenID::ERROR, ErrPtr(new OutOfRangeErr())
+                    )
                 );
 
                 REQUIRE(
-                    *result(c, "19000000000000000000u64") ==
-                    OutOfRangeErr(Span(1, 1, 23))
+                    result(c, "9300000000000000000s64") == Token(
+                        TokenID::ERROR, ErrPtr(new OutOfRangeErr())
+                    )
+                );
+
+                REQUIRE(
+                    result(c, "5000000000u") == Token(
+                        TokenID::ERROR, ErrPtr(new OutOfRangeErr())
+                    )
+                );
+
+                REQUIRE(
+                    result(c, "300u8") == Token(
+                        TokenID::ERROR, ErrPtr(new OutOfRangeErr())
+                    )
+                );
+
+                REQUIRE(
+                    result(c, "70000u16") == Token(
+                        TokenID::ERROR, ErrPtr(new OutOfRangeErr())
+                    )
+                );
+
+                REQUIRE(
+                    result(c, "19000000000000000000u64") == Token(
+                        TokenID::ERROR, ErrPtr(new OutOfRangeErr())
+                    )
                 );
             }
         }
@@ -997,16 +1093,24 @@ TEST_CASE("lex", "[lex]") {
 
             SECTION("Invalid Floating-point Tail Error") {
                 REQUIRE(
-                    *result(c, "1e") == InvalidFloatTailErr(Span(1, 1, 2))
+                    result(c, "1e") == Token(
+                        TokenID::ERROR, ErrPtr(new InvalidFloatTailErr())
+                    )
                 );
                 REQUIRE(
-                    *result(c, "1e-") == InvalidFloatTailErr(Span(1, 1, 3))
+                    result(c, "1e-") == Token(
+                        TokenID::ERROR, ErrPtr(new InvalidFloatTailErr())
+                    )
                 );
                 REQUIRE(
-                    *result(c, "0ef31") == InvalidFloatTailErr(Span(1, 1, 5))
+                    result(c, "0ef31") == Token(
+                        TokenID::ERROR, ErrPtr(new InvalidFloatTailErr())
+                    )
                 );
                 REQUIRE(
-                    *result(c, "2ea") == InvalidFloatTailErr(Span(1, 1, 3))
+                    result(c, "2ea") == Token(
+                        TokenID::ERROR, ErrPtr(new InvalidFloatTailErr())
+                    )
                 );
             }
         }

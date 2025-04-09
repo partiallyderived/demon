@@ -29,9 +29,14 @@ struct Token {
     Token(TokenID id, Data&& data) noexcept:
     id(id), data(std::move(data)) {}
 
-    bool operator==(const Token& that) const = default;
+    bool operator==(const Token& that) const noexcept {
+        if (id == TokenID::ERROR && that.id == TokenID::ERROR)
+            return *std::get<ErrPtr>(data) == *std::get<ErrPtr>(that.data);
+        return id == that.id && data == that.data;
+    }
+
     Token copy() const noexcept {
-        return Token(id, Data(data));
+        return Token(id, copy_data(data));
     }
 };
 

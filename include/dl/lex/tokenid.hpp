@@ -35,6 +35,7 @@ enum class TokenID {
     ELSE,
     END_OF_FILE,
     EQUALS,
+    ERROR,
     EXCEPT,
     FALSE,
     FINALLY,
@@ -148,6 +149,8 @@ std::ostream& operator<<(std::ostream& os, TokenID id) {
         return os << "END_OF_FILE";
     case EQUALS:
         return os << "EQUALS";
+    case ERROR:
+        return os << "ERROR";
     case EXCEPT:
         return os << "EXCEPT";
     case FALSE:

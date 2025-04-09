@@ -34,6 +34,7 @@ enum class NodeKind {
     DIV,
     ENTRY,
     ERROR,
+    ERROR_WITH_COMP,
     EQ,
     EXPANSION,
     FLOAT32,
@@ -111,6 +112,9 @@ enum class NodeKind {
     UINT16,
     UINT32,
     UINT64,
+    UNEXPECTED_BLOCK,
+    UNEXPECTED_CASE,
+    UNEXPECTED_CONSTRUCT,
     UPDATE,
     UPDATE_ATTR,
     VAR,
@@ -179,6 +183,8 @@ std::ostream& operator<<(std::ostream& os, NodeKind x) {
         return os << "ENTRY";
     case ERROR:
         return os << "ERROR";
+    case ERROR_WITH_COMP:
+        return os << "ERROR_WITH_COMP";
     case EQ:
         return os << "EQ";
     case EXPANSION:
@@ -333,6 +339,12 @@ std::ostream& operator<<(std::ostream& os, NodeKind x) {
         return os << "UINT32";
     case UINT64:
         return os << "UINT64";
+    case UNEXPECTED_BLOCK:
+        return os << "UNEXPECTED_BLOCK";
+    case UNEXPECTED_CASE:
+        return os << "UNEXPECTED_CASE";
+    case UNEXPECTED_CONSTRUCT:
+        return os << "UNEXPECTED_CONSTRUCT";
     case UPDATE:
         return os << "UPDATE";
     case UPDATE_ATTR:

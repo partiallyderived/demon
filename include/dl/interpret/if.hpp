@@ -17,10 +17,10 @@ struct If final: Node_<If> {
     NodePtr orelse;
 
     If(Nodes&& cases, NodePtr&& orelse, Span src) noexcept:
-    Node_<If>(src), cases(std::move(cases)), orelse(std::move(orelse)) {}
+    Node_(src), cases(std::move(cases)), orelse(std::move(orelse)) {}
 
     virtual If copy() const override {
-        return If(deep_copy_ptr(cases), copy_np(orelse), this->src);
+        return If(deep_copy_ptr(cases), copy_np(orelse), src);
     }
 
     virtual bool equals(const Node& that) const noexcept override {

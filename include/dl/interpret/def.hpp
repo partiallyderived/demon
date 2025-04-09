@@ -18,7 +18,7 @@ struct Def final: Node_<Def> {
     Nodes cases;
 
     Def(NodePtr&& id, Nodes&& cases, Span src) noexcept:
-    Node_<Def>(src),
+    Node_(src),
     id(std::move(id)),
     cases(std::move(cases)) {}
 

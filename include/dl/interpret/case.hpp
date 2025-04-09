@@ -15,12 +15,12 @@ struct Case final: Node_<Case> {
     NodePtr body;
 
     Case(NodePtr&& predicate, NodePtr&& body, Span src) noexcept:
-    Node_<Case>(src),
+    Node_(src),
     predicate(std::move(predicate)),
     body(std::move(body)) {}
 
     virtual Case copy() const override {
-        return Case(copy_np(predicate), copy_np(body), this->src);
+        return Case(copy_np(predicate), copy_np(body), src);
     }
 
     virtual bool equals(const Node& that) const noexcept override {
@@ -42,10 +42,10 @@ struct Case final: Node_<Case> {
 
     virtual Span span() const noexcept override {
         if (body)
-            return Span(this->src, body->span());
+            return Span(src, body->span());
         if (predicate)
-            return Span(this->src, predicate->span());
-        return this->src;
+            return Span(src, predicate->span());
+        return src;
     }
 };
 

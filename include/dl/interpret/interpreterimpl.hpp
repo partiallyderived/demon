@@ -28,7 +28,8 @@
 #include "dl/interpret/data.hpp"
 #include "dl/interpret/def.hpp"
 #include "dl/interpret/defcase.hpp"
-#include "dl/interpret/error.hpp"
+#include "dl/interpret/errornode.hpp"
+#include "dl/interpret/errorwithcomp.hpp"
 #include "dl/interpret/for.hpp"
 #include "dl/interpret/if.hpp"
 #include "dl/interpret/init.hpp"
@@ -43,6 +44,9 @@
 #include "dl/interpret/ternary.hpp"
 #include "dl/interpret/try.hpp"
 #include "dl/interpret/unary.hpp"
+#include "dl/interpret/unexpectedblock.hpp"
+#include "dl/interpret/unexpectedcase.hpp"
+#include "dl/interpret/unexpectedconstruct.hpp"
 #include "dl/interpret/while.hpp"
 #include "dl/lex/literalsuffix.hpp"
 #include "dl/res.hpp"
@@ -426,9 +430,11 @@ struct InterpreterImpl final: Interpreter {
     );
     static inline NodePtr interpret_block(Comp&& comp);
     static inline NodePtr interpret_block(Comp&& comp, Span label_src);
+    static inline NodePtr interpret_body(Comp&& comp);
     static inline NodePtr interpret_break(Comp&& comp);
     static inline NodePtr interpret_call(Comp&& comp);
     static inline NodePtr interpret_case(Comp&& comp);
+    static inline Nodes interpret_code(Comp&& comp);
     static inline NodePtr interpret_concat(Comp&& comp);
     static inline NodePtr interpret_construct(std::vector<Comp>&& comps);
     static inline NodePtr interpret_continue(Comp&& comp);
@@ -450,6 +456,7 @@ struct InterpreterImpl final: Interpreter {
     static inline NodePtr interpret_enclosure(Comp&& comp);
     static inline Nodes interpret_enclosure_recurse(Comp&& comp);
     static inline NodePtr interpret_entry(Comp&& comp);
+    static inline NodePtr interpret_error(Comp&& comp);
     static inline NodePtr interpret_expr(Comp&& comp);
     static inline std::pair<NodePtr, NodePtr> interpret_first_def_case(
         Comp&& comp
@@ -463,6 +470,7 @@ struct InterpreterImpl final: Interpreter {
     static inline NodePtr interpret_id(Comp&& comp);
     static inline NodePtr interpret_if(std::vector<Comp>&& comps);
     static inline NodePtr interpret_kwarg(Comp&& comp);
+    static inline NodePtr interpret_label(Comp&& comp);
     static inline NodePtr interpret_lambda(Comp&& comp);
 
     template<typename NodeType>
@@ -529,6 +537,7 @@ struct InterpreterImpl final: Interpreter {
     static inline NodePtr interpret_type_match(
         Comp&& comp, MatchKind kind, bool& in_kw_part
     );
+    static inline NodePtr interpret_unexpected_construct(Comp&& comp);
 
     template<typename ToType>
     static inline NodePtr interpret_unop(Comp&& comp);
@@ -563,7 +572,7 @@ NodePtr InterpreterImpl::expect_body_only(Comp&& comp) {
     if (comp.comp->op != OpID::BODY) {
         if (comp.comp->op == OpID::LABEL) {
             return NodePtr(new Case(
-                NodePtr(new ErrorNode(
+                NodePtr(new ErrorWithComp(
                     ErrPtr(new UnexpectedPredicateErr()),
                     std::move(comp.comp->bin->lhs)
                 )),
@@ -572,11 +581,11 @@ NodePtr InterpreterImpl::expect_body_only(Comp&& comp) {
             ));
         }
         return NodePtr(new Case(
-            NodePtr(new ErrorNode(
+            NodePtr(new ErrorWithComp(
                 ErrPtr(new UnexpectedPredicateErr()),
                 std::move(*comp.comp)
             )),
-            NodePtr(new ErrorNode(
+            NodePtr(new ErrorWithComp(
                 ErrPtr(new MissingBodyErr()),
                 Comp(OpID::MISSING, Span::after(comp.comp->span()))
             )),
@@ -587,17 +596,25 @@ NodePtr InterpreterImpl::expect_body_only(Comp&& comp) {
 }
 
 NodePtr InterpreterImpl::expect_id(Comp&& comp) {
-    if (comp.op != OpID::ID)
-        return NodePtr(new ErrorNode(
+    using enum OpID;
+    switch(comp.op) {
+    case ID:
+        return interpret_id(std::move(comp));
+    case ERROR:
+        return interpret_error(std::move(comp));
+    default:
+        return NodePtr(new ErrorWithComp(
             ErrPtr(new ExpectedIDErr()),
             std::move(comp)
         ));
-    return interpret_id(std::move(comp));
+    }
 }
 
 NodePtr InterpreterImpl::interpret_(Comp&& comp) {
     using enum OpID;
     switch(comp.op) {
+    case BODY:
+        return interpret_body(std::move(comp));
     case BREAK:
         return interpret_break(std::move(comp));
     case CONSTRUCT:
@@ -626,6 +643,8 @@ NodePtr InterpreterImpl::interpret_(Comp&& comp) {
         return interpret_binop<IRightShift>(std::move(comp));
     case ISUB:
         return interpret_binop<ISubtract>(std::move(comp));
+    case LABEL:
+        return interpret_label(std::move(comp));
     case RAISE:
         return interpret_optional<Raise>(std::move(comp));
     case RETURN:
@@ -634,6 +653,12 @@ NodePtr InterpreterImpl::interpret_(Comp&& comp) {
         return interpret_assign(std::move(comp));
     case TYPE_LABEL:
         return interpret_declare(std::move(comp));
+    case CASE:
+    case ELIF:
+    case ELSE:
+    case EXCEPT:
+    case FINALLY:
+        return interpret_unexpected_construct(std::move(comp));
     default:
         return interpret_expr(std::move(comp));
     }
@@ -738,15 +763,13 @@ NodePtr InterpreterImpl::interpret_block(Comp&& comp) {
 }
 
 NodePtr InterpreterImpl::interpret_block(Comp&& comp, Span src) {
-    if (comp.op != OpID::BLOCK)
-        return NodePtr(new ErrorNode(
-            ErrPtr(new AssertionFailedErr("Not a block")),
-            std::move(comp)
-        ));
-    Nodes code;
-    for(Comp& comp: comp.comps)
-        code.push_back(interpret_(std::move(comp)));
-    return NodePtr(new Block(std::move(code), src));
+    return NodePtr(new Block(interpret_code(std::move(comp)), src));
+}
+
+NodePtr InterpreterImpl::interpret_body(Comp&& comp) {
+    return NodePtr(new UnexpectedBlock(
+        interpret_code(std::move(*comp.comp)), comp.src
+    ));
 }
 
 NodePtr InterpreterImpl::interpret_break(Comp&& comp) {
@@ -755,7 +778,7 @@ NodePtr InterpreterImpl::interpret_break(Comp&& comp) {
 
 NodePtr InterpreterImpl::interpret_call(Comp&& comp) {
     if (comp.bin->rhs.op == OpID::ENCLOSURE) {
-        return NodePtr(new ErrorNode(
+        return NodePtr(new ErrorWithComp(
             ErrPtr(new ExpectedParentheticalErr()),
             std::move(comp)
         ));
@@ -778,7 +801,7 @@ NodePtr InterpreterImpl::interpret_case(Comp&& comp) {
     switch(comp.comp->op) {
     case BODY:
         return NodePtr(new Case(
-            NodePtr(new ErrorNode(
+            NodePtr(new ErrorWithComp(
                 ErrPtr(new MissingPredicateErr()),
                 Comp(OpID::MISSING, comp.comp->src)
             )),
@@ -795,13 +818,20 @@ NodePtr InterpreterImpl::interpret_case(Comp&& comp) {
         Span after_pred = Span::after(comp.comp->span());
         return NodePtr(new Case(
             interpret_expr(std::move(*comp.comp)),
-            NodePtr(new ErrorNode(
+            NodePtr(new ErrorWithComp(
                 ErrPtr(new MissingBodyErr()),
                 Comp(OpID::MISSING, after_pred)
             )),
             comp.src
         ));
     }}
+}
+
+Nodes InterpreterImpl::interpret_code(Comp&& comp) {
+    Nodes code;
+    for(Comp& comp: comp.comps)
+        code.push_back(interpret_(std::move(comp)));
+    return code;
 }
 
 NodePtr InterpreterImpl::interpret_construct(std::vector<Comp>&& comps) {
@@ -820,7 +850,7 @@ NodePtr InterpreterImpl::interpret_construct(std::vector<Comp>&& comps) {
     case WHILE:
         return interpret_while(std::move(comps));
     default:
-        return NodePtr(new ErrorNode(
+        return NodePtr(new ErrorWithComp(
             ErrPtr(new AssertionFailedErr("Expected Construct")),
             std::move(comps[0])
         ));
@@ -869,7 +899,7 @@ NodePtr InterpreterImpl::interpret_def(std::vector<Comp>&& comps) {
     cases.push_back(std::move(first.second));
     for (std::uint32_t i = 1; i < comps.size(); i++) {
         if (comps[i].op != OpID::CASE)
-            cases.push_back(NodePtr(new ErrorNode(
+            cases.push_back(NodePtr(new ErrorWithComp(
                 ErrPtr(new ExpectedCaseErr()),
                 std::move(comps[i]),
                 comps[i].src
@@ -898,7 +928,7 @@ NodePtr InterpreterImpl::interpret_def_case(Comp&& comp) {
     }
     case BODY:
         return NodePtr(new DefCase(
-            NodePtr(new ErrorNode(
+            NodePtr(new ErrorWithComp(
                 ErrPtr(new MissingArgSpecErr()),
                 Comp(OpID::MISSING, comp.comp->src)
             )),
@@ -914,7 +944,7 @@ NodePtr InterpreterImpl::interpret_def_case(Comp&& comp) {
             interpret_match_args(std::move(*pred_comp), true),
             std::move(guard),
             std::move(returns),
-            NodePtr(new ErrorNode(
+            NodePtr(new ErrorWithComp(
                 ErrPtr(new MissingBodyErr()),
                 Comp(OpID::MISSING, after_pred)
             )),
@@ -965,7 +995,7 @@ NodePtr InterpreterImpl::interpret_dflt(Comp&& comp) {
     case BIND:
     case UNPACK_ARGS:
     case UNPACK_KWARGS:
-        lhs = NodePtr(new ErrorNode(
+        lhs = NodePtr(new ErrorWithComp(
             ErrPtr(new ExpectedDefaultableExprErr()),
             std::move(comp.bin->lhs)
         ));
@@ -1014,6 +1044,12 @@ Nodes InterpreterImpl::interpret_enclosure_recurse(Comp&& comp) {
     return elements;
 }
 
+NodePtr InterpreterImpl::interpret_error(Comp&& comp) {
+    return NodePtr(new ErrorNode(
+        std::move(std::get<ErrPtr>(comp.data)), comp.src
+    ));
+}
+
 NodePtr InterpreterImpl::interpret_expr(Comp&& comp) {
     using enum OpID;
     switch(comp.op) {
@@ -1045,6 +1081,8 @@ NodePtr InterpreterImpl::interpret_expr(Comp&& comp) {
         return interpret_enclosure(std::move(comp));
     case EQ:
         return interpret_binop<Equals>(std::move(comp));
+    case ERROR:
+        return interpret_error(std::move(comp));
     case FALSE:
         return NodePtr(new Bool(false, comp.src));
     case FLOAT_TAIL:
@@ -1121,7 +1159,7 @@ NodePtr InterpreterImpl::interpret_expr(Comp&& comp) {
     case UP:
         return interpret_up(std::move(comp));
     default:
-        return NodePtr(new ErrorNode(
+        return NodePtr(new ErrorWithComp(
             ErrPtr(new ExpectedExprErr()),
             std::move(comp)
         ));
@@ -1147,11 +1185,11 @@ std::pair<NodePtr, NodePtr> InterpreterImpl::interpret_first_def_case(
         body = interpret_block(std::move(comp.comp->bin->rhs));
         break;
     case BODY:
-        id = NodePtr(new ErrorNode(
+        id = NodePtr(new ErrorWithComp(
             ErrPtr(new MissingIDErr()),
             Comp(OpID::MISSING, comp.comp->src)
         ));
-        spec = NodePtr(new ErrorNode(
+        spec = NodePtr(new ErrorWithComp(
             ErrPtr(new MissingArgSpecErr()),
             Comp(OpID::MISSING, comp.comp->src)
         ));
@@ -1162,7 +1200,7 @@ std::pair<NodePtr, NodePtr> InterpreterImpl::interpret_first_def_case(
         std::tie(pred_comp, returns, guard) = interpret_def_case_pre(
             *comp.comp
         );
-        body = NodePtr(new ErrorNode(
+        body = NodePtr(new ErrorWithComp(
             ErrPtr(new MissingBodyErr()),
             Comp(OpID::MISSING, after_pred)
         ));
@@ -1174,17 +1212,23 @@ std::pair<NodePtr, NodePtr> InterpreterImpl::interpret_first_def_case(
             id = interpret_definable(std::move(pred_comp->bin->lhs));
             spec = interpret_match_args(std::move(pred_comp->bin->rhs), true);
             break;
-        case GROUP: {
-            id = NodePtr(new ErrorNode(
+        case GROUP:
+            id = NodePtr(new ErrorWithComp(
                 ErrPtr(new MissingIDErr()),
                 Comp(OpID::MISSING, Span(pred_comp->src.start()))
             ));
             spec = interpret_match_args(std::move(*pred_comp), true);
             break;
-        }
+        case ERROR:
+            id = interpret_error(std::move(*pred_comp));
+            spec = NodePtr(new ErrorWithComp(
+                ErrPtr(new MissingArgSpecErr()),
+                Comp(OpID::MISSING, Span::after(id->span()))
+            ));
+            break;
         default:
             id = interpret_definable(std::move(*pred_comp));
-            spec = NodePtr(new ErrorNode(
+            spec = NodePtr(new ErrorWithComp(
                 ErrPtr(new MissingArgSpecErr()),
                 Comp(OpID::MISSING, Span::after(id->span()))
             ));
@@ -1223,7 +1267,7 @@ NodePtr InterpreterImpl::interpret_for(std::vector<Comp>&& comps) {
         );
         break;
     case BODY:
-        iterable = NodePtr(new ErrorNode(
+        iterable = NodePtr(new ErrorWithComp(
             ErrPtr(new MissingPredicateErr()),
             Comp(OpID::MISSING, comps[0].comp->src)
         ));
@@ -1234,7 +1278,7 @@ NodePtr InterpreterImpl::interpret_for(std::vector<Comp>&& comps) {
         std::tie(vars, iterable) = interpret_for_pred(
             std::move(*comps[0].comp)
         );
-        body = NodePtr(new ErrorNode(
+        body = NodePtr(new ErrorWithComp(
             ErrPtr(new MissingBodyErr()),
             Comp(OpID::MISSING, after_pred)
         ));
@@ -1256,7 +1300,7 @@ std::tuple<Nodes, NodePtr> InterpreterImpl::interpret_for_pred(Comp&& comp) {
     if (comp.op != OpID::IN)
         return {
             Nodes(),
-            NodePtr(new ErrorNode(
+            NodePtr(new ErrorWithComp(
                 ErrPtr(new ExpectedInErr()),
                 std::move(comp)
             ))
@@ -1270,12 +1314,14 @@ std::tuple<Nodes, NodePtr> InterpreterImpl::interpret_for_pred(Comp&& comp) {
 NodePtr InterpreterImpl::interpret_general_id(Comp&& comp) {
     using enum OpID;
     switch(comp.op) {
+    case ERROR:
+        return interpret_error(std::move(comp));
     case ID:
         return interpret_id(std::move(comp));
     case PLAIN_INT:
         return interpret_num_id(std::move(comp));
     default:
-        return NodePtr(new ErrorNode(
+        return NodePtr(new ErrorWithComp(
             ErrPtr(new ExpectedGeneralIDErr()),
             std::move(comp)
         ));
@@ -1330,7 +1376,7 @@ NodePtr InterpreterImpl::interpret_if(std::vector<Comp>&& comps) {
     }
     for (std::uint32_t i = 1; i < end; i++) {
         if (comps[i].op != OpID::ELIF)
-            cases.push_back(NodePtr(new ErrorNode(
+            cases.push_back(NodePtr(new ErrorWithComp(
                 ErrPtr(new ExpectedElifOrElseErr()),
                 std::move(comps[i]),
                 comps[i].src
@@ -1354,14 +1400,24 @@ NodePtr InterpreterImpl::interpret_kwarg(Comp&& comp) {
             std::move(bind_id), std::move(value), comp.src
         ));
     }
+    case ERROR:
+        return interpret_error(std::move(comp));
     case UNPACK_KWARGS:
         return interpret_unop<Expansion>(std::move(comp));
     default:
-        return NodePtr(new ErrorNode(
+        return NodePtr(new ErrorWithComp(
             ErrPtr(new ExpectedKeywordArgExprErr()),
             std::move(comp)
         ));
     }
+}
+
+NodePtr InterpreterImpl::interpret_label(Comp&& comp) {
+    return NodePtr(new UnexpectedCase(
+        interpret_expr(std::move(comp.bin->lhs)),
+        interpret_code(std::move(comp.bin->rhs)),
+        comp.src
+    ));
 }
 
 NodePtr InterpreterImpl::interpret_lambda(Comp&& comp) {
@@ -1409,7 +1465,7 @@ Nodes InterpreterImpl::interpret_loop_vars(Comp&& comp) {
         vars.push_back(NodePtr(new Placeholder(c->src)));
         return vars;
     default:
-        vars.push_back(NodePtr(new ErrorNode(
+        vars.push_back(NodePtr(new ErrorWithComp(
             ErrPtr(new ExpectedIDErr()),
             std::move(*c)
         )));
@@ -1422,10 +1478,12 @@ NodePtr InterpreterImpl::interpret_map_element(Comp&& comp) {
     switch(comp.op) {
     case BIND:
         return interpret_binop<Entry>(std::move(comp));
+    case ERROR:
+        return interpret_error(std::move(comp));
     case UNPACK_KWARGS:
         return interpret_unop<Expansion>(std::move(comp));
     default:
-        return NodePtr(new ErrorNode(
+        return NodePtr(new ErrorWithComp(
             ErrPtr(new ExpectedEntryExprErr()),
             std::move(comp)
         ));
@@ -1434,7 +1492,7 @@ NodePtr InterpreterImpl::interpret_map_element(Comp&& comp) {
 
 NodePtr InterpreterImpl::interpret_match(std::vector<Comp>&& comps) {
     if (comps.size() == 1)
-        return NodePtr(new ErrorNode(
+        return NodePtr(new ErrorWithComp(
             ErrPtr(new NoMatchCasesErr()),
             std::move(comps[0]),
             comps[0].src
@@ -1451,7 +1509,7 @@ NodePtr InterpreterImpl::interpret_match(std::vector<Comp>&& comps) {
 
 NodePtr InterpreterImpl::interpret_match_args(Comp&& comp, bool is_def) {
     if (comp.op != OpID::GROUP)
-        return NodePtr(new ErrorNode(
+        return NodePtr(new ErrorWithComp(
             ErrPtr(new ExpectedParentheticalErr()),
             std::move(comp)
         ));
@@ -1480,12 +1538,12 @@ MatchArgs InterpreterImpl::interpret_match_args_recurse(
 
     if (c->op == OpID::POS_KW_SEP) {
         if (in_kw_part)
-            args.kwargs.push_back(NodePtr(new ErrorNode(
+            args.kwargs.push_back(NodePtr(new ErrorWithComp(
                 ErrPtr(new ExpectedKeywordArgMatchExprErr()),
                 std::move(*c)
             )));
         else if (!is_def)
-            args.args.push_back(NodePtr(new ErrorNode(
+            args.args.push_back(NodePtr(new ErrorWithComp(
                 ErrPtr(new ExpectedArgMatchExprErr()),
                 std::move(*c)
             )));
@@ -1515,7 +1573,7 @@ NodePtr InterpreterImpl::interpret_match_as(
     case TYPE_LABEL:
     case UNPACK_ARGS:
     case UNPACK_KWARGS:
-        lhs = NodePtr(new ErrorNode(
+        lhs = NodePtr(new ErrorWithComp(
             ErrPtr(new ExpectedAsLHSExprErr()),
             std::move(comp.bin->lhs)
         ));
@@ -1542,17 +1600,17 @@ NodePtr InterpreterImpl::interpret_match_bind(
         in_kw_part = true;
         return interpret_match_kwarg(std::move(comp));
     case MatchKind::MAP:
-        return NodePtr(new ErrorNode(
+        return NodePtr(new ErrorWithComp(
             ErrPtr(new ExpectedEntryMatchExprErr()),
             std::move(comp)
         ));
     case MatchKind::PLAIN:
-        return NodePtr(new ErrorNode(
+        return NodePtr(new ErrorWithComp(
             ErrPtr(new ExpectedMatchExprErr()),
             std::move(comp)
         ));
     case MatchKind::SEQ:
-        return NodePtr(new ErrorNode(
+        return NodePtr(new ErrorWithComp(
             ErrPtr(new ExpectedElementMatchExprErr()),
             std::move(comp)
         ));
@@ -1571,7 +1629,7 @@ NodePtr InterpreterImpl::interpret_match_case(Comp&& comp) {
         body = interpret_block(std::move(comp.comp->bin->rhs));
         break;
     case BODY:
-        matcher = NodePtr(new ErrorNode(
+        matcher = NodePtr(new ErrorWithComp(
             ErrPtr(new MissingPredicateErr()),
             Comp(OpID::MISSING, comp.comp->src)
         ));
@@ -1582,7 +1640,7 @@ NodePtr InterpreterImpl::interpret_match_case(Comp&& comp) {
         std::tie(matcher, guard) = interpret_match_case_pred(
             std::move(*comp.comp)
         );
-        body = NodePtr(new ErrorNode(
+        body = NodePtr(new ErrorWithComp(
             ErrPtr(new MissingBodyErr()),
             Comp(OpID::MISSING, after_pred)
         ));
@@ -1613,13 +1671,13 @@ Nodes InterpreterImpl::interpret_match_cases(
     for (std::uint32_t i = 1; i < end; i++) {
         if (comps[i].op != op) {
             if (op == OpID::CASE)
-                cases.push_back(NodePtr(new ErrorNode(
+                cases.push_back(NodePtr(new ErrorWithComp(
                     ErrPtr(new ExpectedCaseErr()),
                     std::move(comps[i]),
                     comps[i].src
                 )));
             else
-                cases.push_back(NodePtr(new ErrorNode(
+                cases.push_back(NodePtr(new ErrorWithComp(
                     ErrPtr(new ExpectedExceptOrFinallyErr()),
                     std::move(comps[i]),
                     comps[i].src
@@ -1639,20 +1697,22 @@ NodePtr InterpreterImpl::interpret_match_general_var(
         return interpret_id(std::move(comp));
     case UNPACK_ARGS:
         if (comp.comp->op != ID)
-            return NodePtr(new ErrorNode(
+            return NodePtr(new ErrorWithComp(
                 ErrPtr(new ExpectedIDErr()),
                 std::move(*comp.comp)
             ));
         return interpret_match_var_args(std::move(comp), kind, in_kw_part);
     case UNPACK_KWARGS:
         if (comp.comp->op != ID)
-            return NodePtr(new ErrorNode(
+            return NodePtr(new ErrorWithComp(
                 ErrPtr(new ExpectedIDErr()),
                 std::move(*comp.comp)
             ));
         return interpret_match_var_kwargs(std::move(comp), kind, in_kw_part);
+    case ERROR:
+        return interpret_error(std::move(comp));
     default:
-        return NodePtr(new ErrorNode(
+        return NodePtr(new ErrorWithComp(
             ErrPtr(new ExpectedIDOrVarArgsErr()),
             std::move(comp)
         ));
@@ -1693,7 +1753,7 @@ Nodes InterpreterImpl::interpret_match_map_recurse(Comp&& comp) {
     switch(c->op) {
     case AS:
         if (c->bin->rhs.op != UNPACK_KWARGS)
-            nodes.push_back(NodePtr(new ErrorNode(
+            nodes.push_back(NodePtr(new ErrorWithComp(
                 ErrPtr(new ExpectedEntryMatchExprErr()),
                 std::move(*c)
             )));
@@ -1711,7 +1771,7 @@ Nodes InterpreterImpl::interpret_match_map_recurse(Comp&& comp) {
     }
     case TYPE_LABEL:
         if (c->bin->lhs.op != UNPACK_KWARGS)
-            nodes.push_back(NodePtr(new ErrorNode(
+            nodes.push_back(NodePtr(new ErrorWithComp(
                 ErrPtr(new ExpectedEntryMatchExprErr()),
                 std::move(*c)
             )));
@@ -1721,8 +1781,11 @@ Nodes InterpreterImpl::interpret_match_map_recurse(Comp&& comp) {
     case UNPACK_KWARGS:
         nodes.push_back(interpret_unop<Expansion>(std::move(*c)));
         return nodes;
+    case ERROR:
+        nodes.push_back(interpret_error(std::move(*c)));
+        return nodes;
     default:
-        nodes.push_back(NodePtr(new ErrorNode(
+        nodes.push_back(NodePtr(new ErrorWithComp(
             ErrPtr(new ExpectedEntryMatchExprErr()),
             std::move(*c)
         )));
@@ -1776,7 +1839,7 @@ NodePtr InterpreterImpl::interpret_match_tuple(Comp&& comp) {
             // Because it is a single element that is not var args, treat it as
             // a parenthesized value and as though we tried to interpret this
             // as an expression.
-            return NodePtr(new ErrorNode(
+            return NodePtr(new ErrorWithComp(
                 ErrPtr(new ExpectedExprErr()),
                 std::move(*comp.comp)
             ));
@@ -1788,7 +1851,7 @@ NodePtr InterpreterImpl::interpret_match_tuple(Comp&& comp) {
     case TYPE_LABEL:
         if (comp.comp->bin->lhs.op != UNPACK_ARGS)
             // Again, treat like we tried to interpret this as an expression.
-            return NodePtr(new ErrorNode(
+            return NodePtr(new ErrorWithComp(
                 ErrPtr(new ExpectedExprErr()),
                 std::move(*comp.comp)
             ));
@@ -1806,18 +1869,18 @@ NodePtr InterpreterImpl::interpret_match_var_args(
 ) {
     switch(kind) {
     case MatchKind::MAP:
-        return NodePtr(new ErrorNode(
+        return NodePtr(new ErrorWithComp(
             ErrPtr(new ExpectedEntryMatchExprErr()),
             std::move(comp)
         ));
     case MatchKind::PLAIN:
-        return NodePtr(new ErrorNode(
+        return NodePtr(new ErrorWithComp(
             ErrPtr(new ExpectedMatchExprErr()),
             std::move(comp)
         ));
     default:
         if (in_kw_part)
-            return NodePtr(new ErrorNode(
+            return NodePtr(new ErrorWithComp(
                 ErrPtr(new ExpectedKeywordArgMatchExprErr()),
                 std::move(comp)
             ));
@@ -1830,12 +1893,12 @@ NodePtr InterpreterImpl::interpret_match_var_kwargs(
 ) {
     switch(kind) {
     case MatchKind::PLAIN:
-        return NodePtr(new ErrorNode(
+        return NodePtr(new ErrorWithComp(
             ErrPtr(new ExpectedMatchExprErr()),
             std::move(comp)
         ));
     case MatchKind::SEQ:
-        return NodePtr(new ErrorNode(
+        return NodePtr(new ErrorWithComp(
             ErrPtr(new ExpectedElementMatchExprErr()),
             std::move(comp)
         ));
@@ -1860,16 +1923,14 @@ NodePtr InterpreterImpl::interpret_not_in(Comp&& comp) {
 NodePtr InterpreterImpl::interpret_num_id(Comp&& comp) {
     std::string& s = std::get<std::string>(comp.data);
     Res<std::int32_t> x =
-        read_number<std::int32_t>(
-            s, &s[0] + s.size(), 10, comp.src.start()
-        );
+        read_number<std::int32_t>(&s[0], &s[0] + s.size(), 10);
     if (x.is_err)
-        return NodePtr(new ErrorNode(
+        return NodePtr(new ErrorWithComp(
             std::move(x.err),
             std::move(comp)
         ));
     if (x.res == 0)
-        return NodePtr(new ErrorNode(
+        return NodePtr(new ErrorWithComp(
             ErrPtr(new ZeroUsedAsIDErr()),
             std::move(comp)
         ));
@@ -1895,7 +1956,7 @@ NodePtr InterpreterImpl::interpret_number(Comp&& comp) {
     case 8:
         return interpret_data<UInt64>(std::move(comp));
     default:
-        return NodePtr(new ErrorNode(
+        return NodePtr(new ErrorWithComp(
             ErrPtr(new AssertionFailedErr("Bad numerical data")),
             std::move(comp)
         ));
@@ -1917,7 +1978,7 @@ NodePtr InterpreterImpl::interpret_optional_else(std::vector<Comp>&& comps) {
         std::vector<Comp> blocks;
         for (std::uint32_t i = 1; i < comps.size(); i++)
             blocks.push_back(std::move(comps[i]));
-        return NodePtr(new ErrorNode(
+        return NodePtr(new ErrorWithComp(
             ErrPtr(new UnexpectedBlocksErr()),
             Comp(
                 OpID::BLOCKS,
@@ -1929,7 +1990,7 @@ NodePtr InterpreterImpl::interpret_optional_else(std::vector<Comp>&& comps) {
         
     if (comps.size() == 2) {
         if (comps[1].op != OpID::ELSE)
-            return NodePtr(new ErrorNode(
+            return NodePtr(new ErrorWithComp(
                 ErrPtr(new ExpectedElseErr()),
                 std::move(comps[1]),
                 comps[1].src
@@ -1943,10 +2004,10 @@ NodePtr InterpreterImpl::interpret_optional_else(std::vector<Comp>&& comps) {
 NodePtr InterpreterImpl::interpret_plain_int(Comp&& comp) {
     std::string& s = std::get<std::string>(comp.data);
     Res<std::int32_t> x = read_number<std::int32_t>(
-        s, &s[0] + s.size(), 10, comp.src.start()
+        &s[0], &s[0] + s.size(), 10
     );
     if (x.is_err)
-        return NodePtr(new ErrorNode(std::move(x.err), std::move(comp)));
+        return NodePtr(new ErrorWithComp(std::move(x.err), std::move(comp)));
     return NodePtr(new Int32(std::move(x.res), comp.src));
 }
 
@@ -1970,7 +2031,7 @@ NodePtr InterpreterImpl::interpret_symbol(Comp&& comp) {
 
 NodePtr InterpreterImpl::interpret_ternary(Comp&& comp) {
     if (comp.bin->lhs.op != OpID::TERNARY_IF)
-        return NodePtr(new ErrorNode(
+        return NodePtr(new ErrorWithComp(
             ErrPtr(new ExpectedExprErr()), std::move(comp)
         ));
     
@@ -1988,7 +2049,7 @@ NodePtr InterpreterImpl::interpret_ternary(Comp&& comp) {
 
 NodePtr InterpreterImpl::interpret_try(std::vector<Comp>&& comps) {
     if (comps.size() == 1)
-        return NodePtr(new ErrorNode(
+        return NodePtr(new ErrorWithComp(
             ErrPtr(new NoExceptsOrFinallyErr()),
             std::move(comps[0]),
             comps[0].src
@@ -2024,6 +2085,25 @@ NodePtr InterpreterImpl::interpret_type_match(
     return NodePtr(new TypeMatch(std::move(var), std::move(type), comp.src));
 }
 
+NodePtr InterpreterImpl::interpret_unexpected_construct(Comp&& comp) {
+    using enum OpID;
+
+    switch(comp.comp->op) {
+    case BODY:
+        return NodePtr(new UnexpectedConstruct(
+            comp.op, interpret_block(std::move(*comp.comp->comp)), comp.src
+        ));
+    case LABEL:
+        return NodePtr(new UnexpectedConstruct(
+            comp.op, interpret_case(std::move(comp)), comp.src
+        ));
+    default:
+        return NodePtr(new UnexpectedConstruct(
+            comp.op, interpret_expr(std::move(*comp.comp)), comp.src
+        ));
+    }
+}
+
 template<typename ToType>
 NodePtr InterpreterImpl::interpret_unop(Comp&& comp) {
     NodePtr arg = interpret_expr(std::move(*comp.comp));
@@ -2050,7 +2130,7 @@ bool InterpreterImpl::is_map(const Nodes& nodes) {
         nodes.empty() ||
         nodes[0]->kind() == NodeKind::ENTRY || (
             nodes[0]->kind() == NodeKind::ERROR && 
-            dynamic_cast<const ErrorNode&>(*nodes[0]).comp.op == OpID::BIND
+            dynamic_cast<const ErrorWithComp&>(*nodes[0]).comp.op == OpID::BIND
         );
 }
 
@@ -2061,18 +2141,16 @@ NodePtr InterpreterImpl::parse_float(
     LiteralSuffix ls = lit_suffix(str);
     const char* expected_end = begin + str.size() - lit_suffix_len(ls);
     if (ls == LiteralSuffix::F32) {
-        Res<float> res = read_number<float>(
-            str, expected_end, 10, src.start()
-        );
+        Res<float> res = read_number<float>(begin, expected_end, 10);
         if (res.is_err)
-            return NodePtr(new ErrorNode(
+            return NodePtr(new ErrorWithComp(
                 std::move(res.err), std::move(comp)
             ));
         return NodePtr(new Float32(std::move(res.res), src));
     }
-    Res<double> res = read_number<double>(str, expected_end, 10, src.start());
+    Res<double> res = read_number<double>(begin, expected_end, 10);
     if (res.is_err)
-        return NodePtr(new ErrorNode(
+        return NodePtr(new ErrorWithComp(
             std::move(res.err), std::move(comp)
         ));
     return NodePtr(new Float64(std::move(res.res), src));

@@ -24,7 +24,7 @@ struct DefCase final: Node_<DefCase> {
         NodePtr&& body,
         Span src
     ) noexcept:
-    Node_<DefCase>(src),
+    Node_(src),
     spec(std::move(spec)),
     guard(std::move(guard)),
     returns(std::move(returns)),
@@ -36,7 +36,7 @@ struct DefCase final: Node_<DefCase> {
             copy_np(guard),
             copy_np(returns),
             copy_np(body),
-            this->src
+            src
         );
     }
 

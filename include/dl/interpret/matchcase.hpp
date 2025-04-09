@@ -17,7 +17,7 @@ struct MatchCase final: Node_<MatchCase> {
 
     MatchCase(NodePtr&& matcher, NodePtr&& guard, NodePtr&& body, Span src)
     noexcept:
-    Node_<MatchCase>(src),
+    Node_(src),
     matcher(std::move(matcher)),
     guard(std::move(guard)),
     body(std::move(body)) {}
@@ -27,7 +27,7 @@ struct MatchCase final: Node_<MatchCase> {
             copy_np(matcher),
             copy_np(guard),
             copy_np(body),
-            this->src
+            src
         );
     }
 
@@ -48,7 +48,7 @@ struct MatchCase final: Node_<MatchCase> {
     }
 
     virtual Span span() const noexcept override {
-        return Span(this->src, body->span());
+        return Span(src, body->span());
     }
 };
 
