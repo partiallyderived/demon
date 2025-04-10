@@ -1461,6 +1461,15 @@ TEST_CASE("Parser Core", "[parse]") {
 
         parser.contexts.clear();
 
+        // Now try inside curly braces.
+        parser.prev = TokenID::SPACE;
+        parser.prev_src = s0;
+        parser.contexts.push_back(Context::CURLY);
+        REQUIRE(on_after_op(TokenID::COLON, s1) == Op(OpID::ENTRY, s1));
+        REQUIRE(parser.orientation == Orientation::BEFORE);
+
+        parser.contexts.clear();
+
         // Now try with a newline following the colon.
         REQUIRE(parser.prev == TokenID::COLON);
         REQUIRE(parser.prev_src == s1);

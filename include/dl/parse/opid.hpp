@@ -33,6 +33,7 @@ enum class OpID {
     ELSE,
     ENCLOSURE,
     END,
+    ENTRY,
     EQ,
     ERROR,
     EXCEPT,
@@ -167,6 +168,8 @@ std::ostream& operator<<(std::ostream& os, OpID id) {
         return os << "ENCLOSURE";
     case END:
         return os << "END";
+    case ENTRY:
+        return os << "ENTRY";
     case EQ:
         return os << "EQ";
     case ERROR:

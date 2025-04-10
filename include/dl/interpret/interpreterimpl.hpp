@@ -1029,7 +1029,7 @@ Nodes InterpreterImpl::interpret_enclosure_recurse(Comp&& comp) {
         else
             element = interpret_arg(std::move(comp.bin->rhs));
         break;
-    case BIND:
+    case ENTRY:
     case UNPACK_KWARGS:
         element = interpret_map_element(std::move(comp));
         break;
@@ -1476,7 +1476,7 @@ Nodes InterpreterImpl::interpret_loop_vars(Comp&& comp) {
 NodePtr InterpreterImpl::interpret_map_element(Comp&& comp) {
     using enum OpID;
     switch(comp.op) {
-    case BIND:
+    case ENTRY:
         return interpret_binop<Entry>(std::move(comp));
     case ERROR:
         return interpret_error(std::move(comp));
@@ -1760,7 +1760,7 @@ Nodes InterpreterImpl::interpret_match_map_recurse(Comp&& comp) {
         else
             nodes.push_back(interpret_matcher(std::move(*c), MatchKind::MAP));
         return nodes;
-    case BIND: {
+    case ENTRY: {
         NodePtr key = interpret_expr(std::move(c->bin->lhs));
         NodePtr matcher =
             interpret_matcher(std::move(c->bin->rhs), MatchKind::PLAIN);
@@ -1769,15 +1769,6 @@ Nodes InterpreterImpl::interpret_match_map_recurse(Comp&& comp) {
         )));
         return nodes;
     }
-    case TYPE_LABEL:
-        if (c->bin->lhs.op != UNPACK_KWARGS)
-            nodes.push_back(NodePtr(new ErrorWithComp(
-                ErrPtr(new ExpectedEntryMatchExprErr()),
-                std::move(*c)
-            )));
-        else
-            nodes.push_back(interpret_matcher(std::move(*c), MatchKind::MAP));
-        return nodes;
     case UNPACK_KWARGS:
         nodes.push_back(interpret_unop<Expansion>(std::move(*c)));
         return nodes;
@@ -2130,7 +2121,7 @@ bool InterpreterImpl::is_map(const Nodes& nodes) {
         nodes.empty() ||
         nodes[0]->kind() == NodeKind::ENTRY || (
             nodes[0]->kind() == NodeKind::ERROR && 
-            dynamic_cast<const ErrorWithComp&>(*nodes[0]).comp.op == OpID::BIND
+            dynamic_cast<const ErrorWithComp&>(*nodes[0]).comp.op == OpID::ENTRY
         );
 }
 

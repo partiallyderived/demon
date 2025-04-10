@@ -731,10 +731,23 @@ struct ParserImpl: Parser {
             return;
         }
 
+        if (token.id == TokenID::COLON) {
+            if (ctx_is(Context::CURLY)) {
+                // Special case: Colon directly inside curly braces is the ENTRY
+                // operator.
+                pushop(OpID::ENTRY, src);
+                orientation = Orientation::BEFORE;
+                return;
+            }
+            else if (!in_brackets())
+                // Could be start of indent, don't push anything yet as
+                // different operators need to be pushed depending on whether or
+                // not we are indenting.
+                return;
+        }
+
         if (token.id == TokenID::COLON && !in_brackets())
-            // Could be start of indent, don't push anything yet as different
-            // operators need to be pushed depending on whether or not we are
-            // indenting.
+            
             return;
 
         switch(tokeninfo(token.id).kind) {

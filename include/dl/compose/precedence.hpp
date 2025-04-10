@@ -13,6 +13,7 @@ enum class Precedence {
     LSET,
     RSET,
     SEP,
+    ENTRY,
     BIND,
     AS,
     MATCH_OR,

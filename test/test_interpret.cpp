@@ -2427,76 +2427,76 @@ TEST_CASE("interpret", "[interpret]") {
         ));
 
         REQUIRE(*capture(
-            "{a = 1}"
+            "{a: 1}"
         ).node() == Map(
             vec(NodePtr(new Entry(
                 NodePtr(new ID("a", Span(1, 2))),
-                NodePtr(new Int32(1, Span(1, 6))),
-                Span(1, 4)
+                NodePtr(new Int32(1, Span(1, 5))),
+                Span(1, 3)
             ))),
-            Span(1, 1, 7)
+            Span(1, 1, 6)
         ));
 
         REQUIRE(*capture(
-            "{a = 1, b = 2, c = 3}"
+            "{a: 1, b: 2, c: 3}"
         ).node() == Map(
             vec(
                 NodePtr(new Entry(
                     NodePtr(new ID("a", Span(1, 2))),
-                    NodePtr(new Int32(1, Span(1, 6))),
-                    Span(1, 4)
+                    NodePtr(new Int32(1, Span(1, 5))),
+                    Span(1, 3)
                 )),
                 NodePtr(new Entry(
-                    NodePtr(new ID("b", Span(1, 9))),
-                    NodePtr(new Int32(2, Span(1, 13))),
-                    Span(1, 11)
+                    NodePtr(new ID("b", Span(1, 8))),
+                    NodePtr(new Int32(2, Span(1, 11))),
+                    Span(1, 9)
                 )),
                 NodePtr(new Entry(
-                    NodePtr(new ID("c", Span(1, 16))),
-                    NodePtr(new Int32(3, Span(1, 20))),
-                    Span(1, 18)
+                    NodePtr(new ID("c", Span(1, 14))),
+                    NodePtr(new Int32(3, Span(1, 17))),
+                    Span(1, 15)
                 ))
             ),
-            Span(1, 1, 21)
+            Span(1, 1, 18)
         ));
 
         REQUIRE(*capture(
-            "{a = 1, **kwargs, b = 2}"
+            "{a: 1, **kwargs, b: 2}"
         ).node() == Map(
             vec(
                 NodePtr(new Entry(
                     NodePtr(new ID("a", Span(1, 2))),
-                    NodePtr(new Int32(1, Span(1, 6))),
-                    Span(1, 4)
+                    NodePtr(new Int32(1, Span(1, 5))),
+                    Span(1, 3)
                 )),
                 NodePtr(new Expansion(
-                    NodePtr(new ID("kwargs", Span(1, 11, 6))),
-                    Span(1, 9, 2)
+                    NodePtr(new ID("kwargs", Span(1, 10, 6))),
+                    Span(1, 8, 2)
                 )),
                 NodePtr(new Entry(
-                    NodePtr(new ID("b", Span(1, 19))),
-                    NodePtr(new Int32(2, Span(1, 23))),
-                    Span(1, 21)
+                    NodePtr(new ID("b", Span(1, 18))),
+                    NodePtr(new Int32(2, Span(1, 21))),
+                    Span(1, 19)
                 ))
             ),
-            Span(1, 1, 24)
+            Span(1, 1, 22)
         ));
 
         REQUIRE(*capture(
-            "{a = 1, break}"
+            "{a: 1, break}"
         ).node() == Map(
             vec(
                 NodePtr(new Entry(
                     NodePtr(new ID("a", Span(1, 2))),
-                    NodePtr(new Int32(1, Span(1, 6))),
-                    Span(1, 4)
+                    NodePtr(new Int32(1, Span(1, 5))),
+                    Span(1, 3)
                 )),
                 NodePtr(new ErrorNode(
                     ErrPtr(new ExpectedValueErr()),
-                    Span(1, 9, 5)
+                    Span(1, 8, 5)
                 ))
             ),
-            Span(1, 1, 14)
+            Span(1, 1, 13)
         ));
     }
 
@@ -2779,7 +2779,7 @@ TEST_CASE("interpret", "[interpret]") {
 
         REQUIRE(*capture(
             "match x\n"
-            "case {3 = y, 4 = z}:\n"
+            "case {3: y, 4: z}:\n"
             "    return y"
         ).node() == Match(
             NodePtr(new ID("x", Span(1, 7))),
@@ -2788,47 +2788,15 @@ TEST_CASE("interpret", "[interpret]") {
                     vec(
                         NodePtr(new Entry(
                             NodePtr(new Int32(3, Span(2, 7))),
-                            NodePtr(new ID("y", Span(2, 11))),
-                            Span(2, 9)
+                            NodePtr(new ID("y", Span(2, 10))),
+                            Span(2, 8)
                         )),
                         NodePtr(new Entry(
-                            NodePtr(new Int32(4, Span(2, 14))),
-                            NodePtr(new ID("z", Span(2, 18))),
-                            Span(2, 16)
+                            NodePtr(new Int32(4, Span(2, 13))),
+                            NodePtr(new ID("z", Span(2, 16))),
+                            Span(2, 14)
                         ))
                     ),
-                    Span(2, 6, 2, 19)
-                )),
-                nullptr,
-                NodePtr(new Block(
-                    vec(NodePtr(new Return(
-                        NodePtr(new ID("y", Span(3, 12))),
-                        Span(3, 5, 6)
-                    ))),
-                    Span(3, 5, 3, 12)
-                )),
-                Span(2, 1, 4)
-            ))),
-            Span(1, 1, 5)
-        ));
-
-        REQUIRE(*capture(
-            "match x\n"
-            "case {3 = y: Int}:\n"
-            "    return y"
-        ).node() == Match(
-            NodePtr(new ID("x", Span(1, 7))),
-            vec(NodePtr(new MatchCase(
-                NodePtr(new MatchMap(
-                    vec(NodePtr(new Entry(
-                        NodePtr(new Int32(3, Span(2, 7))),
-                        NodePtr(new TypeMatch(
-                            NodePtr(new ID("y", Span(2, 11))),
-                            NodePtr(new ID("Int", Span(2, 14, 3))),
-                            Span(2, 12)
-                        )),
-                        Span(2, 9)
-                    ))),
                     Span(2, 6, 2, 17)
                 )),
                 nullptr,
@@ -2846,7 +2814,43 @@ TEST_CASE("interpret", "[interpret]") {
 
         REQUIRE(*capture(
             "match x\n"
-            "case {3 = y, 4 = z, **kwargs}:\n"
+            "case {3: Int() as y}:\n"
+            "    return y"
+        ).node() == Match(
+            NodePtr(new ID("x", Span(1, 7))),
+            vec(NodePtr(new MatchCase(
+                NodePtr(new MatchMap(
+                    vec(NodePtr(new Entry(
+                        NodePtr(new Int32(3, Span(2, 7))),
+                        NodePtr(new As(
+                            NodePtr(new MatchObject(
+                                NodePtr(new ID("Int", Span(2, 10, 3))),
+                                NodePtr(new MatchArgs({}, {}, Span(2, 13, 2))),
+                                Span(2, 13)
+                            )),
+                            NodePtr(new ID("y", Span(2, 19))),
+                            Span(2, 16, 2)
+                        )),
+                        Span(2, 8)
+                    ))),
+                    Span(2, 6, 2, 20)
+                )),
+                nullptr,
+                NodePtr(new Block(
+                    vec(NodePtr(new Return(
+                        NodePtr(new ID("y", Span(3, 12))),
+                        Span(3, 5, 6)
+                    ))),
+                    Span(3, 5, 3, 12)
+                )),
+                Span(2, 1, 4)
+            ))),
+            Span(1, 1, 5)
+        ));
+
+        REQUIRE(*capture(
+            "match x\n"
+            "case {3: y, 4: z, **kwargs}:\n"
             "    return y"
         ).node() == Match(
             NodePtr(new ID("x", Span(1, 7))),
@@ -2855,20 +2859,20 @@ TEST_CASE("interpret", "[interpret]") {
                     vec(
                         NodePtr(new Entry(
                             NodePtr(new Int32(3, Span(2, 7))),
-                            NodePtr(new ID("y", Span(2, 11))),
-                            Span(2, 9)
+                            NodePtr(new ID("y", Span(2, 10))),
+                            Span(2, 8)
                         )),
                         NodePtr(new Entry(
-                            NodePtr(new Int32(4, Span(2, 14))),
-                            NodePtr(new ID("z", Span(2, 18))),
-                            Span(2, 16)
+                            NodePtr(new Int32(4, Span(2, 13))),
+                            NodePtr(new ID("z", Span(2, 16))),
+                            Span(2, 14)
                         )),
                         NodePtr(new Expansion(
-                            NodePtr(new ID("kwargs", Span(2, 23, 6))),
-                            Span(2, 21, 2)
+                            NodePtr(new ID("kwargs", Span(2, 21, 6))),
+                            Span(2, 19, 2)
                         ))
                     ),
-                    Span(2, 6, 2, 29)
+                    Span(2, 6, 2, 27)
                 )),
                 nullptr,
                 NodePtr(new Block(
@@ -3132,37 +3136,6 @@ TEST_CASE("interpret", "[interpret]") {
                             Span(2, 12, 2)
                         )),
                         Span(2, 9, 2)
-                    ))),
-                    Span(2, 6, 2, 20)
-                )),
-                nullptr,
-                NodePtr(new Block(
-                    vec(NodePtr(new Return(
-                        NodePtr(new Int32(0, Span(3, 12))),
-                        Span(3, 5, 6)
-                    ))),
-                    Span(3, 5, 3, 12)
-                )),
-                Span(2, 1, 4)
-            ))),
-            Span(1, 1, 5)
-        ));
-
-        REQUIRE(*capture(
-            "match x\n"
-            "case {**kwargs: Int}:\n"
-            "    return 0"
-        ).node() == Match(
-            NodePtr(new ID("x", Span(1, 7))),
-            vec(NodePtr(new MatchCase(
-                NodePtr(new MatchMap(
-                    vec(NodePtr(new TypeMatch(
-                        NodePtr(new Expansion(
-                            NodePtr(new ID("kwargs", Span(2, 9, 6))),
-                            Span(2, 7, 2)
-                        )),
-                        NodePtr(new ID("Int", Span(2, 17, 3))),
-                        Span(2, 15)
                     ))),
                     Span(2, 6, 2, 20)
                 )),
@@ -3571,38 +3544,6 @@ TEST_CASE("interpret", "[interpret]") {
 
         REQUIRE(*capture(
             "match x\n"
-            "case {y: Int}:\n"
-            "    return 0"
-        ).node() == Match(
-            NodePtr(new ID("x", Span(1, 7))),
-            vec(NodePtr(new MatchCase(
-                NodePtr(new MatchMap(
-                    vec(NodePtr(new ErrorWithComp(
-                        ErrPtr(new ExpectedEntryMatchExprErr()),
-                        Comp(
-                            OpID::TYPE_LABEL,
-                            Comp(OpID::ID, "y", Span(2, 7)),
-                            Comp(OpID::ID, "Int", Span(2, 10, 3)),
-                            Span(2, 8)
-                        )
-                    ))),
-                    Span(2, 6, 2, 13)
-                )),
-                nullptr,
-                NodePtr(new Block(
-                    vec(NodePtr(new Return(
-                        NodePtr(new Int32(0, Span(3, 12))),
-                        Span(3, 5, 6)
-                    ))),
-                    Span(3, 5, 3, 12)
-                )),
-                Span(2, 1, 4)
-            ))),
-            Span(1, 1, 5)
-        ));
-
-        REQUIRE(*capture(
-            "match x\n"
             "case {3 as y}:\n"
             "    return 0"
         ).node() == Match(
@@ -3650,37 +3591,6 @@ TEST_CASE("interpret", "[interpret]") {
                         Span(2, 9)
                     ))),
                     Span(2, 6, 2, 14)
-                )),
-                nullptr,
-                NodePtr(new Block(
-                    vec(NodePtr(new Return(
-                        NodePtr(new Int32(0, Span(3, 12))),
-                        Span(3, 5, 6)
-                    ))),
-                    Span(3, 5, 3, 12)
-                )),
-                Span(2, 1, 4)
-            ))),
-            Span(1, 1, 5)
-        ));
-
-        REQUIRE(*capture(
-            "match x\n"
-            "case {**3: Int}:\n"
-            "    return 0"
-        ).node() == Match(
-            NodePtr(new ID("x", Span(1, 7))),
-            vec(NodePtr(new MatchCase(
-                NodePtr(new MatchMap(
-                    vec(NodePtr(new TypeMatch(
-                        NodePtr(new ErrorWithComp(
-                            ErrPtr(new ExpectedIDErr()),
-                            Comp(OpID::PLAIN_INT, "3", Span(2, 9))
-                        )),
-                        NodePtr(new ID("Int", Span(2, 12, 3))),
-                        Span(2, 10)
-                    ))),
-                    Span(2, 6, 2, 15)
                 )),
                 nullptr,
                 NodePtr(new Block(

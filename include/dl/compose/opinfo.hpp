@@ -99,6 +99,8 @@ const OpInfo OP_INFO_[static_cast<int>(OpID::WAITING) + 1] = {
     LEFT_INFO_,
     // END
     OpInfo(OpKind::END, Precedence::END),
+    // ENTRY
+    OpInfo(OpKind::BINARY, Precedence::ENTRY),
     // EQ
     CMP_INFO_,
     // ERROR
