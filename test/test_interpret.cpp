@@ -1324,6 +1324,25 @@ TEST_CASE("interpret", "[interpret]") {
         ));
     }
 
+    SECTION("Enter Object") {
+        REQUIRE(*capture(
+            "a:\n"
+            "    .b = 1"
+        ).node() == EnterObject(
+            NodePtr(new ID("a", Span(1, 1))),
+            vec(NodePtr(new Assign(
+                NodePtr(new Var(
+                    1,
+                    NodePtr(new ID("b", Span(2, 6))),
+                    Span(2, 5)
+                )),
+                NodePtr(new Int32(1, Span(2, 10))),
+                Span(2, 8)
+            ))),
+            Span(1, 2)
+        ));
+    }
+
     SECTION("For") {
         REQUIRE(*capture(
             "for x in c:\n"
@@ -4457,17 +4476,6 @@ TEST_CASE("interpret", "[interpret]") {
         ).node() == UnexpectedBlock(
             vec(NodePtr(new Bool(true, Span(2, 5, 4)))),
             Span(1, 1)
-        ));
-    }
-
-    SECTION("Unexpected Case") {
-        REQUIRE(*capture(
-            "true:\n"
-            "    false"
-        ).node() == UnexpectedCase(
-            NodePtr(new Bool(true, Span(1, 1, 4))),
-            vec(NodePtr(new Bool(false, Span(2, 5, 5)))),
-            Span(1, 5)
         ));
     }
 

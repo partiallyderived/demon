@@ -32,6 +32,7 @@ enum class NodeKind {
     DEF_CASE,
     DEFAULTED,
     DIV,
+    ENTER_OBJECT,
     ENTRY,
     ERROR,
     ERROR_WITH_COMP,
@@ -179,6 +180,8 @@ std::ostream& operator<<(std::ostream& os, NodeKind x) {
         return os << "DEFAULTED";
     case DIV:
         return os << "DIV";
+    case ENTER_OBJECT:
+        return os << "ENTER_OBJECT";
     case ENTRY:
         return os << "ENTRY";
     case ERROR:

@@ -28,6 +28,7 @@
 #include "dl/interpret/data.hpp"
 #include "dl/interpret/def.hpp"
 #include "dl/interpret/defcase.hpp"
+#include "dl/interpret/enterobject.hpp"
 #include "dl/interpret/errornode.hpp"
 #include "dl/interpret/errorwithcomp.hpp"
 #include "dl/interpret/for.hpp"
@@ -45,7 +46,6 @@
 #include "dl/interpret/try.hpp"
 #include "dl/interpret/unary.hpp"
 #include "dl/interpret/unexpectedblock.hpp"
-#include "dl/interpret/unexpectedcase.hpp"
 #include "dl/interpret/unexpectedconstruct.hpp"
 #include "dl/interpret/while.hpp"
 #include "dl/lex/literalsuffix.hpp"
@@ -1413,7 +1413,7 @@ NodePtr InterpreterImpl::interpret_kwarg(Comp&& comp) {
 }
 
 NodePtr InterpreterImpl::interpret_label(Comp&& comp) {
-    return NodePtr(new UnexpectedCase(
+    return NodePtr(new EnterObject(
         interpret_expr(std::move(comp.bin->lhs)),
         interpret_code(std::move(comp.bin->rhs)),
         comp.src

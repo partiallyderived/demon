@@ -11,23 +11,24 @@
 
 namespace dl {
 
-struct UnexpectedCase final: Node_<UnexpectedCase> {
+struct EnterObject final: Node_<EnterObject> {
     NodePtr predicate;
     Nodes code;
 
-    UnexpectedCase(NodePtr&& predicate, Nodes&& code, Span src) noexcept:
+    EnterObject(NodePtr&& predicate, Nodes&& code, Span src) noexcept:
     Node_(src), predicate(std::move(predicate)), code(std::move(code)) {}
 
-    virtual UnexpectedCase copy() const override {
-        return UnexpectedCase(copy_np(predicate), deep_copy_ptr(code), src);
+    virtual EnterObject copy() const override {
+        return EnterObject(copy_np(predicate), deep_copy_ptr(code), src);
     }
 
     virtual bool equals(const Node& that) const noexcept override {
-        return nodes_eq(code, dynamic_cast<const UnexpectedCase&>(that).code);
+        const auto& casted = dynamic_cast<const EnterObject&>(that);
+        return npeq(predicate, casted.predicate) && nodes_eq(code, casted.code);
     }
 
     virtual NodeKind kind() const noexcept override {
-        return NodeKind::UNEXPECTED_CASE;
+        return NodeKind::ENTER_OBJECT;
     }
 
     virtual std::ostream& out_data(std::ostream& os) const override {
