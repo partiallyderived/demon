@@ -100,6 +100,7 @@ enum class NodeKind {
     SEQ,
     SET,
     SET_ATTR,
+    SLICE,
     SUB,
     STRING,
     SYMBOL,
@@ -316,6 +317,8 @@ std::ostream& operator<<(std::ostream& os, NodeKind x) {
         return os << "SET";
     case SET_ATTR:
         return os << "SET_ATTR";
+    case SLICE:
+        return os << "SLICE";
     case SUB:
         return os << "SUB";
     case STRING:

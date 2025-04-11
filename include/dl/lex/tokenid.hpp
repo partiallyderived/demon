@@ -12,6 +12,7 @@ enum class TokenID {
     AND,
     AS,
     AT,
+    BACKTICK,
     BANG_EQUALS,
     BREAK,
     CAROT,
@@ -103,6 +104,8 @@ std::ostream& operator<<(std::ostream& os, TokenID id) {
         return os << "AS";
     case AT:
         return os << "AT";
+    case BACKTICK:
+        return os << "BACKTICK";
     case BANG_EQUALS:
         return os << "BANG_EQUALS";
     case BREAK:

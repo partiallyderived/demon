@@ -1413,23 +1413,32 @@ TEST_CASE("Parser Core", "[parse]") {
         REQUIRE(parser.prev == TokenID::COLON);
         REQUIRE(parser.prev_src == s1);
 
-        // After another token is fed, we know we're not indenting, so the colon
-        // operator is pushed as well as the new operator.
+        // After another token is fed, we know we're not indenting. Since colon
+        // has no unary operator, an error is pushed.
         REQUIRE(
             on_before(Token(TokenID::ID, "x"), s2) ==
-            vec(Res<Op>(Op(OpID::SYMBOL, s1)), Op(OpID::ID, "x", s2))
+            vec(
+                Res<Op>(Op(OpID::ERROR, ErrPtr(new ExpectedValueErr()), s1)),
+                Op(OpID::TYPE_LABEL, s1),
+                Op(OpID::ID, "x", s2)
+            )
         );
         // Now orientation has changed.
         REQUIRE(parser.orientation == Orientation::AFTER);
 
         // Set colon to prev and repeat, this time with another colon.
-        // Now we should only get one operator emitted at first.
+        // Now we should only get the first colon's operators at first.
         parser.prev = TokenID::COLON;
         parser.prev_src = s1;
-        REQUIRE(on_before_op(TokenID::COLON, s2) == Op(OpID::SYMBOL, s1));
+        REQUIRE(
+            on_before(TokenID::COLON, s2) == vec(
+                Res<Op>(Op(OpID::ERROR, ErrPtr(new ExpectedValueErr()), s1)),
+                Op(OpID::TYPE_LABEL, s1)
+            )
+        );
         REQUIRE(parser.orientation == Orientation::BEFORE);
 
-        // Now repeat the tests in after orientation.
+        // Now repeat the tests in AFTER orientation.
         parser.prev = TokenID::SPACE;
         parser.prev_src = s0;
         REQUIRE(on_after(TokenID::COLON, s1) == std::vector<Res<Op>>{});
@@ -1451,7 +1460,11 @@ TEST_CASE("Parser Core", "[parse]") {
         parser.prev = TokenID::SPACE;
         parser.prev_src = s0;
         parser.contexts.push_back(Context::CURVED);
-        REQUIRE(on_before_op(TokenID::COLON, s1) == Op(OpID::SYMBOL, s1));
+        REQUIRE(
+            on_before(TokenID::COLON, s1) == vec(
+                Res<Op>(Op(OpID::NOTHING, s1)), Op(OpID::TYPE_LABEL, s1)
+            )
+        );
         REQUIRE(parser.orientation == Orientation::BEFORE);
 
         parser.prev = TokenID::SPACE;
@@ -1459,7 +1472,25 @@ TEST_CASE("Parser Core", "[parse]") {
         REQUIRE(on_after_op(TokenID::COLON, s1) == Op(OpID::TYPE_LABEL, s1));
         REQUIRE(parser.orientation == Orientation::BEFORE);
 
-        parser.contexts.clear();
+        // Try with binary operator in BEFORE orientation.
+        // NOTHING should be inserted as implicit slice operand.
+        REQUIRE(on_before(TokenID::PLUS, s2) == vec(
+            Res<Op>(Op(OpID::NOTHING, s1)),
+            Op(OpID::ADD, s2)
+        ));
+        REQUIRE(parser.orientation == Orientation::BEFORE);
+
+        // Now try to close brackets with colon as previous operator.
+        // NOTHING should be inserted as implicit slice operand.
+        parser.prev = TokenID::COLON;
+        parser.prev_src = s1;
+        REQUIRE(
+            on_before(TokenID::RIGHT_CURVED, s2) == vec(
+                Res<Op>(Op(OpID::NOTHING, s1)),
+                Op(OpID::END, s2)
+            )
+        );
+        REQUIRE(parser.contexts.empty());
 
         // Now try inside curly braces.
         parser.prev = TokenID::SPACE;

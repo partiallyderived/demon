@@ -3947,16 +3947,148 @@ TEST_CASE("interpret", "[interpret]") {
         ));
     }
 
+    SECTION("Slice") {
+        REQUIRE(*capture(
+            "(:)"
+        ).node() == Slice(
+            nullptr,
+            nullptr,
+            nullptr,
+            Span(1, 2)
+        ));
+
+        REQUIRE(*capture(
+            "(:5)"
+        ).node() == Slice(
+            nullptr,
+            NodePtr(new Int32(5, Span(1, 3))),
+            nullptr,
+            Span(1, 2, 2)
+        ));
+
+        REQUIRE(*capture(
+            "(3:)"
+        ).node() == Slice(
+            NodePtr(new Int32(3, Span(1, 2))),
+            nullptr,
+            nullptr,
+            Span(1, 2, 2)
+        ));
+
+        REQUIRE(*capture(
+            "(3:5)"
+        ).node() == Slice(
+            NodePtr(new Int32(3, Span(1, 2))),
+            NodePtr(new Int32(5, Span(1, 4))),
+            nullptr,
+            Span(1, 2, 3)
+        ));
+
+        REQUIRE(*capture(
+            "(::)"
+        ).node() == Slice(
+            nullptr,
+            nullptr,
+            nullptr,
+            Span(1, 2, 2)
+        ));
+
+        REQUIRE(*capture(
+            "(::2)"
+        ).node() == Slice(
+            nullptr,
+            nullptr,
+            NodePtr(new Int32(2, Span(1, 4))),
+            Span(1, 2, 3)
+        ));
+
+        REQUIRE(*capture(
+            "(:5:)"
+        ).node() == Slice(
+            nullptr,
+            NodePtr(new Int32(5, Span(1, 3))),
+            nullptr,
+            Span(1, 2, 3)
+        ));
+
+        REQUIRE(*capture(
+            "(3::)"
+        ).node() == Slice(
+            NodePtr(new Int32(3, Span(1, 2))),
+            nullptr,
+            nullptr,
+            Span(1, 2, 3)
+        ));
+
+        REQUIRE(*capture(
+            "(:5:2)"
+        ).node() == Slice(
+            nullptr,
+            NodePtr(new Int32(5, Span(1, 3))),
+            NodePtr(new Int32(2, Span(1, 5))),
+            Span(1, 2, 4)
+        ));
+
+        REQUIRE(*capture(
+            "(3::2)"
+        ).node() == Slice(
+            NodePtr(new Int32(3, Span(1, 2))),
+            nullptr,
+            NodePtr(new Int32(2, Span(1, 5))),
+            Span(1, 2, 4)
+        ));
+
+        REQUIRE(*capture(
+            "(3:5:)"
+        ).node() == Slice(
+            NodePtr(new Int32(3, Span(1, 2))),
+            NodePtr(new Int32(5, Span(1, 4))),
+            nullptr,
+            Span(1, 2, 4)
+        ));
+
+        REQUIRE(*capture(
+            "(3:5:2)"
+        ).node() == Slice(
+            NodePtr(new Int32(3, Span(1, 2))),
+            NodePtr(new Int32(5, Span(1, 4))),
+            NodePtr(new Int32(2, Span(1, 6))),
+            Span(1, 2, 5)
+        ));
+
+        REQUIRE(*capture(
+            "(1:2:3:4)"
+        ).node() == ErrorWithComp(
+            ErrPtr(new TooManySliceComponentsErr()),
+            Comp(
+                OpID::TYPE_LABEL,
+                Comp(
+                    OpID::TYPE_LABEL,
+                    Comp(
+                        OpID::TYPE_LABEL,
+                        Comp(OpID::PLAIN_INT, "1", Span(1, 2)),
+                        Comp(OpID::PLAIN_INT, "2", Span(1, 4)),
+                        Span(1, 3)
+                    ),
+                    Comp(OpID::PLAIN_INT, "3", Span(1, 6)),
+                    Span(1, 5)
+                ),
+                Comp(OpID::PLAIN_INT, "4", Span(1, 8)),
+                Span(1, 7)
+            )
+        ));
+    }
+
     SECTION("Symbol") {
         REQUIRE(*capture(
-            ":x"
+            "`x"
         ).node() == Symbol(
             NodePtr(new ID("x", Span(1, 2))),
             Span(1, 1, 2)
         ));
 
         REQUIRE(*capture(
-            ":3"
+            "`3"
         ).node() == Symbol(
             NodePtr(new NumID(3, Span(1, 2))),
             Span(1, 1, 2)

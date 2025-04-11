@@ -110,6 +110,8 @@ const TokenInfo TOKEN_INFO_[static_cast<int>(TokenID::WHILE) + 1] = {
     binary_info_(OpID::AS),
     // AT
     dual_affix_info_(OpID::ADDR, OpID::ADDR_TYPE),
+    // BACKTICK
+    unary_info_(OpID::SYMBOL),
     // BANG_EQUALS
     binary_info_(OpID::NEQ),
     // BREAK
@@ -123,7 +125,7 @@ const TokenInfo TOKEN_INFO_[static_cast<int>(TokenID::WHILE) + 1] = {
     // CHAR
     value_info_(OpID::CHAR, OpID::CONCAT),
     // COLON
-    multiary_info_(OpID::SYMBOL, OpID::TYPE_LABEL),
+    binary_info_(OpID::TYPE_LABEL),
     // COMMA
     binary_info_(OpID::SEP),
     // CONTINUE

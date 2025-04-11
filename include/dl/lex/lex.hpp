@@ -800,6 +800,8 @@ Res<Token> next_token(Cursor& cursor) {
         return Token(
             check_next(cursor, '=') ? TokenID::CAROT_EQUALS: TokenID::CAROT
         );
+    case '`':
+        return Token(TokenID::BACKTICK);
     case '(':
         return Token(TokenID::LEFT_CURVED);
     case ')':

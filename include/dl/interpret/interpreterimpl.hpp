@@ -42,6 +42,7 @@
 #include "dl/interpret/node.hpp"
 #include "dl/interpret/nullary.hpp"
 #include "dl/interpret/seq.hpp"
+#include "dl/interpret/slice.hpp"
 #include "dl/interpret/ternary.hpp"
 #include "dl/interpret/try.hpp"
 #include "dl/interpret/unary.hpp"
@@ -364,6 +365,16 @@ struct NoMatchCasesErr final: Err {
     }
 };
 
+struct TooManySliceComponentsErr final: Err {
+    virtual ErrPtr copy() const override {
+        return ErrPtr(new TooManySliceComponentsErr(*this));
+    }
+
+    std::ostream& out_name(std::ostream& os) const override {
+        return os << "TooManySliceComponentsErr";
+    }
+};
+
 struct UnexpectedBlocksErr final: Err {
     virtual ErrPtr copy() const override {
         return ErrPtr(new UnexpectedBlocksErr(*this));
@@ -530,6 +541,8 @@ struct InterpreterImpl final: Interpreter {
     template<typename ToType>
     static inline NodePtr interpret_seq(Comp&& comp);
 
+    static inline NodePtr interpret_slice(Comp&& comp);
+    static inline NodePtr interpret_slice_component(Comp&& comp);
     static inline NodePtr interpret_symbol(Comp&& comp);
     static inline NodePtr interpret_ternary(Comp&& comp);
     static inline NodePtr interpret_try(std::vector<Comp>&& comps);
@@ -1156,6 +1169,8 @@ NodePtr InterpreterImpl::interpret_expr(Comp&& comp) {
         return NodePtr(new This(comp.src));
     case TRUE:
         return NodePtr(new Bool(true, comp.src));
+    case TYPE_LABEL:
+        return interpret_slice(std::move(comp));
     case UP:
         return interpret_up(std::move(comp));
     default:
@@ -2013,6 +2028,35 @@ NodePtr InterpreterImpl::interpret_seq(Comp&& comp) {
         return NodePtr(new ToType({}, comp.src));
     Nodes nodes = interpret_csv(std::move(*comp.comp));
     return NodePtr(new ToType(std::move(nodes), comp.src));
+}
+
+NodePtr InterpreterImpl::interpret_slice(Comp&& comp) {
+    Span slice_span = comp.span();
+    if (comp.bin->lhs.op == OpID::TYPE_LABEL) {
+        if (comp.bin->lhs.bin->lhs.op == OpID::TYPE_LABEL)
+            return NodePtr(new ErrorWithComp(
+                ErrPtr(new TooManySliceComponentsErr()),
+                std::move(comp)
+            ));
+        return NodePtr(new Slice(
+            interpret_slice_component(std::move(comp.bin->lhs.bin->lhs)),
+            interpret_slice_component(std::move(comp.bin->lhs.bin->rhs)),
+            interpret_slice_component(std::move(comp.bin->rhs)),
+            slice_span
+        ));
+    }
+    return NodePtr(new Slice(
+        interpret_slice_component(std::move(comp.bin->lhs)),
+        interpret_slice_component(std::move(comp.bin->rhs)),
+        nullptr,
+        slice_span
+    ));
+}
+
+NodePtr InterpreterImpl::interpret_slice_component(Comp&& comp) {
+    if (comp.op == OpID::NOTHING)
+        return nullptr;
+    return interpret_expr(std::move(comp));
 }
 
 NodePtr InterpreterImpl::interpret_symbol(Comp&& comp) {

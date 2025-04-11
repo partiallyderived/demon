@@ -272,6 +272,10 @@ TEST_CASE("lex", "[lex]") {
         REQUIRE(result(c, "@") == Token(TokenID::AT));
     }
 
+    SECTION("Backtick") {
+        REQUIRE(result(c, "`") == Token(TokenID::BACKTICK));
+    }
+
     SECTION("Left Curved") {
         REQUIRE(result(c, "(") == Token(TokenID::LEFT_CURVED));
     }

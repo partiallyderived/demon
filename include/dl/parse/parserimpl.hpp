@@ -480,6 +480,14 @@ struct ParserImpl: Parser {
         // A RIGHT is only valid in BEFORE orientation if the previous token was
         // it's matching left token (i.e. empty parentheses).
         if (tokeninfo(prev).kind != TokenKind::LEFT) {
+            if (prev == TokenID::COLON && in_brackets()) {
+                // Part of a slice with omitted value, insert NOTHING and try
+                // on_right_after.
+                orientation = Orientation::AFTER;
+                pushop(OpID::NOTHING, prev_src);
+                on_right_after(token, src);
+                return;
+            }
             // In this case, we got a right bracket where we expected a value.
             // Insert a value via the ERROR operator to continue parsing.
             queue.push_back(
@@ -630,15 +638,24 @@ struct ParserImpl: Parser {
     }
 
     void on_before0(Token&& token, Span src) {
-        if (token.id == TokenID::COLON && !in_brackets()) {
-            // Could be start of indent, don't push anything yet as different
-            // operators need to be pushed depending on whether or not we are
-            // indenting.
-            // Set Orientation explicitly to BEFORE in case it was START before,
-            // which would cause the prev colon checks in on_before and on_after
-            // to fail.
-            orientation = Orientation::BEFORE;
-            return;
+        if (token.id == TokenID::COLON) {
+            if (in_brackets()) {
+                // Part of a slice with absent first value, push NOTHING to
+                // signify that value and then TYPE_LABEL for the slice.
+                pushop(OpID::NOTHING, src);
+                pushop(OpID::TYPE_LABEL, src);
+                orientation = Orientation::BEFORE;
+                return;
+            } else {
+                // Could be start of indent, don't push anything yet as
+                // different operators need to be pushed depending on whether or
+                // not we are indenting.
+                // Set Orientation explicitly to BEFORE in case it was START
+                // before, which would cause the prev colon checks in on_before
+                // and on_after to fail.
+                orientation = Orientation::BEFORE;
+                return;
+            }
         }
 
         using enum TokenKind;
@@ -663,11 +680,16 @@ struct ParserImpl: Parser {
             on_right_before(token.id, src);
             return;
         default:
-            // A value was expected. Propagate this information and try on_after
-            // instead.
-            queue.push_back(Op(
-                OpID::ERROR, ErrPtr(new ExpectedValueErr()), src)
-            );
+            if (prev == TokenID::COLON && in_brackets())
+                // Previous token was part of a slice, insert NOTHING to signify
+                // omitted value.
+                pushop(OpID::NOTHING, prev_src);
+            else
+                // A value was expected. Propagate this information and try
+                // on_after instead.
+                queue.push_back(Op(
+                    OpID::ERROR, ErrPtr(new ExpectedValueErr()), src)
+                );
             orientation = Orientation::AFTER;
             on_after(std::move(token), src);
         }
@@ -682,9 +704,15 @@ struct ParserImpl: Parser {
             prev == TokenID::COLON &&
             !in_brackets() &&
             orientation != Orientation::START
-        )
-            // No indent after last colon, push its unary operator.
-            on_unary(TokenID::COLON, prev_src);
+        ) {
+            // No indent after last colon, insert an error as a value since
+            // it has no unary operator.
+            queue.push_back(Op(
+                OpID::ERROR, ErrPtr(new ExpectedValueErr()), prev_src
+            ));
+            pushop(OpID::TYPE_LABEL, prev_src);
+            orientation = Orientation::BEFORE;
+        }
         on_before0(std::move(token), src);
     }
 
