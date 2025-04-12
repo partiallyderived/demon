@@ -41,6 +41,7 @@ enum class OpID {
     FINALLY,
     FLOAT_TAIL,
     FOR,
+    FOR_IN,
     GET,
     GROUP,
     GT,
@@ -65,7 +66,6 @@ enum class OpID {
     LAMBDA_KWARGS,
     LIST,
     LITERALLY,
-    LOOP_VAR_SEP,
     LSH,
     LT,
     LTE,
@@ -184,6 +184,8 @@ std::ostream& operator<<(std::ostream& os, OpID id) {
         return os << "FLOAT_TAIL";
     case FOR:
         return os << "FOR";
+    case FOR_IN:
+        return os << "FOR_IN";
     case GET:
         return os << "GET";
     case GROUP:
@@ -232,8 +234,6 @@ std::ostream& operator<<(std::ostream& os, OpID id) {
         return os << "LIST";
     case LITERALLY:
         return os << "LITERALLY";
-    case LOOP_VAR_SEP:
-        return os << "LOOP_VAR_SEP";
     case LSH:
         return os << "LSH";
     case LT:

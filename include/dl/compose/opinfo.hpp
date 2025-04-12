@@ -115,6 +115,8 @@ const OpInfo OP_INFO_[static_cast<int>(OpID::WAITING) + 1] = {
     OpInfo(OpKind::DATA),
     // FOR
     FLOW_INFO_,
+    // FOR_IN,
+    OpInfo(OpKind::BINARY, Precedence::FOR_IN),
     // GET
     OpInfo(OpKind::BINARY, Precedence::GET_CALL),
     // GROUP
@@ -163,8 +165,6 @@ const OpInfo OP_INFO_[static_cast<int>(OpID::WAITING) + 1] = {
     LEFT_INFO_,
     // LITERALLY
     OpInfo(OpKind::UNARY, Precedence::LITERALLY),
-    // LOOP_VAR_SEP
-    OpInfo(OpKind::BINARY, Precedence::LOOP_VAR_SEP),
     // LSH
     OpInfo(OpKind::BINARY, Precedence::SHIFT),
     // LT

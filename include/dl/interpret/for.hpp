@@ -12,13 +12,13 @@
 namespace dl {
 
 struct For final: Node_<For> {
-    Nodes vars;
+    NodePtr vars;
     NodePtr iterable;
     NodePtr body;
     NodePtr orelse;
 
     For(
-        Nodes&& vars,
+        NodePtr&& vars,
         NodePtr&& iterable,
         NodePtr&& body,
         NodePtr&& orelse,
@@ -32,7 +32,7 @@ struct For final: Node_<For> {
 
     virtual For copy() const override {
         return For(
-            deep_copy_ptr(vars),
+            copy_np(vars),
             copy_np(iterable),
             copy_np(body),
             copy_np(orelse),
@@ -43,7 +43,7 @@ struct For final: Node_<For> {
     virtual bool equals(const Node& that) const noexcept override {
         const auto& casted = dynamic_cast<const For&>(that);
         return
-            nodes_eq(vars, casted.vars) &&
+            npeq(vars, casted.vars) &&
             npeq(iterable, casted.iterable) &&
             npeq(body, casted.body) &&
             npeq(orelse, casted.orelse);

@@ -209,6 +209,7 @@ struct ParserImpl: Parser {
             // `CONSTRUCT_END` indicates that we should close a construct if
             // we are in `START` and it resides on top of `contexts`.
             close_ctx();
+        parsing_loop_vars = false;
     }
 
     // Check whether there is at least one context and that the top context is
@@ -420,12 +421,14 @@ struct ParserImpl: Parser {
     void on_binary(TokenID token, Span src) {
         // Expecting a value now.
         orientation = Orientation::BEFORE;
-        if (token == TokenID::COMMA && parsing_loop_vars)
-            // Special case: comma has higher precedence when parsing loop
-            // variables.
-            pushop(OpID::LOOP_VAR_SEP, src);
+        if (token == TokenID::IN && parsing_loop_vars) {
+            // Special case: "in" has lower precedence in for loop predicate.
+            pushop(OpID::FOR_IN, src);
+            parsing_loop_vars = false;
+            return;
+        }
 
-        else if (token == TokenID::EQUALS && in_brackets())
+        if (token == TokenID::EQUALS && in_brackets())
             // Special case: equals changes meaning and precedence inside
             // brackets.
             pushop(OpID::BIND, src);
@@ -480,9 +483,16 @@ struct ParserImpl: Parser {
         // A RIGHT is only valid in BEFORE orientation if the previous token was
         // it's matching left token (i.e. empty parentheses).
         if (tokeninfo(prev).kind != TokenKind::LEFT) {
-            if (prev == TokenID::COLON && in_brackets()) {
-                // Part of a slice with omitted value, insert NOTHING and try
-                // on_right_after.
+            if (
+                prev == TokenID::COMMA || (
+                    prev == TokenID::COLON && in_brackets()
+                )
+            ) {
+                // Either one of the following, both have the same logic
+                // coincidentally:
+                // 1. Comma before a right bracket.
+                // 2. Part of a slice with omitted value
+                // In either case, push NOTHING and try on_right_after.
                 orientation = Orientation::AFTER;
                 pushop(OpID::NOTHING, prev_src);
                 on_right_after(token, src);
@@ -683,6 +693,16 @@ struct ParserImpl: Parser {
             if (prev == TokenID::COLON && in_brackets())
                 // Previous token was part of a slice, insert NOTHING to signify
                 // omitted value.
+                pushop(OpID::NOTHING, prev_src);
+            else if (
+                prev == TokenID::COMMA && !in_brackets() && (
+                    token.id == TokenID::EQUALS ||
+                    (parsing_loop_vars && token.id == TokenID::IN)
+                )
+            )
+                // = is allowed after a comma outside brackets.
+                // "in" is also allowed after a comma if we were parsing for
+                // loop variables.
                 pushop(OpID::NOTHING, prev_src);
             else
                 // A value was expected. Propagate this information and try
@@ -932,11 +952,17 @@ struct ParserImpl: Parser {
             default:;
             }
             orientation = Orientation::INDENTING;
+            parsing_loop_vars = false;
             return;
         }
 
         switch(orientation) {
         case BEFORE:
+            if (prev == TokenID::COMMA) {
+                pushop(OpID::NOTHING, prev_src);
+                push_stmt(src);
+                return;
+            }
             // Expected a value.
             queue.push_back(
                 Op(OpID::ERROR, ErrPtr(new ExpectedValueErr()), src)
@@ -977,9 +1003,6 @@ struct ParserImpl: Parser {
         default:;
         }
 
-        parsing_loop_vars =
-            parsing_loop_vars &&
-            (token.id == TokenID::ID || token.id == TokenID::COMMA);
         check_if_construct_ends(token);
         if (line_start) {
             // Need to account for dedents when starting a new line without

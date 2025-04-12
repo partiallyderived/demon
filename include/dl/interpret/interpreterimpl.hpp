@@ -474,7 +474,7 @@ struct InterpreterImpl final: Interpreter {
     );
     static inline NodePtr interpret_float_tail(Comp&& comp);
     static inline NodePtr interpret_for(std::vector<Comp>&& comps);
-    static inline std::tuple<Nodes, NodePtr> interpret_for_pred(Comp&& comp);
+    static inline std::tuple<NodePtr, NodePtr> interpret_for_pred(Comp&& comp);
     static inline NodePtr interpret_general_id(Comp&& comp);
     static inline NodePtr interpret_get(Comp&& comp);
     static inline NodePtr interpret_group(Comp&& comp);
@@ -488,7 +488,8 @@ struct InterpreterImpl final: Interpreter {
     static inline NodePtr interpret_lambda_var_args(Comp&& comp);
 
     static inline NodePtr interpret_literally(Comp&& comp);
-    static inline Nodes interpret_loop_vars(Comp&& comp);
+    static inline NodePtr interpret_loop_vars(Comp&& comp);
+    static inline Nodes interpret_loop_vars_tuple(Comp&& comp);
     static inline NodePtr interpret_map_element(Comp&& comp);
     static inline NodePtr interpret_match(std::vector<Comp>&& comps);
     static inline NodePtr interpret_match_args(Comp&& comp, bool is_def);
@@ -730,10 +731,14 @@ NodePtr InterpreterImpl::interpret_args(Comp&& comp) {
 Args InterpreterImpl::interpret_args_recurse(Comp&& comp, bool& in_kw_part) {
     auto args = Args({}, {}, Span(0, 0, 0, 0));
     Comp* c = &comp;
+
     if (comp.op == OpID::SEP) {
         args = interpret_args_recurse(std::move(comp.bin->lhs), in_kw_part);
         c = &comp.bin->rhs;
     }
+
+    if (c->op == OpID::NOTHING)
+        return args;
 
     in_kw_part =
         in_kw_part || c->op == OpID::BIND || c->op == OpID::UNPACK_KWARGS;
@@ -884,6 +889,8 @@ Nodes InterpreterImpl::interpret_csv(Comp&& comp) {
     } else
         next = &comp;
 
+    if (next->op == OpID::NOTHING)
+        return nodes;
     nodes.push_back(interpret_arg(std::move(*next)));
     return nodes;
 }
@@ -1037,6 +1044,8 @@ Nodes InterpreterImpl::interpret_enclosure_recurse(Comp&& comp) {
     switch(comp.op) {
     case SEP:
         elements = interpret_enclosure_recurse(std::move(comp.bin->lhs));
+        if (comp.bin->rhs.op == OpID::NOTHING)
+            return elements;
         if (is_map(elements))
             element = interpret_map_element(std::move(comp.bin->rhs));
         else
@@ -1269,8 +1278,7 @@ NodePtr InterpreterImpl::interpret_float_tail(Comp&& comp) {
 }
 
 NodePtr InterpreterImpl::interpret_for(std::vector<Comp>&& comps) {
-    Nodes vars;
-    NodePtr iterable, body;
+    NodePtr vars, iterable, body;
 
     using enum OpID;
     switch(comps[0].comp->op) {
@@ -1311,10 +1319,10 @@ NodePtr InterpreterImpl::interpret_for(std::vector<Comp>&& comps) {
     ));
 }
 
-std::tuple<Nodes, NodePtr> InterpreterImpl::interpret_for_pred(Comp&& comp) {
-    if (comp.op != OpID::IN)
+std::tuple<NodePtr, NodePtr> InterpreterImpl::interpret_for_pred(Comp&& comp) {
+    if (comp.op != OpID::FOR_IN)
         return {
-            Nodes(),
+            nullptr,
             NodePtr(new ErrorWithComp(
                 ErrPtr(new ExpectedInErr()),
                 std::move(comp)
@@ -1462,30 +1470,66 @@ NodePtr InterpreterImpl::interpret_lambda_var_args(Comp&& comp) {
     return NodePtr(new NodeType(1, comp.src));
 }
 
-Nodes InterpreterImpl::interpret_loop_vars(Comp&& comp) {
+NodePtr InterpreterImpl::interpret_loop_vars(Comp&& comp) {
+    using enum OpID;
+    switch(comp.op) {
+    case GROUP:
+        if (comp.comp->op == OpID::SEP)
+            return NodePtr(new Tuple(
+                interpret_loop_vars_tuple(std::move(*comp.comp)), comp.span()
+            ));
+        return interpret_loop_vars(std::move(*comp.comp));
+    case ID:
+        return interpret_id(std::move(comp));
+    case PLACEHOLDER:
+        return NodePtr(new Placeholder(comp.src));
+    case SEP:
+        return NodePtr(new Tuple(
+            interpret_loop_vars_tuple(std::move(comp)), comp.span()
+        ));
+    case UNPACK_ARGS: {
+        switch(comp.comp->op) {
+        case ID:
+            return NodePtr(new Expansion(
+                interpret_id(std::move(*comp.comp)),
+                comp.src
+            ));
+        case PLACEHOLDER:
+            return NodePtr(new Expansion(
+                NodePtr(new Placeholder(comp.comp->src)),
+                comp.src
+            ));
+        default:
+            return NodePtr(new Expansion(
+                NodePtr(new ErrorWithComp(
+                    ErrPtr(new ExpectedIDErr()),
+                    std::move(*comp.comp)
+                )),
+                comp.src
+            ));
+        }
+    }
+    default:
+        return NodePtr(new ErrorWithComp(
+            ErrPtr(new ExpectedIDErr()),
+            std::move(comp)
+        ));
+    }
+}
+
+Nodes InterpreterImpl::interpret_loop_vars_tuple(Comp&& comp) {
     auto vars = Nodes();
 
     Comp* c = &comp;
-    if (comp.op == OpID::LOOP_VAR_SEP) {
-        vars = interpret_loop_vars(std::move(comp.bin->lhs));
+    if (comp.op == OpID::SEP) {
+        vars = interpret_loop_vars_tuple(std::move(comp.bin->lhs));
         c = &comp.bin->rhs;
     }
 
-    using enum OpID;
-    switch(c->op) {
-    case ID:
-        vars.push_back(interpret_id(std::move(*c)));
+    if (c->op == OpID::NOTHING)
         return vars;
-    case PLACEHOLDER:
-        vars.push_back(NodePtr(new Placeholder(c->src)));
-        return vars;
-    default:
-        vars.push_back(NodePtr(new ErrorWithComp(
-            ErrPtr(new ExpectedIDErr()),
-            std::move(*c)
-        )));
-        return vars;
-    }
+    vars.push_back(interpret_loop_vars(std::move(*c)));
+    return vars;
 }
 
 NodePtr InterpreterImpl::interpret_map_element(Comp&& comp) {
@@ -1550,6 +1594,8 @@ MatchArgs InterpreterImpl::interpret_match_args_recurse(
         );
         c = &comp.bin->rhs;
     }
+    if (c->op == OpID::NOTHING)
+        return args;
 
     if (c->op == OpID::POS_KW_SEP) {
         if (in_kw_part)
@@ -1784,6 +1830,8 @@ Nodes InterpreterImpl::interpret_match_map_recurse(Comp&& comp) {
         )));
         return nodes;
     }
+    case NOTHING:
+        return nodes;
     case UNPACK_KWARGS:
         nodes.push_back(interpret_unop<Expansion>(std::move(*c)));
         return nodes;
@@ -1829,6 +1877,8 @@ Nodes InterpreterImpl::interpret_match_seq_recurse(Comp&& comp) {
         return nodes;
     if (comp.op == OpID::SEP) {
         nodes = interpret_match_seq_recurse(std::move(comp.bin->lhs));
+        if (comp.bin->rhs.op == OpID::NOTHING)
+            return nodes;
         nodes.push_back(
             interpret_matcher(std::move(comp.bin->rhs), MatchKind::SEQ)
         );

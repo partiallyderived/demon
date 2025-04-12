@@ -173,6 +173,14 @@ TEST_CASE("Parser Core", "[parse]") {
         REQUIRE(parser.orientation == Orientation::START);
         REQUIRE(parser.line_start);
 
+        // Try again, but after a comma.
+        parser.prev = TokenID::COMMA;
+        parser.prev_src = s2;
+        REQUIRE(on_before(TokenID::NEWLINE, s1) == vec(
+            Res<Op>(Op(OpID::NOTHING, s2)),
+            Op(OpID::STMT, s1)
+        ));
+
         parser.line_start = false;
         REQUIRE(on_after_op(TokenID::NEWLINE, s1) == Op(OpID::STMT, s1));
         REQUIRE(parser.orientation == Orientation::START);
@@ -871,6 +879,15 @@ TEST_CASE("Parser Core", "[parse]") {
         // (=) token should result in the BIND operator being emitted.
         parser.contexts.push_back(Context::CURVED);
         REQUIRE(on_after_op(TokenID::EQUALS, s1) == Op(OpID::BIND, s1));
+
+        // Special case: equals is allowed after comma when not in brackets.
+        parser.contexts.clear();
+        parser.prev = TokenID::COMMA;
+        parser.prev_src = s2;
+        REQUIRE(on_before(TokenID::EQUALS, s1) == vec(
+            Res<Op>(Op(OpID::NOTHING, s2)),
+            Op(OpID::SET, s1)
+        ));
     }
 
     SECTION("Multiary Tokens") {
@@ -1055,7 +1072,8 @@ TEST_CASE("Parser Core", "[parse]") {
             REQUIRE(*res[1] == UnexpectedTokenErr(t, s1));
 
             // Should result in UnexpectedTokenErr in BEFORE orientation UNLESS
-            // the previous operator is the corresponding LEFT token.
+            // the previous token is the corresponding LEFT token, a comma, or
+            // a colon.
             res = on_before(t, s1);
             REQUIRE(res.size() == 2);
             REQUIRE(
@@ -1084,6 +1102,17 @@ TEST_CASE("Parser Core", "[parse]") {
             REQUIRE(
                 on_before(t, s1) == vec(
                     Res<Op>(Op(OpID::NOTHING, s1)), op.copy()
+                )
+            );
+
+            // Now try with comma as the previous token.
+            parser.contexts.push_back(ctx);
+            parser.prev = TokenID::COMMA;
+            parser.prev_src = s2;
+            REQUIRE(
+                on_before(t, s1) == vec(
+                    Res<Op>(Op(OpID::NOTHING, s2)),
+                    op.copy()
                 )
             );
 
@@ -1336,9 +1365,9 @@ TEST_CASE("Parser Core", "[parse]") {
         }
     }
 
-    SECTION("Loop Variables") {
-        // Test that commas separating loop variables use the higher precedence
-        // operator LOOP_VAR_SEP.
+    SECTION("For Loop In") {
+        // Test that "in" when appearing in a for loop predicate uses the lower
+        // precedence operator FOR_IN.
         REQUIRE(!parser.parsing_loop_vars);
         REQUIRE(on_start(TokenID::FOR, s1) == vec(
             Res<Op>(Op(OpID::CONSTRUCT, s1)),
@@ -1351,7 +1380,7 @@ TEST_CASE("Parser Core", "[parse]") {
         );
         REQUIRE(parser.parsing_loop_vars);
         
-        REQUIRE(on_after_op(TokenID::COMMA, s1) == Op(OpID::LOOP_VAR_SEP, s1));
+        REQUIRE(on_after_op(TokenID::COMMA, s1) == Op(OpID::SEP, s1));
         REQUIRE(parser.parsing_loop_vars);
 
         REQUIRE(
@@ -1359,7 +1388,7 @@ TEST_CASE("Parser Core", "[parse]") {
         );
         REQUIRE(parser.parsing_loop_vars);
         
-        REQUIRE(on_after_op(TokenID::COMMA, s1) == Op(OpID::LOOP_VAR_SEP, s1));
+        REQUIRE(on_after_op(TokenID::COMMA, s1) == Op(OpID::SEP, s1));
         REQUIRE(parser.parsing_loop_vars);
 
         REQUIRE(
@@ -1367,10 +1396,20 @@ TEST_CASE("Parser Core", "[parse]") {
         );
         REQUIRE(parser.parsing_loop_vars);
 
-        REQUIRE(on_after_op(TokenID::IN, s1) == Op(OpID::IN, s1));
+        REQUIRE(on_after_op(TokenID::IN, s1) == Op(OpID::FOR_IN, s1));
         // Now that neither a variable or comma has been encountered,
         // the `parsing_loop_vars` flag should be off.
         REQUIRE(!parser.parsing_loop_vars);
+
+        // Test that if the previous token was a comma and parsing_loop_vars is
+        // set, "in" is allowed.
+        parser.parsing_loop_vars = true;
+        parser.prev = TokenID::COMMA;
+        parser.prev_src = s2;
+        REQUIRE(on_before(TokenID::IN, s1) == vec(
+            Res<Op>(Op(OpID::NOTHING, s2)),
+            Op(OpID::FOR_IN, s1)
+        ));
     }
 
     SECTION("At Token") {
