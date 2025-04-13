@@ -71,7 +71,6 @@ enum class OpID {
     LTE,
     MATCH,
     MATCH_OR,
-    MISSING,
     MOD,
     MUL,
     NEG,
@@ -244,8 +243,6 @@ std::ostream& operator<<(std::ostream& os, OpID id) {
         return os << "MATCH";
     case MATCH_OR:
         return os << "MATCH_OR";
-    case MISSING:
-        return os << "MISSING";
     case MOD:
         return os << "MOD";
     case MUL:

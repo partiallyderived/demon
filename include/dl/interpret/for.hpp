@@ -12,29 +12,25 @@
 namespace dl {
 
 struct For final: Node_<For> {
-    NodePtr vars;
     NodePtr iterable;
-    NodePtr body;
+    Nodes cases;
     NodePtr orelse;
 
     For(
-        NodePtr&& vars,
         NodePtr&& iterable,
-        NodePtr&& body,
+        Nodes&& cases,
         NodePtr&& orelse,
         Span src
     ) noexcept:
     Node_(src),
-    vars(std::move(vars)),
     iterable(std::move(iterable)),
-    body(std::move(body)),
+    cases(std::move(cases)),
     orelse(std::move(orelse)) {}
 
     virtual For copy() const override {
         return For(
-            copy_np(vars),
             copy_np(iterable),
-            copy_np(body),
+            deep_copy_ptr(cases),
             copy_np(orelse),
             src
         );
@@ -43,9 +39,8 @@ struct For final: Node_<For> {
     virtual bool equals(const Node& that) const noexcept override {
         const auto& casted = dynamic_cast<const For&>(that);
         return
-            npeq(vars, casted.vars) &&
             npeq(iterable, casted.iterable) &&
-            npeq(body, casted.body) &&
+            nodes_eq(cases, casted.cases) &&
             npeq(orelse, casted.orelse);
     }
 
@@ -54,11 +49,11 @@ struct For final: Node_<For> {
     }
 
     virtual std::ostream& out_data(std::ostream& os) const override {
-        return out_csv(os, vars, iterable, body, orelse);
+        return out_csv(os, iterable, cases, orelse);
     }
 
     virtual Span span() const noexcept override {
-        Span end = orelse != nullptr ? orelse->span(): body->span();
+        Span end = orelse != nullptr ? orelse->span(): cases.back()->span();
         return Span(src, end);
     }
 };

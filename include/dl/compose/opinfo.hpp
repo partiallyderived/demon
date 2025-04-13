@@ -175,8 +175,6 @@ const OpInfo OP_INFO_[static_cast<int>(OpID::WAITING) + 1] = {
     FLOW_INFO_,
     // MATCH_OR
     OpInfo(OpKind::BINARY, Precedence::MATCH_OR),
-    // MISSING
-    OpInfo(OpKind::SINGLETON),
     // MOD
     OpInfo(OpKind::BINARY, Precedence::MUL),
     // MUL

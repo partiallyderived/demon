@@ -245,16 +245,6 @@ struct ExpectedIDOrVarArgsErr final: Err {
     }
 };
 
-struct ExpectedInErr final: Err {
-    virtual ErrPtr copy() const override {
-        return ErrPtr(new ExpectedInErr(*this));
-    }
-
-    std::ostream& out_name(std::ostream& os) const override {
-        return os << "ExpectedInErr";
-    }
-};
-
 struct ExpectedKeywordArgExprErr final: Err {
     virtual ErrPtr copy() const override {
         return ErrPtr(new ExpectedKeywordArgExprErr(*this));
@@ -322,6 +312,16 @@ struct MissingBodyErr final: Err {
 
     std::ostream& out_name(std::ostream& os) const override {
         return os << "MissingBodyErr";
+    }
+};
+
+struct MissingIterableErr final: Err {
+    virtual ErrPtr copy() const override {
+        return ErrPtr(new MissingIterableErr(*this));
+    }
+
+    std::ostream& out_name(std::ostream& os) const override {
+        return os << "MissingIterableErr";
     }
 };
 
@@ -457,7 +457,7 @@ struct InterpreterImpl final: Interpreter {
     static inline NodePtr interpret_declare(Comp&& comp);
     static inline NodePtr interpret_def(std::vector<Comp>&& comps);
     static inline NodePtr interpret_def_case(Comp&& comp);
-    static inline std::pair<NodePtr, NodePtr> interpret_def_case_post(
+    static inline std::tuple<NodePtr, NodePtr> interpret_def_case_post(
         Comp&& comp, Comp&& args_comp
     );
     static inline std::tuple<Comp*, NodePtr, NodePtr>
@@ -469,12 +469,14 @@ struct InterpreterImpl final: Interpreter {
     static inline NodePtr interpret_entry(Comp&& comp);
     static inline NodePtr interpret_error(Comp&& comp);
     static inline NodePtr interpret_expr(Comp&& comp);
-    static inline std::pair<NodePtr, NodePtr> interpret_first_def_case(
+    static inline std::tuple<NodePtr, NodePtr> interpret_first_def_case(
         Comp&& comp
     );
     static inline NodePtr interpret_float_tail(Comp&& comp);
     static inline NodePtr interpret_for(std::vector<Comp>&& comps);
-    static inline std::tuple<NodePtr, NodePtr> interpret_for_pred(Comp&& comp);
+    static inline std::tuple<NodePtr, NodePtr, NodePtr> interpret_for_pred(
+        Comp&& comp
+    );
     static inline NodePtr interpret_general_id(Comp&& comp);
     static inline NodePtr interpret_get(Comp&& comp);
     static inline NodePtr interpret_group(Comp&& comp);
@@ -505,6 +507,9 @@ struct InterpreterImpl final: Interpreter {
     static inline NodePtr interpret_match_case(Comp&& comp);
     static inline Nodes interpret_match_cases(
         std::vector<Comp>&& comps, std::uint32_t end, OpID op
+    );
+    static inline void interpret_match_cases(
+        std::vector<Comp>&& comps, Nodes& cases, std::uint32_t end, OpID op
     );
     static inline std::tuple<NodePtr, NodePtr> interpret_match_case_pred(
         Comp&& comp
@@ -594,14 +599,15 @@ NodePtr InterpreterImpl::expect_body_only(Comp&& comp) {
                 comp.src
             ));
         }
+        Span after = Span::after(comp.comp->span());
         return NodePtr(new Case(
             NodePtr(new ErrorWithComp(
                 ErrPtr(new UnexpectedPredicateErr()),
                 std::move(*comp.comp)
             )),
-            NodePtr(new ErrorWithComp(
+            NodePtr(new ErrorNode(
                 ErrPtr(new MissingBodyErr()),
-                Comp(OpID::MISSING, Span::after(comp.comp->span()))
+                after
             )),
             comp.src
         ));
@@ -698,6 +704,7 @@ NodePtr InterpreterImpl::interpret_arg_matcher(
     case ENCLOSURE:
         return interpret_match_map(std::move(comp));
     case GROUP:
+    case SEP:
         return interpret_match_tuple(std::move(comp));
     case LIST:
         return interpret_match_list(std::move(comp));
@@ -819,9 +826,9 @@ NodePtr InterpreterImpl::interpret_case(Comp&& comp) {
     switch(comp.comp->op) {
     case BODY:
         return NodePtr(new Case(
-            NodePtr(new ErrorWithComp(
+            NodePtr(new ErrorNode(
                 ErrPtr(new MissingPredicateErr()),
-                Comp(OpID::MISSING, comp.comp->src)
+                comp.comp->src
             )),
             interpret_block(std::move(*comp.comp->comp)),
             comp.src
@@ -836,9 +843,9 @@ NodePtr InterpreterImpl::interpret_case(Comp&& comp) {
         Span after_pred = Span::after(comp.comp->span());
         return NodePtr(new Case(
             interpret_expr(std::move(*comp.comp)),
-            NodePtr(new ErrorWithComp(
+            NodePtr(new ErrorNode(
                 ErrPtr(new MissingBodyErr()),
-                Comp(OpID::MISSING, after_pred)
+                after_pred
             )),
             comp.src
         ));
@@ -911,12 +918,12 @@ NodePtr InterpreterImpl::interpret_declare(Comp&& comp) {
 }
 
 NodePtr InterpreterImpl::interpret_def(std::vector<Comp>&& comps) {
-    std::pair<NodePtr, NodePtr> first = interpret_first_def_case(
+    auto [target, first_case] = interpret_first_def_case(
         std::move(comps[0])
     );
 
     Nodes cases;
-    cases.push_back(std::move(first.second));
+    cases.push_back(std::move(first_case));
     for (std::uint32_t i = 1; i < comps.size(); i++) {
         if (comps[i].op != OpID::CASE)
             cases.push_back(NodePtr(new ErrorWithComp(
@@ -928,7 +935,7 @@ NodePtr InterpreterImpl::interpret_def(std::vector<Comp>&& comps) {
             cases.push_back(interpret_def_case(std::move(comps[i])));
     }
     return NodePtr(new Def(
-        std::move(first.first), std::move(cases), comps[0].src
+        std::move(target), std::move(cases), comps[0].src
     ));
 }
 
@@ -948,9 +955,9 @@ NodePtr InterpreterImpl::interpret_def_case(Comp&& comp) {
     }
     case BODY:
         return NodePtr(new DefCase(
-            NodePtr(new ErrorWithComp(
+            NodePtr(new ErrorNode(
                 ErrPtr(new MissingArgSpecErr()),
-                Comp(OpID::MISSING, comp.comp->src)
+                comp.comp->src
             )),
             nullptr,
             nullptr,
@@ -964,9 +971,9 @@ NodePtr InterpreterImpl::interpret_def_case(Comp&& comp) {
             interpret_match_args(std::move(*pred_comp), true),
             std::move(guard),
             std::move(returns),
-            NodePtr(new ErrorWithComp(
+            NodePtr(new ErrorNode(
                 ErrPtr(new MissingBodyErr()),
-                Comp(OpID::MISSING, after_pred)
+                after_pred
             )),
             comp.src
         ));
@@ -1190,7 +1197,7 @@ NodePtr InterpreterImpl::interpret_expr(Comp&& comp) {
     }
 }
 
-std::pair<NodePtr, NodePtr> InterpreterImpl::interpret_first_def_case(
+std::tuple<NodePtr, NodePtr> InterpreterImpl::interpret_first_def_case(
     Comp&& comp
 ) {
     NodePtr id;
@@ -1209,13 +1216,13 @@ std::pair<NodePtr, NodePtr> InterpreterImpl::interpret_first_def_case(
         body = interpret_block(std::move(comp.comp->bin->rhs));
         break;
     case BODY:
-        id = NodePtr(new ErrorWithComp(
+        id = NodePtr(new ErrorNode(
             ErrPtr(new MissingIDErr()),
-            Comp(OpID::MISSING, comp.comp->src)
+            comp.comp->src
         ));
-        spec = NodePtr(new ErrorWithComp(
+        spec = NodePtr(new ErrorNode(
             ErrPtr(new MissingArgSpecErr()),
-            Comp(OpID::MISSING, comp.comp->src)
+            comp.comp->src
         ));
         body = interpret_block(std::move(*comp.comp->comp));
         break;
@@ -1224,9 +1231,9 @@ std::pair<NodePtr, NodePtr> InterpreterImpl::interpret_first_def_case(
         std::tie(pred_comp, returns, guard) = interpret_def_case_pre(
             *comp.comp
         );
-        body = NodePtr(new ErrorWithComp(
+        body = NodePtr(new ErrorNode(
             ErrPtr(new MissingBodyErr()),
-            Comp(OpID::MISSING, after_pred)
+            after_pred
         ));
     }}
 
@@ -1237,24 +1244,24 @@ std::pair<NodePtr, NodePtr> InterpreterImpl::interpret_first_def_case(
             spec = interpret_match_args(std::move(pred_comp->bin->rhs), true);
             break;
         case GROUP:
-            id = NodePtr(new ErrorWithComp(
+            id = NodePtr(new ErrorNode(
                 ErrPtr(new MissingIDErr()),
-                Comp(OpID::MISSING, Span(pred_comp->src.start()))
+                Span(pred_comp->src.start())
             ));
             spec = interpret_match_args(std::move(*pred_comp), true);
             break;
         case ERROR:
             id = interpret_error(std::move(*pred_comp));
-            spec = NodePtr(new ErrorWithComp(
+            spec = NodePtr(new ErrorNode(
                 ErrPtr(new MissingArgSpecErr()),
-                Comp(OpID::MISSING, Span::after(id->span()))
+                Span::after(id->span())
             ));
             break;
         default:
             id = interpret_definable(std::move(*pred_comp));
-            spec = NodePtr(new ErrorWithComp(
+            spec = NodePtr(new ErrorNode(
                 ErrPtr(new MissingArgSpecErr()),
-                Comp(OpID::MISSING, Span::after(id->span()))
+                Span::after(id->span())
             ));
         }
     }
@@ -1278,59 +1285,83 @@ NodePtr InterpreterImpl::interpret_float_tail(Comp&& comp) {
 }
 
 NodePtr InterpreterImpl::interpret_for(std::vector<Comp>&& comps) {
-    NodePtr vars, iterable, body;
+    NodePtr matcher, iterable, guard, body;
 
     using enum OpID;
     switch(comps[0].comp->op) {
     case LABEL:
-        std::tie(vars, iterable) =
+        std::tie(matcher, iterable, guard) =
             interpret_for_pred(std::move(comps[0].comp->bin->lhs));
         body = interpret_block(
-            std::move(comps[0].comp->bin->rhs), comps[0].src
+            std::move(comps[0].comp->bin->rhs)
         );
         break;
     case BODY:
-        iterable = NodePtr(new ErrorWithComp(
+        iterable = NodePtr(new ErrorNode(
             ErrPtr(new MissingPredicateErr()),
-            Comp(OpID::MISSING, comps[0].comp->src)
+            Span(comps[0].comp->src)
         ));
-        body = interpret_block(std::move(*comps[0].comp->comp), comps[0].src);
+        body = interpret_block(std::move(*comps[0].comp->comp));
         break;
     default:
         Span after_pred = Span::after(comps[0].comp->span());
-        std::tie(vars, iterable) = interpret_for_pred(
+        std::tie(matcher, iterable, guard) = interpret_for_pred(
             std::move(*comps[0].comp)
         );
-        body = NodePtr(new ErrorWithComp(
+        body = NodePtr(new ErrorNode(
             ErrPtr(new MissingBodyErr()),
-            Comp(OpID::MISSING, after_pred)
+            after_pred
         ));
         break;
     }
 
-    NodePtr orelse = interpret_optional_else(std::move(comps));
+    Nodes cases;
+    cases.push_back(NodePtr(new MatchCase(
+        std::move(matcher),
+        std::move(guard),
+        std::move(body),
+        comps[0].src
+    )));
+    std::uint32_t end = comps.size();
+    NodePtr orelse;
+    if (comps.back().op == OpID::ELSE) {
+        end--;
+        orelse = expect_body_only(std::move(comps.back()));
+    }
+    interpret_match_cases(std::move(comps), cases, end, OpID::CASE);
 
     return NodePtr(new For(
-        std::move(vars),
         std::move(iterable),
-        std::move(body),
+        std::move(cases),
         std::move(orelse),
         comps[0].src
     ));
 }
 
-std::tuple<NodePtr, NodePtr> InterpreterImpl::interpret_for_pred(Comp&& comp) {
-    if (comp.op != OpID::FOR_IN)
+std::tuple<NodePtr, NodePtr, NodePtr> InterpreterImpl::interpret_for_pred(
+    Comp&& comp
+) {
+    if (comp.op != OpID::FOR_IN) {
+        auto [matcher, guard] = interpret_match_case_pred(std::move(comp));
         return {
-            nullptr,
-            NodePtr(new ErrorWithComp(
-                ErrPtr(new ExpectedInErr()),
-                std::move(comp)
-            ))
+            std::move(matcher),
+            NodePtr(new ErrorNode(
+                ErrPtr(new MissingIterableErr()),
+                Span::after(matcher->span())
+            )),
+            std::move(guard)
+        };
+    }
+    if (comp.bin->rhs.op == OpID::TERNARY_IF)
+        return {
+            interpret_matcher(std::move(comp.bin->lhs), MatchKind::PLAIN),
+            interpret_expr(std::move(comp.bin->rhs.bin->lhs)),
+            interpret_expr(std::move(comp.bin->rhs.bin->rhs))
         };
     return {
-        interpret_loop_vars(std::move(comp.bin->lhs)),
-        interpret_expr(std::move(comp.bin->rhs))
+        interpret_matcher(std::move(comp.bin->lhs), MatchKind::PLAIN),
+        interpret_expr(std::move(comp.bin->rhs)),
+        nullptr
     };
 }
 
@@ -1690,9 +1721,9 @@ NodePtr InterpreterImpl::interpret_match_case(Comp&& comp) {
         body = interpret_block(std::move(comp.comp->bin->rhs));
         break;
     case BODY:
-        matcher = NodePtr(new ErrorWithComp(
+        matcher = NodePtr(new ErrorNode(
             ErrPtr(new MissingPredicateErr()),
-            Comp(OpID::MISSING, comp.comp->src)
+            comp.comp->src
         ));
         body = interpret_block(std::move(*comp.comp->comp));
         break;
@@ -1701,9 +1732,9 @@ NodePtr InterpreterImpl::interpret_match_case(Comp&& comp) {
         std::tie(matcher, guard) = interpret_match_case_pred(
             std::move(*comp.comp)
         );
-        body = NodePtr(new ErrorWithComp(
+        body = NodePtr(new ErrorNode(
             ErrPtr(new MissingBodyErr()),
-            Comp(OpID::MISSING, after_pred)
+            after_pred
         ));
     }}
     return NodePtr(new MatchCase(
@@ -1728,7 +1759,14 @@ std::tuple<NodePtr, NodePtr> InterpreterImpl::interpret_match_case_pred(
 Nodes InterpreterImpl::interpret_match_cases(
     std::vector<Comp>&& comps, std::uint32_t end, OpID op
 ) {
-    auto cases = Nodes();
+    Nodes cases;
+    interpret_match_cases(std::move(comps), cases, end, op);
+    return cases;
+}
+
+void InterpreterImpl::interpret_match_cases(
+    std::vector<Comp>&& comps, Nodes& cases, std::uint32_t end, OpID op
+) {
     for (std::uint32_t i = 1; i < end; i++) {
         if (comps[i].op != op) {
             if (op == OpID::CASE)
@@ -1746,7 +1784,6 @@ Nodes InterpreterImpl::interpret_match_cases(
         } else
             cases.push_back(interpret_match_case(std::move(comps[i])));
     }
-    return cases;
 }
 
 NodePtr InterpreterImpl::interpret_match_general_var(
@@ -1889,6 +1926,11 @@ Nodes InterpreterImpl::interpret_match_seq_recurse(Comp&& comp) {
 
 NodePtr InterpreterImpl::interpret_match_tuple(Comp&& comp) {
     using enum OpID;
+    Span src = comp.span();
+    if (comp.op == OpID::SEP) {
+        Nodes nodes = interpret_match_seq_recurse(std::move(comp));
+        return NodePtr(new MatchTuple(std::move(nodes), src));
+    }
     switch(comp.comp->op) {
     case AS:
         if (comp.comp->bin->rhs.op != UNPACK_ARGS)
@@ -1917,7 +1959,7 @@ NodePtr InterpreterImpl::interpret_match_tuple(Comp&& comp) {
         return interpret_expr(std::move(*comp.comp));
     }
     Nodes nodes = interpret_match_seq_recurse(std::move(*comp.comp));
-    return NodePtr(new MatchTuple(std::move(nodes), comp.src));
+    return NodePtr(new MatchTuple(std::move(nodes), src));
 }
 
 NodePtr InterpreterImpl::interpret_match_var_args(
@@ -2028,9 +2070,9 @@ NodePtr InterpreterImpl::interpret_optional(Comp&& comp) {
 }
 
 NodePtr InterpreterImpl::interpret_optional_else(std::vector<Comp>&& comps) {
-    // This function interprets an optional else clause for "for" and "while".
+    // This function interprets an optional else clause for "while".
     if (comps.size() > 2) {
-        // for and while may only have at most two parts.
+        // while may only have at most two parts.
         std::vector<Comp> blocks;
         for (std::uint32_t i = 1; i < comps.size(); i++)
             blocks.push_back(std::move(comps[i]));
