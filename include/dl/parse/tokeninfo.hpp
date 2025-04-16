@@ -230,6 +230,8 @@ const TokenInfo TOKEN_INFO_[static_cast<int>(TokenID::WHILE) + 1] = {
     binary_info_(OpID::IADD),
     // RAISE
     optional_info_(OpID::RAISE),
+    // RAW_NUMBER
+    value_info_(OpID::RAW_NUMBER, OpID::SUFFIX),
     // RETURN
     optional_info_(OpID::RETURN),
     // RIGHT_ANGLE

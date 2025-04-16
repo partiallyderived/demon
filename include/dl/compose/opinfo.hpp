@@ -207,6 +207,8 @@ const OpInfo OP_INFO_[static_cast<int>(OpID::WAITING) + 1] = {
     OpInfo(OpKind::BINARY, Precedence::LPOW, Precedence::RPOW),
     // RAISE
     OpInfo(OpKind::UNARY, Precedence::STATEMENT),
+    // RAW_NUMBER
+    OpInfo(OpKind::DATA),
     // RETURN
     OpInfo(OpKind::UNARY, Precedence::STATEMENT),
     // RETURNS

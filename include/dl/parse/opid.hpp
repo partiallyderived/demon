@@ -87,6 +87,7 @@ enum class OpID {
     POS_KW_SEP,
     POW,
     RAISE,
+    RAW_NUMBER,
     RETURN,
     RETURNS,
     RSH,
@@ -275,6 +276,8 @@ std::ostream& operator<<(std::ostream& os, OpID id) {
         return os << "POW";
     case RAISE:
         return os << "RAISE";
+    case RAW_NUMBER:
+        return os << "RAW_NUMBER";
     case RETURN:
         return os << "RETURN";
     case RETURNS:

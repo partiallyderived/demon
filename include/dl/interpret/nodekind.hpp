@@ -95,6 +95,16 @@ enum class NodeKind {
     PLACEHOLDER,
     POW,
     RAISE,
+    RAW_FLOAT32,
+    RAW_FLOAT64,
+    RAW_INT8,
+    RAW_INT16,
+    RAW_INT32,
+    RAW_INT64,
+    RAW_UINT8,
+    RAW_UINT16,
+    RAW_UINT32,
+    RAW_UINT64,
     RETURN,
     RSH,
     SEQ,
@@ -307,6 +317,26 @@ std::ostream& operator<<(std::ostream& os, NodeKind x) {
         return os << "POW";
     case RAISE:
         return os << "RAISE";
+    case RAW_FLOAT32:
+        return os << "RAW_FLOAT32";
+    case RAW_FLOAT64:
+        return os << "RAW_FLOAT64";
+    case RAW_INT8:
+        return os << "RAW_INT8";
+    case RAW_INT16:
+        return os << "RAW_INT16";
+    case RAW_INT32:
+        return os << "RAW_INT32";
+    case RAW_INT64:
+        return os << "RAW_INT64";
+    case RAW_UINT8:
+        return os << "RAW_UINT8";
+    case RAW_UINT16:
+        return os << "RAW_UINT16";
+    case RAW_UINT32:
+        return os << "RAW_UINT32";
+    case RAW_UINT64:
+        return os << "RAW_UINT64";
     case RETURN:
         return os << "RETURN";
     case RSH:

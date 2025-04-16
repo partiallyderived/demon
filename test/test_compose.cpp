@@ -157,7 +157,9 @@ TEST_CASE("Composer Core", "[compose]") {
             Op(OpID::ERROR, ErrPtr(new UnclosedStrErr()), s1),
             Op(OpID::FLOAT_TAIL, "1e7", s1),
             Op(OpID::ID, "asdf", s1),
-            Op(OpID::PLAIN_INT, 3, s1),
+            Op(OpID::PLAIN_INT, "3", s1),
+            Op(OpID::NUMBER, std::int32_t(1000), s1),
+            Op(OpID::RAW_NUMBER, std::int64_t(5), s1),
             Op(OpID::STRING, "a string", s1)
         )) {
             // Copy data for verification since it will be moved.

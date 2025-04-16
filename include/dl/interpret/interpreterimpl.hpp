@@ -542,6 +542,7 @@ struct InterpreterImpl final: Interpreter {
 
     static inline NodePtr interpret_optional_else(std::vector<Comp>&& comps);
     static inline NodePtr interpret_plain_int(Comp&& comp);
+    static inline NodePtr interpret_raw_number(Comp&& comp);
     static inline NodePtr interpret_sep(Comp&& comp);
 
     template<typename ToType>
@@ -1167,6 +1168,8 @@ NodePtr InterpreterImpl::interpret_expr(Comp&& comp) {
         return interpret_plain_int(std::move(comp));
     case POW:
         return interpret_binop<Power>(std::move(comp));
+    case RAW_NUMBER:
+        return interpret_raw_number(std::move(comp));
     case RSH:
         return interpret_binop<RightShift>(std::move(comp));
     case SEP:
@@ -2109,6 +2112,32 @@ NodePtr InterpreterImpl::interpret_plain_int(Comp&& comp) {
     return NodePtr(new Int32(std::move(x.res), comp.src));
 }
 
+NodePtr InterpreterImpl::interpret_raw_number(Comp&& comp) {
+    switch(comp.data.index()) {
+    case 1:
+        return interpret_data<RawInt8>(std::move(comp));
+    case 2:
+        return interpret_data<RawInt16>(std::move(comp));
+    case 3:
+        return interpret_data<RawInt32>(std::move(comp));
+    case 4:
+        return interpret_data<RawInt64>(std::move(comp));
+    case 5:
+        return interpret_data<RawUInt8>(std::move(comp));
+    case 6:
+        return interpret_data<RawUInt16>(std::move(comp));
+    case 7:
+        return interpret_data<RawUInt32>(std::move(comp));
+    case 8:
+        return interpret_data<RawUInt64>(std::move(comp));
+    default:
+        return NodePtr(new ErrorWithComp(
+            ErrPtr(new AssertionFailedErr("Bad numerical data")),
+            std::move(comp)
+        ));
+    }
+}
+
 NodePtr InterpreterImpl::interpret_sep(Comp&& comp) {
     Nodes elements = interpret_csv(std::move(comp));
     return NodePtr(new Tuple(std::move(elements), comp.span()));
@@ -2267,12 +2296,14 @@ NodePtr InterpreterImpl::parse_float(
     const char* begin = &str[0];
     LiteralSuffix ls = lit_suffix(str);
     const char* expected_end = begin + str.size() - lit_suffix_len(ls);
-    if (ls == LiteralSuffix::F32) {
+    if (ls == LiteralSuffix::F32 || ls == LiteralSuffix::RF32) {
         Res<float> res = read_number<float>(begin, expected_end, 10);
         if (res.is_err)
             return NodePtr(new ErrorWithComp(
                 std::move(res.err), std::move(comp)
             ));
+        if (ls == LiteralSuffix::RF32)
+            return NodePtr(new RawFloat32(std::move(res.res), src));
         return NodePtr(new Float32(std::move(res.res), src));
     }
     Res<double> res = read_number<double>(begin, expected_end, 10);
@@ -2280,6 +2311,8 @@ NodePtr InterpreterImpl::parse_float(
         return NodePtr(new ErrorWithComp(
             std::move(res.err), std::move(comp)
         ));
+    if (ls == LiteralSuffix::RF || ls == LiteralSuffix::RF64)
+        return NodePtr(new RawFloat64(std::move(res.res), src));
     return NodePtr(new Float64(std::move(res.res), src));
 }
 

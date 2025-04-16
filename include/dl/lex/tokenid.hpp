@@ -72,6 +72,7 @@ enum class TokenID {
     PLUS,
     PLUS_EQUALS,
     RAISE,
+    RAW_NUMBER,
     RETURN,
     RIGHT_ANGLE,
     RIGHT_ANGLE_EQUALS,
@@ -224,6 +225,8 @@ std::ostream& operator<<(std::ostream& os, TokenID id) {
         return os << "PLUS_EQUALS";
     case RAISE:
         return os << "RAISE";
+    case RAW_NUMBER:
+        return os << "RAW_NUMBER";
     case RETURN:
         return os << "RETURN";
     case RIGHT_ANGLE:

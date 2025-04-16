@@ -953,6 +953,7 @@ TEST_CASE("Parser Core", "[parse]") {
             Token(TokenID::PERCENT_STAR),
             Token(TokenID::PLAIN_INT, "1000"),
             Token(TokenID::NUMBER, std::int32_t(1000)),
+            Token(TokenID::RAW_NUMBER, std::int64_t(5)),
             Token(TokenID::STRING, "a,s,d,f"),
             Token(TokenID::THIS),
             Token(TokenID::TRUE)

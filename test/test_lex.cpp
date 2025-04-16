@@ -862,6 +862,50 @@ TEST_CASE("lex", "[lex]") {
                     Token(TokenID::NUMBER, std::uint64_t(0))
                 );
 
+                REQUIRE(result(c, "0r") == Token(
+                    TokenID::RAW_NUMBER, std::int32_t(0)
+                ));
+
+                REQUIRE(result(c, "0rs") == Token(
+                    TokenID::RAW_NUMBER, std::int32_t(0)
+                ));
+
+                REQUIRE(result(c, "0rs8") == Token(
+                    TokenID::RAW_NUMBER, std::int8_t(0)
+                ));
+
+                REQUIRE(result(c, "0rs16") == Token(
+                    TokenID::RAW_NUMBER, std::int16_t(0)
+                ));
+
+                REQUIRE(result(c, "0rs32") == Token(
+                    TokenID::RAW_NUMBER, std::int32_t(0)
+                ));
+
+                REQUIRE(result(c, "0rs64") == Token(
+                    TokenID::RAW_NUMBER, std::int64_t(0)
+                ));
+
+                REQUIRE(result(c, "0ru") == Token(
+                    TokenID::RAW_NUMBER, std::uint32_t(0)
+                ));
+
+                REQUIRE(result(c, "0ru8") == Token(
+                    TokenID::RAW_NUMBER, std::uint8_t(0)
+                ));
+
+                REQUIRE(result(c, "0ru16") == Token(
+                    TokenID::RAW_NUMBER, std::uint16_t(0)
+                ));
+
+                REQUIRE(result(c, "0ru32") == Token(
+                    TokenID::RAW_NUMBER, std::uint32_t(0)
+                ));
+
+                REQUIRE(result(c, "0ru64") == Token(
+                    TokenID::RAW_NUMBER, std::uint64_t(0)
+                ));
+
                 REQUIRE(
                     result(c, "1234S") ==
                     Token(TokenID::NUMBER, std::int32_t(1234))
@@ -1079,6 +1123,17 @@ TEST_CASE("lex", "[lex]") {
                 REQUIRE(
                     result(c, "2f64") == Token(TokenID::FLOAT_TAIL, "2f64")
                 );
+
+
+                REQUIRE(result(c, "0rf") == Token(TokenID::FLOAT_TAIL, "0rf"));
+
+                REQUIRE(
+                    result(c, "1rf32") == Token(TokenID::FLOAT_TAIL, "1rf32")
+                );
+
+                REQUIRE(
+                    result(c, "2rf64") == Token(TokenID::FLOAT_TAIL, "2rf64")
+                );
             }
 
             SECTION("Both") {
@@ -1093,6 +1148,44 @@ TEST_CASE("lex", "[lex]") {
                 REQUIRE(
                     result(c, "2e7f64") == Token(TokenID::FLOAT_TAIL, "2e7f64")
                 );
+            }
+
+            SECTION("Invalid Numeric Literal Error (Hex/Octal Floats)") {
+                REQUIRE(result(c, "0o0f") == Token(
+                    TokenID::ERROR, ErrPtr(new InvalidNumericLiteralErr())
+                ));
+
+                REQUIRE(result(c, "0o0f32") == Token(
+                    TokenID::ERROR, ErrPtr(new InvalidNumericLiteralErr())
+                ));
+
+                REQUIRE(result(c, "0o0f64") == Token(
+                    TokenID::ERROR, ErrPtr(new InvalidNumericLiteralErr())
+                ));
+
+                REQUIRE(result(c, "0x0rf") == Token(
+                    TokenID::ERROR, ErrPtr(new InvalidNumericLiteralErr())
+                ));
+
+                REQUIRE(result(c, "0x0rf32") == Token(
+                    TokenID::ERROR, ErrPtr(new InvalidNumericLiteralErr())
+                ));
+
+                REQUIRE(result(c, "0x0rf64") == Token(
+                    TokenID::ERROR, ErrPtr(new InvalidNumericLiteralErr())
+                ));
+
+                REQUIRE(result(c, "0o0rf") == Token(
+                    TokenID::ERROR, ErrPtr(new InvalidNumericLiteralErr())
+                ));
+
+                REQUIRE(result(c, "0o0rf32") == Token(
+                    TokenID::ERROR, ErrPtr(new InvalidNumericLiteralErr())
+                ));
+
+                REQUIRE(result(c, "0o0rf64") == Token(
+                    TokenID::ERROR, ErrPtr(new InvalidNumericLiteralErr())
+                ));
             }
 
             SECTION("Invalid Floating-point Tail Error") {

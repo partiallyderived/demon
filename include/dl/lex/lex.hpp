@@ -413,13 +413,29 @@ Token read_float_tail(Cursor& cursor, std::string&& res) noexcept {
 }
 
 template<typename T>
-Token read_number_token(
-    const char* begin, const char* expected_end, int base
+Token read_number_token0(
+    const char* begin, const char* expected_end, int base, TokenID id
 ) {
     Res<T> res = read_number<T>(begin, expected_end, base);
     if (res.is_err)
         return Token(TokenID::ERROR, std::move(res.err));
-    return Token(TokenID::NUMBER, res.res);
+    return Token(id, res.res);
+}
+
+template<typename T>
+Token read_number_token(
+    const char* begin, const char* expected_end, int base
+) {
+    return read_number_token0<T>(begin, expected_end, base, TokenID::NUMBER);
+}
+
+template<typename T>
+Token read_raw_number_token(
+    const char* begin, const char* expected_end, int base
+) {
+    return read_number_token0<T>(
+        begin, expected_end, base, TokenID::RAW_NUMBER
+    );
 }
 
 bool seek_quote(Cursor& cursor, std::int32_t quote) {
@@ -589,6 +605,7 @@ Token next_number(std::int32_t c, Cursor& cursor) {
             begin, expected_end, base
         );
     case LiteralSuffix::F:
+    case LiteralSuffix::F32:
     case LiteralSuffix::F64:
         if (base == 16) {
             // Suffix is valid hex, let it be read as such.
@@ -604,14 +621,45 @@ Token next_number(std::int32_t c, Cursor& cursor) {
             );
         // May not be the entire float, since the lexer splits on . always.
         return Token(TokenID::FLOAT_TAIL, std::move(res));
-    case LiteralSuffix::F32:
-        if (base == 16) {
-            expected_end += 3;
-            return read_number_token<std::int32_t>(
-                begin, expected_end, base
-            );
-        }
-        else if (base == 8)
+    case LiteralSuffix::R:
+    case LiteralSuffix::RS:
+    case LiteralSuffix::RS32:
+        return read_raw_number_token<std::int32_t>(
+            begin, expected_end, base
+        );
+    case LiteralSuffix::RS8:
+        return read_raw_number_token<std::int8_t>(
+            begin, expected_end, base
+        );
+    case LiteralSuffix::RS16:
+        return read_raw_number_token<std::int16_t>(
+            begin, expected_end, base
+        );
+    case LiteralSuffix::RS64:
+        return read_raw_number_token<std::int64_t>(
+            begin, expected_end, base
+        );
+    case LiteralSuffix::RU:
+    case LiteralSuffix::RU32:
+        return read_raw_number_token<std::uint32_t>(
+            begin, expected_end, base
+        );
+    case LiteralSuffix::RU8:
+        return read_raw_number_token<std::uint8_t>(
+            begin, expected_end, base
+        );
+    case LiteralSuffix::RU16:
+        return read_raw_number_token<std::uint16_t>(
+            begin, expected_end, base
+        );
+    case LiteralSuffix::RU64:
+        return read_raw_number_token<std::uint64_t>(
+            begin, expected_end, base
+        );
+    case LiteralSuffix::RF:
+    case LiteralSuffix::RF32:
+    case LiteralSuffix::RF64:
+        if (base != 10)
             return Token(
                 TokenID::ERROR, ErrPtr(new InvalidNumericLiteralErr())
             );

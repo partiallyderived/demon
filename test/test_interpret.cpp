@@ -2531,6 +2531,12 @@ TEST_CASE("interpret", "[interpret]") {
         ));
 
         REQUIRE(*capture(
+            "0f"
+        ).node() == Float64(
+            0, Span(1, 1, 2)
+        ));
+
+        REQUIRE(*capture(
             "0f32"
         ).node() == Float32(
             0, Span(1, 1, 4)
@@ -2540,6 +2546,78 @@ TEST_CASE("interpret", "[interpret]") {
             "0f64"
         ).node() == Float64(
             0, Span(1, 1, 4)
+        ));
+
+        REQUIRE(*capture(
+            "0r"
+        ).node() == RawInt32(
+            0, Span(1, 1, 2)
+        ));
+
+        REQUIRE(*capture(
+            "0rs8"
+        ).node() == RawInt8(
+            0, Span(1, 1, 4)
+        ));
+
+        REQUIRE(*capture(
+            "0rs16"
+        ).node() == RawInt16(
+            0, Span(1, 1, 5)
+        ));
+
+        REQUIRE(*capture(
+            "0rs32"
+        ).node() == RawInt32(
+            0, Span(1, 1, 5)
+        ));
+
+        REQUIRE(*capture(
+            "0rs64"
+        ).node() == RawInt64(
+            0, Span(1, 1, 5)
+        ));
+
+        REQUIRE(*capture(
+            "0ru8"
+        ).node() == RawUInt8(
+            0, Span(1, 1, 4)
+        ));
+
+        REQUIRE(*capture(
+            "0ru16"
+        ).node() == RawUInt16(
+            0, Span(1, 1, 5)
+        ));
+
+        REQUIRE(*capture(
+            "0ru32"
+        ).node() == RawUInt32(
+            0, Span(1, 1, 5)
+        ));
+
+        REQUIRE(*capture(
+            "0ru64"
+        ).node() == RawUInt64(
+            0, Span(1, 1, 5)
+        ));
+
+        REQUIRE(*capture(
+            "0rf"
+        ).node() == RawFloat64(
+            0, Span(1, 1, 3)
+        ));
+
+        REQUIRE(*capture(
+            "0rf32"
+        ).node() == RawFloat32(
+            0, Span(1, 1, 5)
+        ));
+
+        REQUIRE(*capture(
+            "0rf64"
+        ).node() == RawFloat64(
+            0, Span(1, 1, 5)
         ));
 
         REQUIRE(*capture(
